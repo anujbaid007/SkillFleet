@@ -24,6 +24,8 @@ const navItems: NavItem[] = [
     children: [
       { name: "Exposure Trips", href: "/programs/exposure-trips" },
       { name: "Workshops", href: "/programs/workshops" },
+      { name: "Corporate Workshops", href: "/programs/corporate-workshops" },
+      { name: "Teacher Workshops", href: "/programs/teacher-workshops" },
       { name: "Events", href: "/programs/events" },
       { name: "Competitions", href: "/programs/competitions" },
     ],

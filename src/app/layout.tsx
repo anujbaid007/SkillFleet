@@ -27,6 +27,21 @@ export const metadata: Metadata = {
     "STEM education",
     "India",
   ],
+  metadataBase: new URL("https://skillfleet.vercel.app"),
+  openGraph: {
+    title: "SkillFleet - India's First Industrial Exposure Platform",
+    description:
+      "Real-world learning for children aged 3-17. Exposure trips, workshops, events, competitions & AI training across 200+ schools.",
+    siteName: "SkillFleet",
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SkillFleet - India's First Industrial Exposure Platform",
+    description:
+      "Real-world learning for children aged 3-17. Exposure trips, workshops, events, competitions & AI training across 200+ schools.",
+  },
 };
 
 export default function RootLayout({
