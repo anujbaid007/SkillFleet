@@ -134,7 +134,7 @@ export default function Navbar() {
                 alt="SkillFleet"
                 width={160}
                 height={44}
-                className={cn("h-10 w-auto", isLight && "brightness-0 invert")}
+                className={cn("h-7 sm:h-10 w-auto", isLight && "brightness-0 invert")}
                 priority
               />
             </Link>

@@ -16,7 +16,7 @@ const steps = [
     step: "01",
     title: "Sign Up",
     description:
-      "Register your child on SkillFleet. Share their age, interests, and learning goals so we can personalize their journey.",
+      "Register your child on SkillFleet. Share age, interests, and goals to personalize their journey.",
     color: "bg-primary text-white",
   },
   {
@@ -24,7 +24,7 @@ const steps = [
     step: "02",
     title: "Explore & Participate",
     description:
-      "Choose from trips, workshops, events, and competitions. Every experience is curated for maximum learning impact.",
+      "Choose from trips, workshops, events, and competitions — each curated for maximum learning impact.",
     color: "bg-primary-light text-white",
   },
   {
@@ -32,7 +32,7 @@ const steps = [
     step: "03",
     title: "Earn Milestones",
     description:
-      "Each activity earns badges and milestones in the SkillFleet Passport — a living record of your child's growth.",
+      "Earn badges and milestones in the SkillFleet Passport — a living record of your child's growth.",
     color: "bg-accent-teal text-white",
   },
   {
@@ -40,7 +40,7 @@ const steps = [
     step: "04",
     title: "Track Progress",
     description:
-      "Parents and schools get detailed insights into skill development, interests discovered, and competencies built over time.",
+      "Parents and schools get insights into skill development, interests, and competencies built over time.",
     color: "bg-accent-purple text-white",
   },
 ];
@@ -123,7 +123,7 @@ export default function Passport() {
                 <h3 className="font-display text-sm sm:text-xl font-bold text-foreground mt-1 sm:mt-2 mb-1.5 sm:mb-3">
                   {step.title}
                 </h3>
-                <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                <p className="text-xs sm:text-sm text-muted leading-relaxed line-clamp-4 sm:line-clamp-none">
                   {step.description}
                 </p>
               </div>
