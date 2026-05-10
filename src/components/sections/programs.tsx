@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "motion/react";
 import {
   MapPin,
@@ -16,6 +17,7 @@ const programs = [
   {
     icon: MapPin,
     title: "Exposure Trips",
+    href: "/programs/exposure-trips",
     description:
       "Immersive visits to science museums, tech hubs, factories, and cultural landmarks. Students see how textbook concepts come alive in the real world.",
     color: "bg-primary/10 text-primary",
@@ -26,6 +28,7 @@ const programs = [
   {
     icon: Wrench,
     title: "Workshops",
+    href: "/programs/workshops",
     description:
       "Hands-on learning sessions covering robotics, coding, creative arts, and more. Expert-led workshops designed to spark curiosity and build practical skills.",
     color: "bg-accent-pink/10 text-accent-pink",
@@ -36,6 +39,7 @@ const programs = [
   {
     icon: CalendarDays,
     title: "Events",
+    href: "/programs/events",
     description:
       "Collaborative innovation activities including hackathons, science fairs, and inter-school challenges that foster teamwork and creative problem-solving.",
     color: "bg-accent-teal/10 text-accent-teal",
@@ -46,6 +50,7 @@ const programs = [
   {
     icon: Trophy,
     title: "Competitions",
+    href: "/programs/competitions",
     description:
       "National and regional competitions with scholarship opportunities. Students showcase talents, compete with peers, and earn recognition on a larger stage.",
     color: "bg-accent-purple/10 text-accent-purple",
@@ -98,68 +103,69 @@ export default function Programs() {
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
           {programs.map((program, index) => (
-            <motion.div
-              key={program.title}
-              custom={index}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              variants={cardVariants}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 300, damping: 20 } }}
-              className="clay-card relative overflow-hidden group cursor-pointer"
-            >
-              {/* Image strip */}
-              <div className="relative h-44 overflow-hidden">
-                <Image
-                  src={program.image}
-                  alt={program.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
-                <div className={`absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent`} />
-                {/* Icon overlay */}
-                <div
-                  className={`absolute bottom-4 left-6 w-12 h-12 rounded-2xl ${program.color} flex items-center justify-center backdrop-blur-sm`}
-                  style={{
-                    boxShadow:
-                      "4px 4px 10px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.8)",
-                  }}
-                >
-                  <program.icon className="w-6 h-6" />
-                </div>
-              </div>
-
-              <div className="p-6 pt-4">
-                {/* Title */}
-                <h3 className="font-display text-xl font-bold text-foreground mb-2">
-                  {program.title}
-                </h3>
-
-                {/* Description */}
-                <p className="text-sm text-muted leading-relaxed mb-4">
-                  {program.description}
-                </p>
-
-                {/* Highlights */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {program.highlights.map((h) => (
-                    <span
-                      key={h}
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${program.color} border border-current/10`}
-                    >
-                      {h}
-                    </span>
-                  ))}
+            <Link key={program.title} href={program.href}>
+              <motion.div
+                custom={index}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-50px" }}
+                variants={cardVariants}
+                whileHover={{ y: -6, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                className="clay-card relative overflow-hidden group cursor-pointer h-full"
+              >
+                {/* Image strip */}
+                <div className="relative h-44 overflow-hidden">
+                  <Image
+                    src={program.image}
+                    alt={program.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                  <div className={`absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent`} />
+                  {/* Icon overlay */}
+                  <div
+                    className={`absolute bottom-4 left-6 w-12 h-12 rounded-2xl ${program.color} flex items-center justify-center backdrop-blur-sm`}
+                    style={{
+                      boxShadow:
+                        "4px 4px 10px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.8)",
+                    }}
+                  >
+                    <program.icon className="w-6 h-6" />
+                  </div>
                 </div>
 
-                {/* CTA */}
-                <div className="flex items-center gap-2 text-sm font-semibold text-primary group-hover:gap-3 transition-all">
-                  <span>Learn More</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="p-6 pt-4">
+                  {/* Title */}
+                  <h3 className="font-display text-xl font-bold text-foreground mb-2">
+                    {program.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-sm text-muted leading-relaxed mb-4">
+                    {program.description}
+                  </p>
+
+                  {/* Highlights */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {program.highlights.map((h) => (
+                      <span
+                        key={h}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${program.color} border border-current/10`}
+                      >
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* CTA */}
+                  <div className="flex items-center gap-2 text-sm font-semibold text-primary group-hover:gap-3 transition-all">
+                    <span>Learn More</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </Link>
           ))}
         </div>
       </div>
