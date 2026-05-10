@@ -89,201 +89,199 @@ export default function Contact() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-10 items-start">
-          {/* Contact Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ type: "spring", stiffness: 60, damping: 18 }}
-            className="lg:col-span-2 flex flex-col gap-4"
-          >
-            <div className="clay-card p-5">
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Phone className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-foreground text-sm">
-                    Call Us
-                  </h3>
-                  <p className="text-muted text-sm">+91 8076314479</p>
-                  <p className="text-xs text-muted/60">Mon-Sat, 9AM - 7PM IST</p>
-                </div>
+        {/* Contact Info Cards — horizontal row */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ type: "spring", stiffness: 60, damping: 18 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10"
+        >
+          <div className="clay-card p-5">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Phone className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-foreground text-sm">
+                  Call Us
+                </h3>
+                <p className="text-muted text-sm">+91 8076314479</p>
+                <p className="text-xs text-muted/60">Mon-Sat, 9AM - 7PM IST</p>
               </div>
             </div>
+          </div>
 
-            <div className="clay-card p-5">
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-primary-light/10 flex items-center justify-center shrink-0">
-                  <Mail className="w-5 h-5 text-primary-light" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-foreground text-sm">
-                    Email Us
-                  </h3>
-                  <p className="text-muted text-sm">contact@skillfleet.org</p>
-                  <p className="text-xs text-muted/60">
-                    We reply within 24 hours
-                  </p>
-                </div>
+          <div className="clay-card p-5">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-primary-light/10 flex items-center justify-center shrink-0">
+                <Mail className="w-5 h-5 text-primary-light" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-foreground text-sm">
+                  Email Us
+                </h3>
+                <p className="text-muted text-sm">contact@skillfleet.org</p>
+                <p className="text-xs text-muted/60">
+                  We reply within 24 hours
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="clay-card p-5">
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-accent-purple/10 flex items-center justify-center shrink-0">
-                  <MapPin className="w-5 h-5 text-accent-purple" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-foreground text-sm">
-                    Visit Us
-                  </h3>
-                  <p className="text-muted text-sm">
-                    HQ27 The Headquarters,
-                    <br />
-                    Gurugram, Haryana 122009
-                  </p>
-                </div>
+          <div className="clay-card p-5">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-accent-purple/10 flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5 text-accent-purple" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-foreground text-sm">
+                  Visit Us
+                </h3>
+                <p className="text-muted text-sm">
+                  HQ27 The Headquarters,
+                  <br />
+                  Gurugram, Haryana 122009
+                </p>
               </div>
             </div>
-          </motion.div>
+          </div>
+        </motion.div>
 
-          {/* Registration Form */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.1 }}
-            className="lg:col-span-3"
-          >
-            <div className="clay-card p-6 sm:p-8">
-              <h3 className="font-display text-2xl font-bold text-foreground mb-6">
-                Register Your Child
-              </h3>
+        {/* Registration Form — full width */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.1 }}
+          className="max-w-3xl mx-auto"
+        >
+          <div className="clay-card p-6 sm:p-8 overflow-hidden">
+            <h3 className="font-display text-2xl font-bold text-foreground mb-6">
+              Register Your Child
+            </h3>
 
-              <form className="space-y-5" onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label htmlFor="childName" className="block text-sm font-medium text-foreground mb-1.5">
-                      Child&apos;s Full Name
-                    </label>
-                    <input
-                      type="text"
-                      id="childName"
-                      value={form.childName}
-                      onChange={(e) => update("childName", e.target.value)}
-                      className={inputClass}
-                      placeholder="Enter child's name"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="guardianName" className="block text-sm font-medium text-foreground mb-1.5">
-                      Guardian Name
-                    </label>
-                    <input
-                      type="text"
-                      id="guardianName"
-                      value={form.guardianName}
-                      onChange={(e) => update("guardianName", e.target.value)}
-                      className={inputClass}
-                      placeholder="Enter guardian's name"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={form.email}
-                      onChange={(e) => update("email", e.target.value)}
-                      className={inputClass}
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1.5">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      value={form.phone}
-                      onChange={(e) => update("phone", e.target.value)}
-                      className={inputClass}
-                      placeholder="+91 XXXXX XXXXX"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label htmlFor="age" className="block text-sm font-medium text-foreground mb-1.5">
-                      Child&apos;s Age
-                    </label>
-                    <select
-                      id="age"
-                      value={form.age}
-                      onChange={(e) => update("age", e.target.value)}
-                      className={`${inputClass} cursor-pointer`}
-                    >
-                      <option value="">Select age</option>
-                      {Array.from({ length: 15 }, (_, i) => i + 3).map((age) => (
-                        <option key={age} value={`${age} years`}>
-                          {age} years
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="grade" className="block text-sm font-medium text-foreground mb-1.5">
-                      Grade Level
-                    </label>
-                    <select
-                      id="grade"
-                      value={form.grade}
-                      onChange={(e) => update("grade", e.target.value)}
-                      className={`${inputClass} cursor-pointer`}
-                    >
-                      <option value="">Select grade</option>
-                      <option value="Pre-K">Pre-K</option>
-                      <option value="Kindergarten">Kindergarten</option>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((grade) => (
-                        <option key={grade} value={`Grade ${grade}`}>
-                          Grade {grade}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1.5">
-                    Message (Optional)
+                  <label htmlFor="childName" className="block text-sm font-medium text-foreground mb-1.5">
+                    Child&apos;s Full Name
                   </label>
-                  <textarea
-                    id="message"
-                    rows={3}
-                    value={form.message}
-                    onChange={(e) => update("message", e.target.value)}
-                    className={`${inputClass} resize-none`}
-                    placeholder="Any specific interests or questions?"
+                  <input
+                    type="text"
+                    id="childName"
+                    value={form.childName}
+                    onChange={(e) => update("childName", e.target.value)}
+                    className={inputClass}
+                    placeholder="Enter child's name"
                   />
                 </div>
+                <div>
+                  <label htmlFor="guardianName" className="block text-sm font-medium text-foreground mb-1.5">
+                    Guardian Name
+                  </label>
+                  <input
+                    type="text"
+                    id="guardianName"
+                    value={form.guardianName}
+                    onChange={(e) => update("guardianName", e.target.value)}
+                    className={inputClass}
+                    placeholder="Enter guardian's name"
+                  />
+                </div>
+              </div>
 
-                <Button size="lg" className="w-full group" type="submit">
-                  <Send className="w-5 h-5 mr-2" />
-                  Submit Registration
-                </Button>
-              </form>
-            </div>
-          </motion.div>
-        </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={form.email}
+                    onChange={(e) => update("email", e.target.value)}
+                    className={inputClass}
+                    placeholder="your@email.com"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1.5">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    value={form.phone}
+                    onChange={(e) => update("phone", e.target.value)}
+                    className={inputClass}
+                    placeholder="+91 XXXXX XXXXX"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="age" className="block text-sm font-medium text-foreground mb-1.5">
+                    Child&apos;s Age
+                  </label>
+                  <select
+                    id="age"
+                    value={form.age}
+                    onChange={(e) => update("age", e.target.value)}
+                    className={`${inputClass} cursor-pointer`}
+                  >
+                    <option value="">Select age</option>
+                    {Array.from({ length: 15 }, (_, i) => i + 3).map((age) => (
+                      <option key={age} value={`${age} years`}>
+                        {age} years
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="grade" className="block text-sm font-medium text-foreground mb-1.5">
+                    Grade Level
+                  </label>
+                  <select
+                    id="grade"
+                    value={form.grade}
+                    onChange={(e) => update("grade", e.target.value)}
+                    className={`${inputClass} cursor-pointer`}
+                  >
+                    <option value="">Select grade</option>
+                    <option value="Pre-K">Pre-K</option>
+                    <option value="Kindergarten">Kindergarten</option>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((grade) => (
+                      <option key={grade} value={`Grade ${grade}`}>
+                        Grade {grade}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1.5">
+                  Message (Optional)
+                </label>
+                <textarea
+                  id="message"
+                  rows={3}
+                  value={form.message}
+                  onChange={(e) => update("message", e.target.value)}
+                  className={`${inputClass} resize-none`}
+                  placeholder="Any specific interests or questions?"
+                />
+              </div>
+
+              <Button size="lg" className="w-full group" type="submit">
+                <Send className="w-5 h-5 mr-2" />
+                Submit Registration
+              </Button>
+            </form>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
