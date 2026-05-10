@@ -358,7 +358,7 @@ export default function TeacherWorkshopsPage() {
                 <div className="space-y-4">
                   <div className="clay-card overflow-hidden h-52 relative">
                     <Image
-                      src="/images/corporate-workshop.png"
+                      src="/images/corporate-workshop.webp"
                       alt="Teacher training workshop session"
                       fill
                       className="object-cover"
@@ -378,7 +378,7 @@ export default function TeacherWorkshopsPage() {
                 <div className="space-y-4 mt-8">
                   <div className="clay-card overflow-hidden h-36 relative">
                     <Image
-                      src="/images/corporate-ai.jpg"
+                      src="/images/corporate-ai.webp"
                       alt="AI training for educators"
                       fill
                       className="object-cover"

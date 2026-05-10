@@ -360,7 +360,7 @@ export default function CorporateWorkshopsPage() {
                 <div className="space-y-4">
                   <div className="clay-card overflow-hidden h-52 relative">
                     <Image
-                      src="/images/corporate-workshop.png"
+                      src="/images/corporate-workshop.webp"
                       alt="Corporate AI workshop training"
                       fill
                       className="object-cover"
@@ -383,7 +383,7 @@ export default function CorporateWorkshopsPage() {
                   </div>
                   <div className="clay-card overflow-hidden h-52 relative">
                     <Image
-                      src="/images/corporate-ai.jpg"
+                      src="/images/corporate-ai.webp"
                       alt="AI training session for corporate teams"
                       fill
                       className="object-cover"
@@ -525,7 +525,7 @@ export default function CorporateWorkshopsPage() {
             >
               <div className="clay-card overflow-hidden relative h-80 sm:h-96">
                 <Image
-                  src="/images/corporate-ai.jpg"
+                  src="/images/corporate-ai.webp"
                   alt="Corporate AI training workshop in action"
                   fill
                   className="object-cover"

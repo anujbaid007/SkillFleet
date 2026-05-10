@@ -267,7 +267,7 @@ export default function ContactPage() {
                 }}
               >
                 <Image
-                  src="/images/skillfleet-students.png"
+                  src="/images/skillfleet-students.webp"
                   alt="SkillFleet students"
                   fill
                   className="object-cover"

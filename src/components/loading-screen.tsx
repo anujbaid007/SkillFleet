@@ -9,11 +9,11 @@ export default function LoadingScreen() {
   const [phase, setPhase] = useState<"logo" | "bars" | "done">("logo");
 
   useEffect(() => {
-    // Phase 1: Show logo animation for 1.5s
-    const logoTimer = setTimeout(() => setPhase("bars"), 1500);
-    // Phase 2: Bars sweep for 0.6s, then hide
-    const barsTimer = setTimeout(() => setPhase("done"), 2100);
-    const hideTimer = setTimeout(() => setIsLoading(false), 2400);
+    // Phase 1: Show logo animation for 0.8s
+    const logoTimer = setTimeout(() => setPhase("bars"), 800);
+    // Phase 2: Bars sweep for 0.4s, then hide
+    const barsTimer = setTimeout(() => setPhase("done"), 1200);
+    const hideTimer = setTimeout(() => setIsLoading(false), 1400);
 
     return () => {
       clearTimeout(logoTimer);

@@ -8,7 +8,7 @@ export default function ParallaxBanner() {
       {/* Parallax image — no overlay, students fully visible */}
       <div
         className="absolute inset-0 bg-fixed bg-top bg-cover"
-        style={{ backgroundImage: "url('/images/skillfleet-students.png')" }}
+        style={{ backgroundImage: "url('/images/skillfleet-students.webp')" }}
       />
     </section>
   );

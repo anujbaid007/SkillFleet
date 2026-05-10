@@ -109,40 +109,32 @@ export default function AIWorkshops() {
 
         {/* Video Banner */}
         <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.97 }}
-          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ type: "spring", stiffness: 60, damping: 18 }}
-          className="relative rounded-[24px] overflow-hidden mb-12 border-[3px] border-white/60"
-          style={{
-            boxShadow:
-              "10px 10px 24px rgba(0,0,0,0.08), -5px -5px 14px rgba(255,255,255,0.9), inset 0 2px 4px rgba(255,255,255,0.6)",
-          }}
+          className="mb-12"
         >
+          <div className="text-center mb-6">
+            <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
+              Where Humans Meet{" "}
+              <span className="text-primary">AI</span>
+            </h3>
+            <p className="text-muted text-sm sm:text-base mt-2 max-w-lg mx-auto">
+              Building the future together — hands-on workshops that bridge
+              creativity and technology.
+            </p>
+          </div>
           <div className="relative aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/9]">
             <video
               autoPlay
               loop
               muted
               playsInline
-              className="absolute inset-0 w-full h-full object-cover"
+              className="w-full h-full object-cover"
             >
               <source src="/videos/ai-collaboration.mp4" type="video/mp4" />
             </video>
-            {/* Purple overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/70 via-accent-purple/50 to-transparent" />
-            {/* Content overlay */}
-            <div className="absolute inset-0 flex items-center px-5 sm:px-8 lg:px-12">
-              <div className="max-w-md">
-                <h3 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 drop-shadow-lg">
-                  Where Humans Meet AI
-                </h3>
-                <p className="text-white/80 text-xs sm:text-sm lg:text-base leading-relaxed drop-shadow">
-                  Building the future together — hands-on workshops that bridge
-                  creativity and technology.
-                </p>
-              </div>
-            </div>
           </div>
         </motion.div>
 
@@ -249,7 +241,7 @@ export default function AIWorkshops() {
             {/* Image header */}
             <div className="relative h-48 overflow-hidden">
               <Image
-                src="/images/corporate-workshop.png"
+                src="/images/corporate-workshop.webp"
                 alt="Corporate AI workshop training session"
                 fill
                 className="object-cover"

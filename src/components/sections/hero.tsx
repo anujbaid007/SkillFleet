@@ -212,7 +212,7 @@ export default function Hero() {
               }}
             >
               <Image
-                src="/images/hero-kids.png"
+                src="/images/hero-kids.webp"
                 alt="Children learning together at SkillFleet"
                 fill
                 className="object-cover"
@@ -241,7 +241,7 @@ export default function Hero() {
                 }}
               >
                 <Image
-                  src="/images/hero-kids.png"
+                  src="/images/hero-kids.webp"
                   alt="Children learning together at SkillFleet"
                   fill
                   className="object-cover"
