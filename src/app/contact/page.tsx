@@ -282,7 +282,7 @@ export default function ContactPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={springIn(0.15)}
-              className="lg:col-span-3 clay-card p-8 sm:p-10 border border-primary/10"
+              className="lg:col-span-3 clay-card p-8 sm:p-10 border border-primary/10 overflow-hidden"
             >
               <div className="mb-8">
                 <h3 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2">
