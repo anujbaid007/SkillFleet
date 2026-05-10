@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import { motion } from "motion/react";
 import {
   Phone,
@@ -88,7 +87,7 @@ export default function Contact() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-start">
           {/* Contact Info */}
           <motion.div
             initial={{ opacity: 0, x: -40 }}
@@ -97,23 +96,6 @@ export default function Contact() {
             transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="lg:col-span-2 space-y-6"
           >
-            {/* Image */}
-            <div
-              className="relative aspect-[4/3] rounded-[20px] overflow-hidden border-[3px] border-white/70"
-              style={{
-                boxShadow:
-                  "8px 8px 20px rgba(0,0,0,0.08), -4px -4px 12px rgba(255,255,255,0.9), inset 0 2px 4px rgba(255,255,255,0.6)",
-              }}
-            >
-              <Image
-                src="/images/skillfleet-students.png"
-                alt="SkillFleet students"
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 40vw"
-              />
-            </div>
-
             <div className="clay-card p-6">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -173,7 +155,7 @@ export default function Contact() {
             transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.1 }}
             className="lg:col-span-3"
           >
-            <div className="clay-card p-8">
+            <div className="clay-card p-6 sm:p-8 overflow-hidden">
               <h3 className="font-display text-2xl font-bold text-foreground mb-6">
                 Register Your Child
               </h3>

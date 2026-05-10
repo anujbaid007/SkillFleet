@@ -377,8 +377,8 @@ export default function WorkshopsPage() {
                 <div className="space-y-4 mt-8">
                   <div className="clay-card overflow-hidden h-36 relative">
                     <Image
-                      src="/images/kids-learning.jpg"
-                      alt="Kids learning together"
+                      src="/images/corporate-workshop.png"
+                      alt="Corporate AI workshop training"
                       fill
                       className="object-cover"
                       sizes="(max-width: 1024px) 50vw, 25vw"
