@@ -28,6 +28,9 @@ const navItems: NavItem[] = [
       { name: "Teacher Workshops", href: "/programs/teacher-workshops" },
       { name: "Events", href: "/programs/events" },
       { name: "Competitions", href: "/programs/competitions" },
+      { name: "For Schools", href: "/partners/schools" },
+      { name: "For CSRs", href: "/partners/csr" },
+      { name: "For Corporates", href: "/programs/corporate-workshops" },
     ],
   },
   {
@@ -36,6 +39,7 @@ const navItems: NavItem[] = [
     children: [
       { name: "Schools", href: "/partners/schools" },
       { name: "Parents", href: "/partners/parents" },
+      { name: "Corporates", href: "/partners/csr" },
       { name: "CSR Initiatives", href: "/partners/csr" },
     ],
   },
