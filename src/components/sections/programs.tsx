@@ -10,6 +10,7 @@ import {
   Trophy,
   ArrowRight,
 } from "lucide-react";
+import FloatingDoodles from "@/components/ui/floating-doodles";
 
 const programs = [
   {
@@ -70,8 +71,9 @@ const cardVariants = {
 
 export default function Programs() {
   return (
-    <section id="programs" className="py-20 sm:py-28 relative">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="programs" className="py-20 sm:py-28 relative overflow-hidden">
+      <FloatingDoodles variant="programs" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

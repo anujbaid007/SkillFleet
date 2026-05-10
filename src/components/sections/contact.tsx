@@ -9,6 +9,7 @@ import {
   Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import FloatingDoodles from "@/components/ui/floating-doodles";
 
 const WA_NUMBER = "917508807490";
 
@@ -64,9 +65,10 @@ export default function Contact() {
   return (
     <section
       id="contact"
-      className="py-20 sm:py-28 bg-gradient-to-b from-background to-primary/[0.03]"
+      className="py-20 sm:py-28 bg-gradient-to-b from-background to-primary/[0.03] relative overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <FloatingDoodles variant="contact" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -87,57 +89,57 @@ export default function Contact() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-10 items-start">
           {/* Contact Info */}
           <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ type: "spring", stiffness: 60, damping: 18 }}
-            className="lg:col-span-2 space-y-6"
+            className="lg:col-span-2 flex flex-col gap-4"
           >
-            <div className="clay-card p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="clay-card p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Phone className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-foreground mb-1">
+                  <h3 className="font-display font-bold text-foreground text-sm">
                     Call Us
                   </h3>
-                  <p className="text-muted">+91 8076314479</p>
-                  <p className="text-sm text-muted/60">Mon-Sat, 9AM - 7PM IST</p>
+                  <p className="text-muted text-sm">+91 8076314479</p>
+                  <p className="text-xs text-muted/60">Mon-Sat, 9AM - 7PM IST</p>
                 </div>
               </div>
             </div>
 
-            <div className="clay-card p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary-light/10 flex items-center justify-center shrink-0">
+            <div className="clay-card p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-primary-light/10 flex items-center justify-center shrink-0">
                   <Mail className="w-5 h-5 text-primary-light" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-foreground mb-1">
+                  <h3 className="font-display font-bold text-foreground text-sm">
                     Email Us
                   </h3>
-                  <p className="text-muted">contact@skillfleet.org</p>
-                  <p className="text-sm text-muted/60">
+                  <p className="text-muted text-sm">contact@skillfleet.org</p>
+                  <p className="text-xs text-muted/60">
                     We reply within 24 hours
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="clay-card p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-accent-purple/10 flex items-center justify-center shrink-0">
+            <div className="clay-card p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-accent-purple/10 flex items-center justify-center shrink-0">
                   <MapPin className="w-5 h-5 text-accent-purple" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-foreground mb-1">
+                  <h3 className="font-display font-bold text-foreground text-sm">
                     Visit Us
                   </h3>
-                  <p className="text-muted">
+                  <p className="text-muted text-sm">
                     HQ27 The Headquarters,
                     <br />
                     Gurugram, Haryana 122009
@@ -149,13 +151,13 @@ export default function Contact() {
 
           {/* Registration Form */}
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.1 }}
             className="lg:col-span-3"
           >
-            <div className="clay-card p-6 sm:p-8 overflow-hidden">
+            <div className="clay-card p-6 sm:p-8">
               <h3 className="font-display text-2xl font-bold text-foreground mb-6">
                 Register Your Child
               </h3>

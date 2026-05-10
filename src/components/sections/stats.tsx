@@ -4,6 +4,7 @@ import React from "react";
 import { motion, useMotionValue, useTransform, animate } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Users, School, Factory, Award, Globe, Calendar } from "lucide-react";
+import FloatingDoodles from "@/components/ui/floating-doodles";
 
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
   const count = useMotionValue(0);
@@ -85,6 +86,7 @@ export default function Stats() {
         />
       </div>
 
+      <FloatingDoodles variant="stats" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <motion.div

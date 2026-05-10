@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ const navItems: NavItem[] = [
   { name: "Contact", href: "/contact" },
 ];
 
-function DesktopDropdown({ item }: { item: NavItem }) {
+function DesktopDropdown({ item, isLight }: { item: NavItem; isLight: boolean }) {
   const [open, setOpen] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -56,7 +57,12 @@ function DesktopDropdown({ item }: { item: NavItem }) {
     <div className="relative" onMouseEnter={enter} onMouseLeave={leave}>
       <Link
         href={item.href}
-        className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors rounded-xl hover:bg-primary/5"
+        className={cn(
+          "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors rounded-xl",
+          isLight
+            ? "text-white/80 hover:text-white hover:bg-white/10"
+            : "text-muted hover:text-foreground hover:bg-primary/5"
+        )}
       >
         {item.name}
         <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")} />
@@ -92,6 +98,11 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+
+  // When not scrolled on a subpage, use light (white) text
+  const isLight = !isHome && !isScrolled;
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -121,7 +132,7 @@ export default function Navbar() {
                 alt="SkillFleet"
                 width={160}
                 height={44}
-                className="h-10 w-auto"
+                className={cn("h-10 w-auto", isLight && "brightness-0 invert")}
                 priority
               />
             </Link>
@@ -130,12 +141,17 @@ export default function Navbar() {
             <div className="hidden lg:flex items-center gap-1">
               {navItems.map((item) =>
                 item.children ? (
-                  <DesktopDropdown key={item.name} item={item} />
+                  <DesktopDropdown key={item.name} item={item} isLight={isLight} />
                 ) : (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className="px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors rounded-xl hover:bg-primary/5"
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium transition-colors rounded-xl",
+                      isLight
+                        ? "text-white/80 hover:text-white hover:bg-white/10"
+                        : "text-muted hover:text-foreground hover:bg-primary/5"
+                    )}
                   >
                     {item.name}
                   </Link>
@@ -146,7 +162,11 @@ export default function Navbar() {
             {/* CTA */}
             <div className="hidden lg:flex items-center gap-3">
               <Link href="/contact">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(isLight && "border-white/30 text-white hover:bg-white/10")}
+                >
                   Contact Us
                 </Button>
               </Link>
@@ -162,7 +182,10 @@ export default function Navbar() {
             {/* Mobile Toggle */}
             <button
               onClick={() => setIsMobileOpen(!isMobileOpen)}
-              className="lg:hidden p-2 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer"
+              className={cn(
+                "lg:hidden p-2 rounded-xl transition-colors cursor-pointer",
+                isLight ? "text-white hover:bg-white/10" : "hover:bg-primary/5"
+              )}
               aria-label={isMobileOpen ? "Close menu" : "Open menu"}
             >
               <AnimatePresence mode="wait">

@@ -3,6 +3,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { TestimonialsColumn } from "@/components/ui/testimonials-columns";
+import FloatingDoodles from "@/components/ui/floating-doodles";
 
 const testimonials = [
   {
@@ -67,8 +68,9 @@ const thirdColumn = testimonials.slice(6, 9);
 
 export default function Testimonials() {
   return (
-    <section className="py-20 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-background relative">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-20 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-background relative overflow-hidden">
+      <FloatingDoodles variant="testimonials" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
