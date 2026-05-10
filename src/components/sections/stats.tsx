@@ -67,7 +67,7 @@ const statVariants = {
 
 export default function Stats() {
   return (
-    <section className="py-20 sm:py-28 relative overflow-hidden" style={{
+    <section className="py-14 sm:py-28 relative overflow-hidden" style={{
       background: "linear-gradient(135deg, #7447E1 0%, #8B5CF6 40%, #9333EA 70%, #7C3AED 100%)",
     }}>
       {/* Background decorations */}
@@ -94,19 +94,19 @@ export default function Stats() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
         >
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-white mb-2 sm:mb-4">
             Our Impact in Numbers
           </h2>
-          <p className="text-lg text-white/70 max-w-xl mx-auto">
+          <p className="text-sm sm:text-lg text-white/70 max-w-xl mx-auto">
             Growing every day as more schools, parents, and industry leaders join
             the SkillFleet movement.
           </p>
         </motion.div>
 
         {/* Stats grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-6">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.label}
@@ -119,17 +119,17 @@ export default function Stats() {
               className="text-center"
             >
               <div
-                className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mx-auto mb-3 border border-white/20"
+                className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mx-auto mb-2 sm:mb-3 border border-white/20"
                 style={{
                   boxShadow: "4px 4px 12px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,255,255,0.15)",
                 }}
               >
-                <stat.icon className="w-7 h-7 text-white" />
+                <stat.icon className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
               </div>
-              <div className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1">
+              <div className="font-display text-lg sm:text-3xl lg:text-4xl font-bold text-white mb-0.5 sm:mb-1">
                 <AnimatedCounter target={stat.value} suffix={stat.suffix} />
               </div>
-              <div className="text-sm text-white/60">{stat.label}</div>
+              <div className="text-[10px] sm:text-sm text-white/60">{stat.label}</div>
             </motion.div>
           ))}
         </div>

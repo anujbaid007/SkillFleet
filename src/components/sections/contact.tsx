@@ -60,7 +60,7 @@ export default function Contact() {
   return (
     <section
       id="contact"
-      className="py-20 sm:py-28 bg-gradient-to-b from-background to-primary/[0.03] relative overflow-hidden"
+      className="py-14 sm:py-28 bg-gradient-to-b from-background to-primary/[0.03] relative overflow-hidden"
     >
       <FloatingDoodles variant="contact" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -70,16 +70,16 @@ export default function Contact() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
         >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-accent-teal/10 text-accent-teal text-sm font-semibold mb-4">
+          <span className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-accent-teal/10 text-accent-teal text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             Get In Touch
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             Start Your Child&apos;s{" "}
             <span className="text-accent-teal">Journey</span>
           </h2>
-          <p className="text-lg text-muted max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted max-w-2xl mx-auto">
             Have questions? Want to enroll? We&apos;d love to hear from you.
           </p>
         </motion.div>
@@ -93,12 +93,12 @@ export default function Contact() {
           className="max-w-3xl mx-auto"
         >
           <div className="clay-card p-6 sm:p-8 overflow-hidden">
-            <h3 className="font-display text-2xl font-bold text-foreground mb-6">
+            <h3 className="font-display text-lg sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">
               Register Your Child
             </h3>
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <form className="space-y-3 sm:space-y-5" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                 <div>
                   <label htmlFor="childName" className="block text-sm font-medium text-foreground mb-1.5">
                     Child&apos;s Full Name
@@ -127,7 +127,7 @@ export default function Contact() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
                     Email
@@ -156,7 +156,7 @@ export default function Contact() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                 <div>
                   <label htmlFor="age" className="block text-sm font-medium text-foreground mb-1.5">
                     Child&apos;s Age

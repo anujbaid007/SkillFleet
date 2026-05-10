@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DeckHeader from "@/components/ui/deck-header";
 
 export const metadata: Metadata = {
   title: "AI Corporate Workshops — SkillFleet",
@@ -8,10 +9,13 @@ export const metadata: Metadata = {
 
 export default function CorporateWorkshopsPage() {
   return (
-    <iframe
-      src="/decks/corporate-workshop.html"
-      className="w-full h-dvh border-0"
-      title="AI Corporate Workshop Deck"
-    />
+    <div className="h-dvh flex flex-col">
+      <DeckHeader />
+      <iframe
+        src="/decks/corporate-workshop.html"
+        className="w-full flex-1 border-0"
+        title="AI Corporate Workshop Deck"
+      />
+    </div>
   );
 }

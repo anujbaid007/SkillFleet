@@ -75,9 +75,9 @@ function FAQItem({
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-6 text-left cursor-pointer group"
+        className="w-full flex items-center justify-between p-4 sm:p-6 text-left cursor-pointer group"
       >
-        <span className="font-display text-lg font-semibold text-foreground pr-4 group-hover:text-primary transition-colors">
+        <span className="font-display text-sm sm:text-lg font-semibold text-foreground pr-4 group-hover:text-primary transition-colors">
           {faq.question}
         </span>
         <motion.div
@@ -96,7 +96,7 @@ function FAQItem({
             transition={{ duration: 0.25, ease: [0.25, 0.4, 0.25, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6 text-muted leading-relaxed">
+            <div className="px-4 pb-4 sm:px-6 sm:pb-6 text-sm sm:text-base text-muted leading-relaxed">
               {faq.answer}
             </div>
           </motion.div>
@@ -110,7 +110,7 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="py-20 sm:py-28 relative overflow-hidden">
+    <section className="py-14 sm:py-28 relative overflow-hidden">
       <FloatingDoodles variant="faq" />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
@@ -119,23 +119,23 @@ export default function FAQ() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-12"
+          className="text-center mb-8 sm:mb-12"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/5 text-primary text-sm font-semibold mb-4">
+          <span className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-primary/5 text-primary text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             <HelpCircle className="w-4 h-4" />
             FAQ
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             Frequently Asked{" "}
             <span className="text-primary">Questions</span>
           </h2>
-          <p className="text-lg text-muted">
+          <p className="text-sm sm:text-lg text-muted">
             Everything you need to know about SkillFleet.
           </p>
         </motion.div>
 
         {/* FAQ List */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {faqs.map((faq, index) => (
             <FAQItem
               key={index}

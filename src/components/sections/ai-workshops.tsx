@@ -81,7 +81,7 @@ export default function AIWorkshops() {
   return (
     <section
       id="ai-workshops"
-      className="py-20 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-accent-purple/[0.02] overflow-hidden"
+      className="py-14 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-accent-purple/[0.02] overflow-hidden"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -90,17 +90,17 @@ export default function AIWorkshops() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent-purple/10 text-accent-purple text-sm font-semibold mb-4">
+          <span className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-accent-purple/10 text-accent-purple text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             <BrainCircuit className="w-4 h-4" />
             New: AI Workshops
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             AI-Powered Learning for{" "}
             <span className="text-accent-purple">Everyone</span>
           </h2>
-          <p className="text-lg text-muted max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted max-w-2xl mx-auto">
             From classrooms to boardrooms — our AI workshops demystify
             artificial intelligence and equip learners with practical skills for
             the future.
@@ -113,14 +113,14 @@ export default function AIWorkshops() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ type: "spring", stiffness: 60, damping: 18 }}
-          className="mb-12"
+          className="mb-8 sm:mb-12"
         >
-          <div className="text-center mb-6">
-            <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
+          <div className="text-center mb-4 sm:mb-6">
+            <h3 className="font-display text-xl sm:text-3xl lg:text-4xl font-bold text-foreground">
               Where Humans Meet{" "}
               <span className="text-primary">AI</span>
             </h3>
-            <p className="text-muted text-sm sm:text-base mt-2 max-w-lg mx-auto">
+            <p className="text-muted text-xs sm:text-base mt-1 sm:mt-2 max-w-lg mx-auto">
               Building the future together — hands-on workshops that bridge
               creativity and technology.
             </p>
@@ -139,7 +139,7 @@ export default function AIWorkshops() {
         </motion.div>
 
         {/* Two columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 lg:gap-12">
           {/* Schools */}
           <motion.div
             initial={{ opacity: 0, x: -40 }}
@@ -149,7 +149,7 @@ export default function AIWorkshops() {
             className="clay-card relative overflow-hidden"
           >
             {/* Image header */}
-            <div className="relative h-48 overflow-hidden">
+            <div className="relative h-32 sm:h-48 overflow-hidden">
               <Image
                 src="/images/kids-classroom.jpg"
                 alt="Children learning AI in classroom"
@@ -173,7 +173,7 @@ export default function AIWorkshops() {
               </div>
             </div>
 
-            <div className="p-7">
+            <div className="p-4 sm:p-7">
               <p className="text-muted mb-6 leading-relaxed text-sm">
                 We bring AI education directly into schools with structured,
                 age-appropriate programs. From introducing kindergarteners to
@@ -239,7 +239,7 @@ export default function AIWorkshops() {
             className="clay-card relative overflow-hidden"
           >
             {/* Image header */}
-            <div className="relative h-48 overflow-hidden">
+            <div className="relative h-32 sm:h-48 overflow-hidden">
               <Image
                 src="/images/corporate-workshop.webp"
                 alt="Corporate AI workshop training session"
@@ -263,7 +263,7 @@ export default function AIWorkshops() {
               </div>
             </div>
 
-            <div className="p-7">
+            <div className="p-4 sm:p-7">
               <p className="text-muted mb-6 leading-relaxed text-sm">
                 Future-proof your workforce with our tailored AI training
                 programs. Whether your team is technical or non-technical, we

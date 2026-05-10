@@ -93,7 +93,7 @@ const cardVariants = {
 
 export default function AgeGroups() {
   return (
-    <section id="age-groups" className="py-20 sm:py-28">
+    <section id="age-groups" className="py-14 sm:py-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -101,23 +101,23 @@ export default function AgeGroups() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
         >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-accent-teal/10 text-accent-teal text-sm font-semibold mb-4">
+          <span className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-accent-teal/10 text-accent-teal text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             Age-Appropriate Learning
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             Designed for{" "}
             <span className="text-accent-teal">Every Stage</span>
           </h2>
-          <p className="text-lg text-muted max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted max-w-2xl mx-auto">
             Tailored programs for each developmental phase — because a 5-year-old
             and a 15-year-old learn very differently.
           </p>
         </motion.div>
 
         {/* Age group cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {ageGroups.map((group, index) => (
             <motion.div
               key={group.age}
@@ -130,47 +130,47 @@ export default function AgeGroups() {
               className="clay-card overflow-hidden group cursor-pointer"
             >
               {/* Image */}
-              <div className="relative h-36 overflow-hidden">
+              <div className="relative h-20 sm:h-36 overflow-hidden">
                 <Image
                   src={group.image}
                   alt={group.label}
                   fill
                   className="object-cover group-hover:scale-110 transition-transform duration-500"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-white via-white/30 to-transparent" />
                 {/* Age badge overlay */}
                 <div
-                  className={`absolute bottom-3 left-4 px-3 py-1 rounded-full ${group.color} text-white text-xs font-bold shadow-lg`}
+                  className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-4 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full ${group.color} text-white text-[10px] sm:text-xs font-bold shadow-lg`}
                 >
                   {group.age} yrs
                 </div>
               </div>
 
-              <div className="p-5 text-center">
+              <div className="p-3 sm:p-5 text-center">
                 {/* Icon */}
                 <div
-                  className={`w-12 h-12 rounded-xl ${group.lightColor} flex items-center justify-center mx-auto mb-3 -mt-9 relative z-10 border-[3px] border-white`}
+                  className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${group.lightColor} flex items-center justify-center mx-auto mb-2 sm:mb-3 -mt-7 sm:-mt-9 relative z-10 border-2 sm:border-[3px] border-white`}
                   style={{
                     boxShadow:
                       "4px 4px 10px rgba(0,0,0,0.06), -2px -2px 6px rgba(255,255,255,0.8)",
                   }}
                 >
-                  <group.icon className="w-6 h-6" />
+                  <group.icon className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
 
                 {/* Label */}
-                <h3 className="font-display text-lg font-bold text-foreground mb-2">
+                <h3 className="font-display text-xs sm:text-lg font-bold text-foreground mb-1 sm:mb-2">
                   {group.label}
                 </h3>
 
                 {/* Description */}
-                <p className="text-sm text-muted leading-relaxed mb-4">
+                <p className="text-[11px] sm:text-sm text-muted leading-relaxed mb-2 sm:mb-4 line-clamp-3 sm:line-clamp-none">
                   {group.description}
                 </p>
 
-                {/* Activities */}
-                <div className="flex flex-wrap justify-center gap-1.5">
+                {/* Activities — hidden on mobile */}
+                <div className="hidden sm:flex flex-wrap justify-center gap-1.5">
                   {group.activities.map((activity) => (
                     <span
                       key={activity}

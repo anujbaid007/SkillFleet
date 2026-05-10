@@ -68,7 +68,7 @@ const thirdColumn = testimonials.slice(6, 9);
 
 export default function Testimonials() {
   return (
-    <section className="py-20 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-background relative overflow-hidden">
+    <section className="py-14 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-background relative overflow-hidden">
       <FloatingDoodles variant="testimonials" />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
@@ -76,16 +76,16 @@ export default function Testimonials() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          className="text-center mb-8 sm:mb-12"
         >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-accent-pink/10 text-accent-pink text-sm font-semibold mb-4">
+          <span className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-accent-pink/10 text-accent-pink text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             Testimonials
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             Real People,{" "}
             <span className="text-accent-pink">Real Impact</span>
           </h2>
-          <p className="text-lg text-muted max-w-xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted max-w-xl mx-auto">
             Hear from parents, educators, and corporate leaders who&apos;ve
             experienced the SkillFleet difference.
           </p>

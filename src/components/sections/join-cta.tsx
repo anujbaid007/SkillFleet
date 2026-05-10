@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export default function JoinCTA() {
   return (
     <section
-      className="relative overflow-hidden py-20 sm:py-28"
+      className="relative overflow-hidden py-14 sm:py-28"
       style={{
         background:
           "linear-gradient(135deg, #0F172A 0%, #1E1B4B 40%, #312E81 70%, #1E1B4B 100%)",
@@ -31,7 +31,7 @@ export default function JoinCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 18 }}
-          className="text-white/50 text-sm sm:text-base font-medium tracking-widest uppercase mb-3"
+          className="text-white/50 text-xs sm:text-base font-medium tracking-widest uppercase mb-2 sm:mb-3"
         >
           Join the Movement
         </motion.p>
@@ -40,7 +40,7 @@ export default function JoinCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 18, delay: 0.1 }}
-          className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4"
+          className="font-display text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-4"
         >
           Empowering Tomorrow&apos;s{" "}
           <span className="text-accent-yellow">Innovators Today</span>
@@ -50,7 +50,7 @@ export default function JoinCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 18, delay: 0.2 }}
-          className="text-white/60 text-base sm:text-lg max-w-xl mx-auto leading-relaxed mb-8"
+          className="text-white/60 text-sm sm:text-lg max-w-xl mx-auto leading-relaxed mb-6 sm:mb-8"
         >
           10,000+ students across 200+ schools — real-world exposure that
           sparks curiosity, builds confidence, and shapes futures.

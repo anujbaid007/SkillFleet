@@ -48,7 +48,7 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-dvh flex items-center overflow-hidden pt-24 pb-12 sm:pt-20"
+      className="relative min-h-dvh flex items-center overflow-hidden pt-20 pb-8 sm:pt-20 sm:pb-12"
     >
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] via-background to-accent-purple/[0.03]" />
@@ -92,7 +92,7 @@ export default function Hero() {
 
       {/* Main content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 lg:gap-8 items-center">
           {/* Left — Text content */}
           <div className="text-center lg:text-left">
             {/* Badge */}
@@ -100,7 +100,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springTransition, delay: 0.1 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/5 border-2 border-primary/10 mb-6"
+              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-primary/5 border-2 border-primary/10 mb-4 sm:mb-6"
             >
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-primary">
@@ -113,7 +113,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springTransition, delay: 0.2 }}
-              className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-5"
+              className="font-display text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-3 sm:mb-5"
             >
               <span className="text-foreground">Inspiring Tomorrow&apos;s</span>
               <br />
@@ -127,7 +127,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springTransition, delay: 0.3 }}
-              className="text-lg sm:text-2xl lg:text-3xl font-display font-medium mb-6 min-h-[3rem] flex items-center justify-center lg:justify-start gap-2 sm:gap-3 flex-wrap"
+              className="text-base sm:text-2xl lg:text-3xl font-display font-medium mb-4 sm:mb-6 min-h-[2.5rem] sm:min-h-[3rem] flex items-center justify-center lg:justify-start gap-2 sm:gap-3 flex-wrap"
             >
               <span className="text-muted">Your future</span>
               <AnimatePresence mode="wait">
@@ -150,7 +150,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springTransition, delay: 0.4 }}
-              className="text-lg text-muted max-w-lg mx-auto lg:mx-0 mb-8 leading-relaxed"
+              className="text-sm sm:text-lg text-muted max-w-lg mx-auto lg:mx-0 mb-6 sm:mb-8 leading-relaxed"
             >
               From factory floors to AI labs — we bring learning to life through
               real-world exposure for children aged 3-17.
@@ -180,7 +180,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springTransition, delay: 0.7 }}
-              className="mt-12 flex flex-wrap items-center justify-center lg:justify-start gap-8"
+              className="mt-8 sm:mt-12 flex flex-wrap items-center justify-center lg:justify-start gap-6 sm:gap-8"
             >
               {[
                 { value: "10,000+", label: "Students Impacted" },
@@ -188,7 +188,7 @@ export default function Hero() {
                 { value: "50+", label: "Industry Partners" },
               ].map((stat, i) => (
                 <div key={stat.label} className="text-center lg:text-left">
-                  <div className="font-display text-2xl sm:text-3xl font-bold text-primary">
+                  <div className="font-display text-xl sm:text-3xl font-bold text-primary">
                     {stat.value}
                   </div>
                   <div className="text-sm text-muted">{stat.label}</div>

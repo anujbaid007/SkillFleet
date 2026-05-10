@@ -64,7 +64,7 @@ export default function Passport() {
   return (
     <section
       id="about"
-      className="py-20 sm:py-28 bg-gradient-to-b from-background to-primary/[0.02]"
+      className="py-14 sm:py-28 bg-gradient-to-b from-background to-primary/[0.02]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -73,22 +73,22 @@ export default function Passport() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
         >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-4">
+          <span className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             SkillFleet Passport
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             How It <span className="text-primary">Works</span>
           </h2>
-          <p className="text-lg text-muted max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted max-w-2xl mx-auto">
             A simple 4-step journey that connects students, schools, and parents
             through meaningful learning milestones.
           </p>
         </motion.div>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 relative">
           {/* Connecting line (desktop) */}
           <div className="hidden lg:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-primary/20 via-primary-light/20 via-accent-teal/20 to-accent-purple/20" />
 
@@ -106,24 +106,24 @@ export default function Passport() {
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 5 }}
                 transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                className={`w-16 h-16 rounded-full ${step.color} flex items-center justify-center mx-auto mb-5 relative z-10`}
+                className={`w-10 h-10 sm:w-16 sm:h-16 rounded-full ${step.color} flex items-center justify-center mx-auto mb-3 sm:mb-5 relative z-10`}
                 style={{
                   boxShadow:
                     "6px 6px 14px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.6)",
                 }}
               >
-                <step.icon className="w-7 h-7" />
+                <step.icon className="w-5 h-5 sm:w-7 sm:h-7" />
               </motion.div>
 
               {/* Content */}
-              <div className="clay-card p-6">
-                <span className="text-xs font-bold text-muted uppercase tracking-widest">
+              <div className="clay-card p-3 sm:p-6">
+                <span className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-widest">
                   Step {step.step}
                 </span>
-                <h3 className="font-display text-xl font-bold text-foreground mt-2 mb-3">
+                <h3 className="font-display text-sm sm:text-xl font-bold text-foreground mt-1 sm:mt-2 mb-1.5 sm:mb-3">
                   {step.title}
                 </h3>
-                <p className="text-sm text-muted leading-relaxed">
+                <p className="text-xs sm:text-sm text-muted leading-relaxed">
                   {step.description}
                 </p>
               </div>

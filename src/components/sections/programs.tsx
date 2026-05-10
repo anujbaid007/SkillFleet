@@ -76,7 +76,7 @@ const cardVariants = {
 
 export default function Programs() {
   return (
-    <section id="programs" className="py-20 sm:py-28 relative overflow-hidden">
+    <section id="programs" className="py-14 sm:py-28 relative overflow-hidden">
       <FloatingDoodles variant="programs" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
@@ -85,23 +85,23 @@ export default function Programs() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
         >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/5 text-primary text-sm font-semibold mb-4">
+          <span className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-primary/5 text-primary text-xs sm:text-sm font-semibold mb-3 sm:mb-4">
             Our Programs
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
             Four Pillars of{" "}
             <span className="text-primary">Real-World Learning</span>
           </h2>
-          <p className="text-lg text-muted max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted max-w-2xl mx-auto">
             Beyond textbooks and classrooms — we bring learning to life through
             experiences that inspire, challenge, and transform.
           </p>
         </motion.div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-6 lg:gap-8">
           {programs.map((program, index) => (
             <Link key={program.title} href={program.href}>
               <motion.div
@@ -114,40 +114,40 @@ export default function Programs() {
                 className="clay-card relative overflow-hidden group cursor-pointer h-full"
               >
                 {/* Image strip */}
-                <div className="relative h-44 overflow-hidden">
+                <div className="relative h-24 sm:h-44 overflow-hidden">
                   <Image
                     src={program.image}
                     alt={program.title}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                    sizes="(max-width: 768px) 50vw, 50vw"
                   />
                   <div className={`absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent`} />
                   {/* Icon overlay */}
                   <div
-                    className={`absolute bottom-4 left-6 w-12 h-12 rounded-2xl ${program.color} flex items-center justify-center backdrop-blur-sm`}
+                    className={`absolute bottom-2 left-3 sm:bottom-4 sm:left-6 w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl ${program.color} flex items-center justify-center backdrop-blur-sm`}
                     style={{
                       boxShadow:
                         "4px 4px 10px rgba(0,0,0,0.08), -2px -2px 6px rgba(255,255,255,0.8)",
                     }}
                   >
-                    <program.icon className="w-6 h-6" />
+                    <program.icon className="w-4 h-4 sm:w-6 sm:h-6" />
                   </div>
                 </div>
 
-                <div className="p-6 pt-4">
+                <div className="p-3 pt-2 sm:p-6 sm:pt-4">
                   {/* Title */}
-                  <h3 className="font-display text-xl font-bold text-foreground mb-2">
+                  <h3 className="font-display text-sm sm:text-xl font-bold text-foreground mb-1 sm:mb-2">
                     {program.title}
                   </h3>
 
                   {/* Description */}
-                  <p className="text-sm text-muted leading-relaxed mb-4">
+                  <p className="text-xs sm:text-sm text-muted leading-relaxed mb-2 sm:mb-4 line-clamp-3 sm:line-clamp-none">
                     {program.description}
                   </p>
 
-                  {/* Highlights */}
-                  <div className="flex flex-wrap gap-2 mb-4">
+                  {/* Highlights — hidden on mobile */}
+                  <div className="hidden sm:flex flex-wrap gap-2 mb-4">
                     {program.highlights.map((h) => (
                       <span
                         key={h}
@@ -159,9 +159,9 @@ export default function Programs() {
                   </div>
 
                   {/* CTA */}
-                  <div className="flex items-center gap-2 text-sm font-semibold text-primary group-hover:gap-3 transition-all">
+                  <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-semibold text-primary group-hover:gap-3 transition-all">
                     <span>Learn More</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </motion.div>
