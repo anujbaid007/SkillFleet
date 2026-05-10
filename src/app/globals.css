@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-background: #F8FAFC;
+  --color-foreground: #1E293B;
+  --color-surface: #FFFFFF;
+  --color-muted: #64748B;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: #7447E1;
+  --color-primary-light: #8B5CF6;
+  --color-cta: #6D28D9;
+  --color-cta-hover: #5B21B6;
+
+  --color-accent-purple: #9333EA;
+  --color-accent-teal: #14B8A6;
+  --color-accent-pink: #EC4899;
+  --color-accent-yellow: #FBBF24;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-baloo);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #F8FAFC;
+  color: #1E293B;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+/* Claymorphism card style */
+.clay-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 3px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    8px 8px 16px rgba(0, 0, 0, 0.08),
+    -4px -4px 12px rgba(255, 255, 255, 0.9),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+.clay-card:hover {
+  box-shadow:
+    12px 12px 24px rgba(0, 0, 0, 0.1),
+    -6px -6px 16px rgba(255, 255, 255, 0.95),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  transform: translateY(-4px);
+}
+
+.clay-button {
+  border-radius: 16px;
+  border: 3px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    4px 4px 10px rgba(0, 0, 0, 0.1),
+    -2px -2px 6px rgba(255, 255, 255, 0.8),
+    inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+}
+
+.clay-button:hover {
+  box-shadow:
+    2px 2px 6px rgba(0, 0, 0, 0.12),
+    -1px -1px 4px rgba(255, 255, 255, 0.7),
+    inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  transform: translateY(-2px);
+}
+
+.clay-button:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 2px 2px 6px rgba(0, 0, 0, 0.1),
+    inset -1px -1px 4px rgba(255, 255, 255, 0.5);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Vertical marquee animation */
+@keyframes marquee-vertical {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical 10s linear infinite;
+  will-change: transform;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-vertical {
+    animation: none;
+  }
+  .clay-card:hover {
+    transform: none;
+  }
+  .clay-button:hover {
+    transform: none;
+  }
 }
