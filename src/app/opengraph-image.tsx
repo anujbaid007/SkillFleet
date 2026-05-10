@@ -1,16 +1,21 @@
 import { ImageResponse } from "next/og";
+import { readFileSync } from "fs";
+import { join } from "path";
 
-export const runtime = "edge";
 export const alt = "SkillFleet - India's First Industrial Exposure Platform";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
+  // Read the logo SVG with original colors (black + purple on white bg)
+  const rawSvg = readFileSync(join(process.cwd(), "public", "logo.svg"), "utf-8");
+  const logoSrc = `data:image/svg+xml;base64,${Buffer.from(rawSvg).toString("base64")}`;
+
   return new ImageResponse(
     (
       <div
         style={{
-          background: "linear-gradient(135deg, #7447E1 0%, #8B5CF6 35%, #9333EA 65%, #7C3AED 100%)",
+          background: "#ffffff",
           width: "100%",
           height: "100%",
           display: "flex",
@@ -27,7 +32,7 @@ export default async function Image() {
             inset: 0,
             opacity: 0.06,
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+              "radial-gradient(circle at 1px 1px, #7447E1 1px, transparent 0)",
             backgroundSize: "28px 28px",
           }}
         />
@@ -41,7 +46,7 @@ export default async function Image() {
             width: 400,
             height: 400,
             borderRadius: "50%",
-            background: "rgba(255,255,255,0.04)",
+            background: "rgba(116,71,224,0.05)",
             filter: "blur(60px)",
           }}
         />
@@ -53,53 +58,27 @@ export default async function Image() {
             width: 350,
             height: 350,
             borderRadius: "50%",
-            background: "rgba(255,255,255,0.03)",
+            background: "rgba(116,71,224,0.04)",
             filter: "blur(60px)",
           }}
         />
 
-        {/* Logo "!" icon */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <svg
-            width="80"
-            height="80"
-            viewBox="0 0 512 512"
-          >
-            <rect width="512" height="512" rx="112" fill="rgba(255,255,255,0.15)" />
-            <rect x="210" y="80" width="92" height="248" rx="16" fill="#fff" />
-            <circle cx="256" cy="408" r="56" fill="#fff" />
-          </svg>
-        </div>
-
-        {/* Title */}
-        <div
-          style={{
-            display: "flex",
-            fontSize: 72,
-            fontWeight: 800,
-            color: "white",
-            letterSpacing: "-2px",
-            marginBottom: 8,
-          }}
-        >
-          sk!llfleet
-        </div>
+        {/* Actual SkillFleet logo (white) */}
+        <img
+          src={logoSrc}
+          width={420}
+          height={115}
+          style={{ marginBottom: 24 }}
+        />
 
         {/* Tagline */}
         <div
           style={{
             display: "flex",
             fontSize: 28,
-            color: "rgba(255,255,255,0.7)",
+            color: "rgba(0,0,0,0.5)",
             fontWeight: 500,
-            marginBottom: 32,
+            marginBottom: 40,
           }}
         >
           India&apos;s First Industrial Exposure Platform
@@ -129,7 +108,7 @@ export default async function Image() {
                 style={{
                   fontSize: 36,
                   fontWeight: 800,
-                  color: "#FCD34D",
+                  color: "#7447E1",
                 }}
               >
                 {stat.value}
@@ -137,7 +116,7 @@ export default async function Image() {
               <div
                 style={{
                   fontSize: 16,
-                  color: "rgba(255,255,255,0.5)",
+                  color: "rgba(0,0,0,0.4)",
                   fontWeight: 500,
                 }}
               >
