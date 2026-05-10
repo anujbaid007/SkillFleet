@@ -30,8 +30,8 @@ export default function Home() {
         <Stats />
         <Testimonials />
         <FAQ />
-        <Contact />
         <JoinCTA />
+        <Contact />
       </main>
       <Footer />
     </>
