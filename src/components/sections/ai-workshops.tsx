@@ -249,8 +249,8 @@ export default function AIWorkshops() {
             {/* Image header */}
             <div className="relative h-48 overflow-hidden">
               <Image
-                src="/images/kids-learning.jpg"
-                alt="Corporate AI workshop training"
+                src="/images/corporate-ai.jpg"
+                alt="Human and AI collaboration — corporate workshop"
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"

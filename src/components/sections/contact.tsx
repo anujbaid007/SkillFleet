@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import { motion } from "motion/react";
 import {
   Phone,
@@ -10,7 +11,57 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const WA_NUMBER = "917508807490";
+
+function buildWhatsAppURL(data: {
+  childName: string;
+  guardianName: string;
+  email: string;
+  phone: string;
+  age: string;
+  grade: string;
+  message: string;
+}) {
+  const lines = [
+    `Hi, i'm interested to know more about SkillFleet!`,
+    ``,
+    `--- Registration Details ---`,
+    `Child's Name: ${data.childName || "Not provided"}`,
+    `Guardian Name: ${data.guardianName || "Not provided"}`,
+    `Email: ${data.email || "Not provided"}`,
+    `Phone: ${data.phone || "Not provided"}`,
+    `Child's Age: ${data.age || "Not selected"}`,
+    `Grade Level: ${data.grade || "Not selected"}`,
+  ];
+  if (data.message.trim()) {
+    lines.push(`Message: ${data.message.trim()}`);
+  }
+  return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
+const inputClass =
+  "w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground";
+
 export default function Contact() {
+  const [form, setForm] = useState({
+    childName: "",
+    guardianName: "",
+    email: "",
+    phone: "",
+    age: "",
+    grade: "",
+    message: "",
+  });
+
+  const update = (field: string, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = buildWhatsAppURL(form);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <section
       id="contact"
@@ -46,6 +97,23 @@ export default function Contact() {
             transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="lg:col-span-2 space-y-6"
           >
+            {/* Image */}
+            <div
+              className="relative aspect-[4/3] rounded-[20px] overflow-hidden border-[3px] border-white/70"
+              style={{
+                boxShadow:
+                  "8px 8px 20px rgba(0,0,0,0.08), -4px -4px 12px rgba(255,255,255,0.9), inset 0 2px 4px rgba(255,255,255,0.6)",
+              }}
+            >
+              <Image
+                src="/images/skillfleet-students.png"
+                alt="SkillFleet students"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 40vw"
+              />
+            </div>
+
             <div className="clay-card p-6">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -110,33 +178,31 @@ export default function Contact() {
                 Register Your Child
               </h3>
 
-              <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+              <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label
-                      htmlFor="childName"
-                      className="block text-sm font-medium text-foreground mb-1.5"
-                    >
+                    <label htmlFor="childName" className="block text-sm font-medium text-foreground mb-1.5">
                       Child&apos;s Full Name
                     </label>
                     <input
                       type="text"
                       id="childName"
-                      className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground"
+                      value={form.childName}
+                      onChange={(e) => update("childName", e.target.value)}
+                      className={inputClass}
                       placeholder="Enter child's name"
                     />
                   </div>
                   <div>
-                    <label
-                      htmlFor="guardianName"
-                      className="block text-sm font-medium text-foreground mb-1.5"
-                    >
+                    <label htmlFor="guardianName" className="block text-sm font-medium text-foreground mb-1.5">
                       Guardian Name
                     </label>
                     <input
                       type="text"
                       id="guardianName"
-                      className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground"
+                      value={form.guardianName}
+                      onChange={(e) => update("guardianName", e.target.value)}
+                      className={inputClass}
                       placeholder="Enter guardian's name"
                     />
                   </div>
@@ -144,30 +210,28 @@ export default function Contact() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label
-                      htmlFor="email"
-                      className="block text-sm font-medium text-foreground mb-1.5"
-                    >
+                    <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
                       Email
                     </label>
                     <input
                       type="email"
                       id="email"
-                      className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground"
+                      value={form.email}
+                      onChange={(e) => update("email", e.target.value)}
+                      className={inputClass}
                       placeholder="your@email.com"
                     />
                   </div>
                   <div>
-                    <label
-                      htmlFor="phone"
-                      className="block text-sm font-medium text-foreground mb-1.5"
-                    >
+                    <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1.5">
                       Phone Number
                     </label>
                     <input
                       type="tel"
                       id="phone"
-                      className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground"
+                      value={form.phone}
+                      onChange={(e) => update("phone", e.target.value)}
+                      className={inputClass}
                       placeholder="+91 XXXXX XXXXX"
                     />
                   </div>
@@ -175,72 +239,63 @@ export default function Contact() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label
-                      htmlFor="age"
-                      className="block text-sm font-medium text-foreground mb-1.5"
-                    >
+                    <label htmlFor="age" className="block text-sm font-medium text-foreground mb-1.5">
                       Child&apos;s Age
                     </label>
                     <select
                       id="age"
-                      className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground cursor-pointer"
+                      value={form.age}
+                      onChange={(e) => update("age", e.target.value)}
+                      className={`${inputClass} cursor-pointer`}
                     >
                       <option value="">Select age</option>
-                      {Array.from({ length: 15 }, (_, i) => i + 3).map(
-                        (age) => (
-                          <option key={age} value={age}>
-                            {age} years
-                          </option>
-                        )
-                      )}
+                      {Array.from({ length: 15 }, (_, i) => i + 3).map((age) => (
+                        <option key={age} value={`${age} years`}>
+                          {age} years
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
-                    <label
-                      htmlFor="grade"
-                      className="block text-sm font-medium text-foreground mb-1.5"
-                    >
+                    <label htmlFor="grade" className="block text-sm font-medium text-foreground mb-1.5">
                       Grade Level
                     </label>
                     <select
                       id="grade"
-                      className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground cursor-pointer"
+                      value={form.grade}
+                      onChange={(e) => update("grade", e.target.value)}
+                      className={`${inputClass} cursor-pointer`}
                     >
                       <option value="">Select grade</option>
-                      <option value="prek">Pre-K</option>
-                      <option value="kg">Kindergarten</option>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                        (grade) => (
-                          <option key={grade} value={grade}>
-                            Grade {grade}
-                          </option>
-                        )
-                      )}
+                      <option value="Pre-K">Pre-K</option>
+                      <option value="Kindergarten">Kindergarten</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((grade) => (
+                        <option key={grade} value={`Grade ${grade}`}>
+                          Grade {grade}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-sm font-medium text-foreground mb-1.5"
-                  >
+                  <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1.5">
                     Message (Optional)
                   </label>
                   <textarea
                     id="message"
                     rows={3}
-                    className="w-full px-4 py-3 rounded-xl bg-background border-2 border-primary/10 focus:border-primary focus:outline-none transition-colors text-foreground resize-none"
+                    value={form.message}
+                    onChange={(e) => update("message", e.target.value)}
+                    className={`${inputClass} resize-none`}
                     placeholder="Any specific interests or questions?"
                   />
                 </div>
 
-                <a href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!" target="_blank" rel="noopener noreferrer" className="block">
-                  <Button size="lg" className="w-full group" type="button">
-                    <Send className="w-5 h-5 mr-2" />
-                    Submit Registration
-                  </Button>
-                </a>
+                <Button size="lg" className="w-full group" type="submit">
+                  <Send className="w-5 h-5 mr-2" />
+                  Submit Registration
+                </Button>
               </form>
             </div>
           </motion.div>

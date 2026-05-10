@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import { motion } from "motion/react";
-import { Phone, Mail, MapPin, Clock, BookOpen, PenTool } from "lucide-react";
+import { Phone, Mail, MapPin, Clock, Send, BookOpen, PenTool } from "lucide-react";
 import SubpageLayout from "@/components/subpage-layout";
 import PageBanner from "@/components/ui/page-banner";
-import WhatsAppCTA from "@/components/ui/whatsapp-cta";
+import { Button } from "@/components/ui/button";
 
 /* ------------------------------------------------------------------ */
 /*  Decorative floating SVG doodles                                   */
@@ -44,6 +45,38 @@ function HeartSVG({ className }: { className?: string }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  WhatsApp helper                                                    */
+/* ------------------------------------------------------------------ */
+
+const WA_NUMBER = "917508807490";
+
+function buildWhatsAppURL(data: {
+  childName: string;
+  guardianName: string;
+  email: string;
+  phone: string;
+  age: string;
+  grade: string;
+  message: string;
+}) {
+  const lines = [
+    `Hi, i'm interested to know more about SkillFleet!`,
+    ``,
+    `--- Registration Details ---`,
+    `Child's Name: ${data.childName || "Not provided"}`,
+    `Guardian Name: ${data.guardianName || "Not provided"}`,
+    `Email: ${data.email || "Not provided"}`,
+    `Phone: ${data.phone || "Not provided"}`,
+    `Child's Age: ${data.age || "Not selected"}`,
+    `Grade Level: ${data.grade || "Not selected"}`,
+  ];
+  if (data.message.trim()) {
+    lines.push(`Message: ${data.message.trim()}`);
+  }
+  return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Contact info data                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -52,7 +85,7 @@ const contactInfo = [
     icon: Phone,
     title: "Phone",
     primary: "+91 8076314479",
-    secondary: "Mon–Sat, 9AM–7PM IST",
+    secondary: "Mon-Sat, 9AM-7PM IST",
     secondaryIcon: Clock,
     color: "bg-primary/10 text-primary",
     borderColor: "border-primary/20",
@@ -90,9 +123,7 @@ const springIn = (delay = 0) => ({
 
 const containerVariants = {
   hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.12 },
-  },
+  visible: { transition: { staggerChildren: 0.12 } },
 };
 
 const itemVariants = {
@@ -100,19 +131,37 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 80,
-      damping: 18,
-    },
+    transition: { type: "spring" as const, stiffness: 80, damping: 18 },
   },
 };
+
+const inputClass =
+  "w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 min-h-[44px] text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition";
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
 export default function ContactPage() {
+  const [form, setForm] = useState({
+    childName: "",
+    guardianName: "",
+    email: "",
+    phone: "",
+    age: "",
+    grade: "",
+    message: "",
+  });
+
+  const update = (field: string, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = buildWhatsAppURL(form);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <SubpageLayout>
       <PageBanner
@@ -124,68 +173,26 @@ export default function ContactPage() {
 
       <section className="relative overflow-hidden py-16 sm:py-20 bg-background">
         {/* Floating doodles */}
-        <motion.div
-          animate={{ y: [0, -14, 0], rotate: [0, 15, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-16 left-[3%] hidden md:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, -14, 0], rotate: [0, 15, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-16 left-[3%] hidden md:block pointer-events-none">
           <PencilSVG className="w-10 h-10 text-primary/10" />
         </motion.div>
-
-        <motion.div
-          animate={{ y: [0, 10, 0], scale: [1, 1.15, 1] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-          className="absolute top-24 right-[6%] hidden md:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, 10, 0], scale: [1, 1.15, 1] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }} className="absolute top-24 right-[6%] hidden md:block pointer-events-none">
           <StarSVG className="w-8 h-8 text-accent-yellow/20" />
         </motion.div>
-
-        <motion.div
-          animate={{ y: [0, -10, 0], rotate: [0, -8, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute top-1/3 left-[1%] hidden lg:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, -10, 0], rotate: [0, -8, 0] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="absolute top-1/3 left-[1%] hidden lg:block pointer-events-none">
           <LightbulbSVG className="w-9 h-9 text-accent-yellow/18" />
         </motion.div>
-
-        <motion.div
-          animate={{ y: [0, 12, 0], rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-32 left-[8%] hidden lg:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, 12, 0], rotate: [0, 10, -10, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="absolute bottom-32 left-[8%] hidden lg:block pointer-events-none">
           <HeartSVG className="w-8 h-8 text-accent-pink/12" />
         </motion.div>
-
-        <motion.div
-          animate={{ y: [0, -8, 0], rotate: [0, 12, 0] }}
-          transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-          className="absolute bottom-20 right-[5%] hidden md:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, -8, 0], rotate: [0, 12, 0] }} transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }} className="absolute bottom-20 right-[5%] hidden md:block pointer-events-none">
           <PencilSVG className="w-9 h-9 text-primary/8" />
         </motion.div>
-
-        <motion.div
-          animate={{ y: [0, 8, 0], scale: [1, 1.08, 1] }}
-          transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 3 }}
-          className="absolute top-2/3 right-[2%] hidden xl:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, 8, 0], scale: [1, 1.08, 1] }} transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 3 }} className="absolute top-2/3 right-[2%] hidden xl:block pointer-events-none">
           <BookOpen className="w-10 h-10 text-accent-teal/12" />
         </motion.div>
-
-        <motion.div
-          animate={{ y: [0, -10, 0], rotate: [0, -15, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-          className="absolute top-1/2 right-[8%] hidden xl:block pointer-events-none"
-        >
+        <motion.div animate={{ y: [0, -10, 0], rotate: [0, -15, 0] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.8 }} className="absolute top-1/2 right-[8%] hidden xl:block pointer-events-none">
           <PenTool className="w-7 h-7 text-accent-purple/10" />
-        </motion.div>
-
-        <motion.div
-          animate={{ y: [0, 10, 0], rotate: [0, 20, 0] }}
-          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 4 }}
-          className="absolute bottom-12 left-[45%] hidden lg:block pointer-events-none"
-        >
-          <StarSVG className="w-6 h-6 text-accent-yellow/15" />
         </motion.div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -205,11 +212,11 @@ export default function ContactPage() {
               <span className="text-primary">Adventure</span>
             </h2>
             <p className="mt-3 text-muted max-w-xl mx-auto">
-              Reach out to register, ask questions, or partner with us — we&apos;d love to hear from you.
+              Reach out to register, ask questions, or partner with us.
             </p>
           </motion.div>
 
-          {/* ---- Contact info cards ---- */}
+          {/* Contact info cards */}
           <motion.div
             variants={containerVariants}
             initial="hidden"
@@ -230,12 +237,8 @@ export default function ContactPage() {
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">
-                      {info.title}
-                    </p>
-                    <p className="font-display font-bold text-foreground text-base leading-snug">
-                      {info.primary}
-                    </p>
+                    <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">{info.title}</p>
+                    <p className="font-display font-bold text-foreground text-base leading-snug">{info.primary}</p>
                     <div className="flex items-center gap-1 mt-1 text-muted text-sm">
                       {SecIcon && <SecIcon className="w-3.5 h-3.5 shrink-0" />}
                       <span>{info.secondary}</span>
@@ -246,139 +249,123 @@ export default function ContactPage() {
             })}
           </motion.div>
 
-          {/* ---- Registration Form ---- */}
-          <motion.div
-            initial={{ opacity: 0, y: 32 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={springIn(0.1)}
-            className="clay-card p-8 sm:p-10 max-w-3xl mx-auto border border-primary/10"
-          >
-            {/* Form header */}
-            <div className="mb-8">
-              <h3 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2">
-                Register for the{" "}
-                <span className="text-primary">SkillFleet Passport</span>
-              </h3>
-              <p className="text-muted text-sm">
-                Fill in the details below and we&apos;ll reach out within 24 hours to get your child started.
-              </p>
-            </div>
-
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-5"
+          {/* Registration Form + Image */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
+            {/* Image column */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={springIn(0.1)}
+              className="lg:col-span-2 hidden lg:block"
             >
-              {/* Child's Full Name */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="child-name" className="text-sm font-semibold text-foreground">
-                  Child&apos;s Full Name <span className="text-accent-pink">*</span>
-                </label>
-                <input
-                  id="child-name"
-                  type="text"
-                  placeholder="e.g. Aarav Sharma"
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition"
+              <div
+                className="relative aspect-[3/4] rounded-[24px] overflow-hidden border-[3px] border-white/70 sticky top-28"
+                style={{
+                  boxShadow:
+                    "10px 10px 28px rgba(0,0,0,0.1), -5px -5px 14px rgba(255,255,255,0.9), inset 0 2px 4px rgba(255,255,255,0.5)",
+                }}
+              >
+                <Image
+                  src="/images/skillfleet-students.png"
+                  alt="SkillFleet students"
+                  fill
+                  className="object-cover"
+                  sizes="40vw"
                 />
               </div>
+            </motion.div>
 
-              {/* Guardian Name */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="guardian-name" className="text-sm font-semibold text-foreground">
-                  Guardian Name <span className="text-accent-pink">*</span>
-                </label>
-                <input
-                  id="guardian-name"
-                  type="text"
-                  placeholder="e.g. Priya Sharma"
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition"
-                />
+            {/* Form column */}
+            <motion.div
+              initial={{ opacity: 0, y: 32 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={springIn(0.15)}
+              className="lg:col-span-3 clay-card p-8 sm:p-10 border border-primary/10"
+            >
+              <div className="mb-8">
+                <h3 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2">
+                  Register for the{" "}
+                  <span className="text-primary">SkillFleet Passport</span>
+                </h3>
+                <p className="text-muted text-sm">
+                  Fill in the details below — your registration will be sent directly via WhatsApp.
+                </p>
               </div>
 
-              {/* Email */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="email" className="text-sm font-semibold text-foreground">
-                  Email Address <span className="text-accent-pink">*</span>
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition"
-                />
-              </div>
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cp-child-name" className="text-sm font-semibold text-foreground">
+                    Child&apos;s Full Name <span className="text-accent-pink">*</span>
+                  </label>
+                  <input id="cp-child-name" type="text" placeholder="e.g. Aarav Sharma" className={inputClass} value={form.childName} onChange={(e) => update("childName", e.target.value)} />
+                </div>
 
-              {/* Phone */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="phone" className="text-sm font-semibold text-foreground">
-                  Phone Number <span className="text-accent-pink">*</span>
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition"
-                />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cp-guardian" className="text-sm font-semibold text-foreground">
+                    Guardian Name <span className="text-accent-pink">*</span>
+                  </label>
+                  <input id="cp-guardian" type="text" placeholder="e.g. Priya Sharma" className={inputClass} value={form.guardianName} onChange={(e) => update("guardianName", e.target.value)} />
+                </div>
 
-              {/* Child's Age */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="child-age" className="text-sm font-semibold text-foreground">
-                  Child&apos;s Age Group
-                </label>
-                <select
-                  id="child-age"
-                  defaultValue=""
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition appearance-none cursor-pointer"
-                >
-                  <option value="" disabled>Select age range</option>
-                  <option value="3-6">3 – 6 years</option>
-                  <option value="7-10">7 – 10 years</option>
-                  <option value="11-13">11 – 13 years</option>
-                  <option value="14-17">14 – 17 years</option>
-                </select>
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cp-email" className="text-sm font-semibold text-foreground">
+                    Email Address <span className="text-accent-pink">*</span>
+                  </label>
+                  <input id="cp-email" type="email" placeholder="you@example.com" className={inputClass} value={form.email} onChange={(e) => update("email", e.target.value)} />
+                </div>
 
-              {/* Grade Level */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="grade" className="text-sm font-semibold text-foreground">
-                  Grade Level
-                </label>
-                <select
-                  id="grade"
-                  defaultValue=""
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition appearance-none cursor-pointer"
-                >
-                  <option value="" disabled>Select grade</option>
-                  <option value="pre-k">Pre-K</option>
-                  <option value="kindergarten">Kindergarten</option>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={`grade-${i + 1}`}>
-                      Grade {i + 1}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cp-phone" className="text-sm font-semibold text-foreground">
+                    Phone Number <span className="text-accent-pink">*</span>
+                  </label>
+                  <input id="cp-phone" type="tel" placeholder="+91 98765 43210" className={inputClass} value={form.phone} onChange={(e) => update("phone", e.target.value)} />
+                </div>
 
-              {/* Message */}
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label htmlFor="message" className="text-sm font-semibold text-foreground">
-                  Message
-                </label>
-                <textarea
-                  id="message"
-                  rows={4}
-                  placeholder="Tell us about your child's interests, any questions, or how you heard about us…"
-                  className="w-full rounded-xl border border-foreground/10 bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition resize-none"
-                />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cp-age" className="text-sm font-semibold text-foreground">
+                    Child&apos;s Age Group
+                  </label>
+                  <select id="cp-age" value={form.age} onChange={(e) => update("age", e.target.value)} className={`${inputClass} cursor-pointer`}>
+                    <option value="">Select age range</option>
+                    <option value="3-6 years">3 - 6 years</option>
+                    <option value="7-10 years">7 - 10 years</option>
+                    <option value="11-13 years">11 - 13 years</option>
+                    <option value="14-17 years">14 - 17 years</option>
+                  </select>
+                </div>
 
-              {/* Submit via WhatsApp */}
-              <div className="sm:col-span-2 pt-2">
-                <WhatsAppCTA label="Send Message" className="w-full" />
-              </div>
-            </form>
-          </motion.div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cp-grade" className="text-sm font-semibold text-foreground">
+                    Grade Level
+                  </label>
+                  <select id="cp-grade" value={form.grade} onChange={(e) => update("grade", e.target.value)} className={`${inputClass} cursor-pointer`}>
+                    <option value="">Select grade</option>
+                    <option value="Pre-K">Pre-K</option>
+                    <option value="Kindergarten">Kindergarten</option>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i + 1} value={`Grade ${i + 1}`}>Grade {i + 1}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label htmlFor="cp-message" className="text-sm font-semibold text-foreground">
+                    Message
+                  </label>
+                  <textarea id="cp-message" rows={4} placeholder="Tell us about your child's interests or any questions..." className={`${inputClass} resize-none`} value={form.message} onChange={(e) => update("message", e.target.value)} />
+                </div>
+
+                <div className="sm:col-span-2 pt-2">
+                  <Button size="lg" className="w-full group" type="submit">
+                    <Send className="w-5 h-5 mr-2" />
+                    Submit Registration
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
         </div>
       </section>
     </SubpageLayout>
