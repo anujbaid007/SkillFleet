@@ -235,10 +235,12 @@ export default function Contact() {
                   />
                 </div>
 
-                <Button size="lg" className="w-full group">
-                  <Send className="w-5 h-5 mr-2" />
-                  Submit Registration
-                </Button>
+                <a href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!" target="_blank" rel="noopener noreferrer" className="block">
+                  <Button size="lg" className="w-full group" type="button">
+                    <Send className="w-5 h-5 mr-2" />
+                    Submit Registration
+                  </Button>
+                </a>
               </form>
             </div>
           </motion.div>

@@ -229,10 +229,12 @@ export default function AIWorkshops() {
                 ))}
               </div>
 
-              <Button className="w-full sm:w-auto group">
-                Partner Your School
-                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              <a href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet%20for%20our%20school!" target="_blank" rel="noopener noreferrer">
+                <Button className="w-full sm:w-auto group">
+                  Partner Your School
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </a>
             </div>
           </motion.div>
 
@@ -315,10 +317,12 @@ export default function AIWorkshops() {
                 )}
               </div>
 
-              <Button className="w-full sm:w-auto group bg-accent-purple hover:bg-accent-purple/90">
-                Book a Workshop
-                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              <a href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20book%20an%20AI%20workshop%20for%20our%20team!" target="_blank" rel="noopener noreferrer">
+                <Button className="w-full sm:w-auto group bg-accent-purple hover:bg-accent-purple/90">
+                  Book a Workshop
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </a>
             </div>
           </motion.div>
         </div>

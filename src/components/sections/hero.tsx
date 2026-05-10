@@ -163,10 +163,12 @@ export default function Hero() {
               transition={{ ...springTransition, delay: 0.5 }}
               className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4"
             >
-              <Button size="lg" className="group">
-                Start Your Child&apos;s Journey
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              <a href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" className="group">
+                  Start Your Child&apos;s Journey
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </a>
               <Button variant="outline" size="lg" className="group">
                 <Play className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                 Watch Video

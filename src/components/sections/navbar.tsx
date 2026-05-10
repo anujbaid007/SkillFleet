@@ -1,25 +1,97 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
-  { name: "Home", href: "#home" },
-  { name: "Programs", href: "#programs" },
-  { name: "AI Workshops", href: "#ai-workshops" },
-  { name: "Age Groups", href: "#age-groups" },
-  { name: "About", href: "#about" },
-  { name: "Contact", href: "#contact" },
+interface NavItem {
+  name: string;
+  href: string;
+  children?: { name: string; href: string }[];
+}
+
+const navItems: NavItem[] = [
+  { name: "Home", href: "/" },
+  { name: "About", href: "/about" },
+  {
+    name: "Programs",
+    href: "/#programs",
+    children: [
+      { name: "Exposure Trips", href: "/programs/exposure-trips" },
+      { name: "Workshops", href: "/programs/workshops" },
+      { name: "Events", href: "/programs/events" },
+      { name: "Competitions", href: "/programs/competitions" },
+    ],
+  },
+  {
+    name: "Partners",
+    href: "/#contact",
+    children: [
+      { name: "Schools", href: "/partners/schools" },
+      { name: "Parents", href: "/partners/parents" },
+      { name: "CSR Initiatives", href: "/partners/csr" },
+    ],
+  },
+  { name: "Blog", href: "/blog" },
+  { name: "Contact", href: "/contact" },
 ];
+
+function DesktopDropdown({ item }: { item: NavItem }) {
+  const [open, setOpen] = useState(false);
+  const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const enter = () => {
+    clearTimeout(timeout.current);
+    setOpen(true);
+  };
+  const leave = () => {
+    timeout.current = setTimeout(() => setOpen(false), 150);
+  };
+
+  return (
+    <div className="relative" onMouseEnter={enter} onMouseLeave={leave}>
+      <Link
+        href={item.href}
+        className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors rounded-xl hover:bg-primary/5"
+      >
+        {item.name}
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")} />
+      </Link>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full left-0 pt-1 z-50"
+          >
+            <div className="bg-white rounded-2xl border border-primary/10 shadow-xl py-2 min-w-[200px]">
+              {item.children!.map((child) => (
+                <Link
+                  key={child.name}
+                  href={child.href}
+                  className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 transition-colors"
+                >
+                  {child.name}
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -43,7 +115,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
             {/* Logo */}
-            <Link href="#home" className="flex items-center">
+            <Link href="/" className="flex items-center">
               <Image
                 src="/logo.svg"
                 alt="SkillFleet"
@@ -56,23 +128,35 @@ export default function Navbar() {
 
             {/* Desktop Nav */}
             <div className="hidden lg:flex items-center gap-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors rounded-xl hover:bg-primary/5"
-                >
-                  {item.name}
-                </Link>
-              ))}
+              {navItems.map((item) =>
+                item.children ? (
+                  <DesktopDropdown key={item.name} item={item} />
+                ) : (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors rounded-xl hover:bg-primary/5"
+                  >
+                    {item.name}
+                  </Link>
+                )
+              )}
             </div>
 
             {/* CTA */}
             <div className="hidden lg:flex items-center gap-3">
-              <Button variant="outline" size="sm">
-                Login
-              </Button>
-              <Button size="sm">Enroll Now</Button>
+              <Link href="/contact">
+                <Button variant="outline" size="sm">
+                  Contact Us
+                </Button>
+              </Link>
+              <a
+                href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button size="sm">Enroll Now</Button>
+              </a>
             </div>
 
             {/* Mobile Toggle */}
@@ -126,20 +210,73 @@ export default function Navbar() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04 }}
                   >
-                    <Link
-                      href={item.href}
-                      onClick={() => setIsMobileOpen(false)}
-                      className="block px-4 py-3 text-base font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
-                    >
-                      {item.name}
-                    </Link>
+                    {item.children ? (
+                      <>
+                        <button
+                          onClick={() =>
+                            setMobileExpanded(
+                              mobileExpanded === item.name ? null : item.name
+                            )
+                          }
+                          className="w-full flex items-center justify-between px-4 py-3 text-base font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          {item.name}
+                          <ChevronDown
+                            className={cn(
+                              "w-4 h-4 transition-transform",
+                              mobileExpanded === item.name && "rotate-180"
+                            )}
+                          />
+                        </button>
+                        <AnimatePresence>
+                          {mobileExpanded === item.name && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pl-6 space-y-1 pb-2">
+                                {item.children.map((child) => (
+                                  <Link
+                                    key={child.name}
+                                    href={child.href}
+                                    onClick={() => setIsMobileOpen(false)}
+                                    className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
+                                  >
+                                    {child.name}
+                                  </Link>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className="block px-4 py-3 text-base font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
+                      >
+                        {item.name}
+                      </Link>
+                    )}
                   </motion.div>
                 ))}
                 <div className="pt-4 flex flex-col gap-3">
-                  <Button variant="outline" className="w-full">
-                    Login
-                  </Button>
-                  <Button className="w-full">Enroll Now</Button>
+                  <Link href="/contact">
+                    <Button variant="outline" className="w-full">
+                      Contact Us
+                    </Button>
+                  </Link>
+                  <a
+                    href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button className="w-full">Enroll Now</Button>
+                  </a>
                 </div>
               </div>
             </motion.div>
