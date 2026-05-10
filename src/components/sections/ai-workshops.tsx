@@ -81,7 +81,7 @@ export default function AIWorkshops() {
   return (
     <section
       id="ai-workshops"
-      className="py-20 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-accent-purple/[0.02]"
+      className="py-20 sm:py-28 bg-gradient-to-b from-primary/[0.02] to-accent-purple/[0.02] overflow-hidden"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
