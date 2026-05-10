@@ -165,7 +165,7 @@ export default function Navbar() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={cn(isLight && "border-white/30 text-white hover:bg-white/10")}
+                  className={cn(isLight && "bg-transparent border-white/30 text-white hover:bg-white/10")}
                 >
                   Contact Us
                 </Button>
