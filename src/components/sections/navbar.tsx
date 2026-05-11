@@ -9,17 +9,13 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-interface NavChild {
+interface NavNode {
   name: string;
   href: string;
-  children?: { name: string; href: string }[];
+  children?: NavNode[];
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  children?: NavChild[];
-}
+type NavItem = NavNode;
 
 const navItems: NavItem[] = [
   { name: "Home", href: "/" },
@@ -33,7 +29,14 @@ const navItems: NavItem[] = [
         href: "/partners/schools",
         children: [
           { name: "Exposure Trips", href: "/programs/exposure-trips" },
-          { name: "Workshops", href: "/programs/workshops" },
+          {
+            name: "Workshops",
+            href: "/programs/workshops",
+            children: [
+              { name: "AI for Teachers", href: "/programs/teacher-workshops" },
+              { name: "AI for Students", href: "/programs/student-workshops" },
+            ],
+          },
           { name: "Events", href: "/programs/events" },
           { name: "Competitions", href: "/programs/competitions" },
         ],
@@ -62,7 +65,7 @@ const navItems: NavItem[] = [
   { name: "Contact", href: "/contact" },
 ];
 
-function DesktopSubItem({ child }: { child: NavChild }) {
+function DesktopSubItem({ child }: { child: NavNode }) {
   const [open, setOpen] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -101,13 +104,7 @@ function DesktopSubItem({ child }: { child: NavChild }) {
           >
             <div className="bg-white rounded-2xl border border-primary/10 shadow-xl py-2 min-w-[180px]">
               {child.children.map((sub) => (
-                <Link
-                  key={sub.name}
-                  href={sub.href}
-                  className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 transition-colors"
-                >
-                  {sub.name}
-                </Link>
+                <DesktopSubItem key={sub.name} child={sub} />
               ))}
             </div>
           </motion.div>
@@ -164,11 +161,87 @@ function DesktopDropdown({ item, isLight }: { item: NavItem; isLight: boolean })
   );
 }
 
+function MobileNavNode({
+  node,
+  expanded,
+  setExpanded,
+  onNavigate,
+  depth,
+}: {
+  node: NavNode;
+  expanded: Set<string>;
+  setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
+  onNavigate: () => void;
+  depth: number;
+}) {
+  const isOpen = expanded.has(node.name);
+  const toggle = () =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(node.name)) next.delete(node.name);
+      else next.add(node.name);
+      return next;
+    });
+
+  if (!node.children) {
+    return (
+      <Link
+        href={node.href}
+        onClick={onNavigate}
+        className={cn(
+          "block px-4 rounded-xl transition-colors text-muted hover:text-foreground hover:bg-primary/5",
+          depth === 0 ? "py-3 text-base font-medium" : "py-2.5 text-sm"
+        )}
+      >
+        {node.name}
+      </Link>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={toggle}
+        className={cn(
+          "w-full flex items-center justify-between px-4 rounded-xl transition-colors cursor-pointer text-muted hover:text-foreground hover:bg-primary/5",
+          depth === 0 ? "py-3 text-base font-medium" : "py-2.5 text-sm font-medium"
+        )}
+      >
+        {node.name}
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isOpen && "rotate-180")} />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="pl-4 space-y-1 pb-1">
+              {node.children.map((child) => (
+                <MobileNavNode
+                  key={child.name}
+                  node={child}
+                  expanded={expanded}
+                  setExpanded={setExpanded}
+                  onNavigate={onNavigate}
+                  depth={depth + 1}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
-  const [mobileSubExpanded, setMobileSubExpanded] = useState<string | null>(null);
+  const [mobileExpanded, setMobileExpanded] = useState<Set<string>>(new Set());
   const pathname = usePathname();
   const isHome = pathname === "/";
 
@@ -305,94 +378,13 @@ export default function Navbar() {
                     transition={{ delay: i * 0.04 }}
                   >
                     {item.children ? (
-                      <>
-                        <button
-                          onClick={() => {
-                            setMobileExpanded(
-                              mobileExpanded === item.name ? null : item.name
-                            );
-                            setMobileSubExpanded(null);
-                          }}
-                          className="w-full flex items-center justify-between px-4 py-3 text-base font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
-                        >
-                          {item.name}
-                          <ChevronDown
-                            className={cn(
-                              "w-4 h-4 transition-transform",
-                              mobileExpanded === item.name && "rotate-180"
-                            )}
-                          />
-                        </button>
-                        <AnimatePresence>
-                          {mobileExpanded === item.name && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="pl-4 space-y-1 pb-2">
-                                {item.children.map((child) =>
-                                  child.children ? (
-                                    <div key={child.name}>
-                                      <button
-                                        onClick={() =>
-                                          setMobileSubExpanded(
-                                            mobileSubExpanded === child.name ? null : child.name
-                                          )
-                                        }
-                                        className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
-                                      >
-                                        {child.name}
-                                        <ChevronDown
-                                          className={cn(
-                                            "w-3.5 h-3.5 transition-transform",
-                                            mobileSubExpanded === child.name && "rotate-180"
-                                          )}
-                                        />
-                                      </button>
-                                      <AnimatePresence>
-                                        {mobileSubExpanded === child.name && (
-                                          <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: "auto" }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="overflow-hidden"
-                                          >
-                                            <div className="pl-4 space-y-1 pb-1">
-                                              {child.children.map((sub) => (
-                                                <Link
-                                                  key={sub.name}
-                                                  href={sub.href}
-                                                  onClick={() => setIsMobileOpen(false)}
-                                                  className="block px-4 py-2 text-sm text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
-                                                >
-                                                  {sub.name}
-                                                </Link>
-                                              ))}
-                                            </div>
-                                          </motion.div>
-                                        )}
-                                      </AnimatePresence>
-                                    </div>
-                                  ) : (
-                                    <Link
-                                      key={child.name}
-                                      href={child.href}
-                                      onClick={() => setIsMobileOpen(false)}
-                                      className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
-                                    >
-                                      {child.name}
-                                    </Link>
-                                  )
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </>
+                      <MobileNavNode
+                        node={item}
+                        expanded={mobileExpanded}
+                        setExpanded={setMobileExpanded}
+                        onNavigate={() => setIsMobileOpen(false)}
+                        depth={0}
+                      />
                     ) : (
                       <Link
                         href={item.href}
