@@ -9,10 +9,16 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-interface NavItem {
+interface NavChild {
   name: string;
   href: string;
   children?: { name: string; href: string }[];
+}
+
+interface NavItem {
+  name: string;
+  href: string;
+  children?: NavChild[];
 }
 
 const navItems: NavItem[] = [
@@ -22,15 +28,24 @@ const navItems: NavItem[] = [
     name: "Programs",
     href: "/#programs",
     children: [
-      { name: "Exposure Trips", href: "/programs/exposure-trips" },
-      { name: "Workshops", href: "/programs/workshops" },
-      { name: "Corporate Workshops", href: "/programs/corporate-workshops" },
-      { name: "Teacher Workshops", href: "/programs/teacher-workshops" },
-      { name: "Events", href: "/programs/events" },
-      { name: "Competitions", href: "/programs/competitions" },
-      { name: "For Schools", href: "/partners/schools" },
+      {
+        name: "For Schools",
+        href: "/partners/schools",
+        children: [
+          { name: "Exposure Trips", href: "/programs/exposure-trips" },
+          { name: "Workshops", href: "/programs/workshops" },
+          { name: "Events", href: "/programs/events" },
+          { name: "Competitions", href: "/programs/competitions" },
+        ],
+      },
       { name: "For CSRs", href: "/partners/csr" },
-      { name: "For Corporates", href: "/programs/corporate-workshops" },
+      {
+        name: "For Corporates",
+        href: "/programs/corporates",
+        children: [
+          { name: "Workshop", href: "/programs/corporate-workshops" },
+        ],
+      },
     ],
   },
   {
@@ -46,6 +61,61 @@ const navItems: NavItem[] = [
   { name: "Blog", href: "/blog" },
   { name: "Contact", href: "/contact" },
 ];
+
+function DesktopSubItem({ child }: { child: NavChild }) {
+  const [open, setOpen] = useState(false);
+  const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  if (!child.children) {
+    return (
+      <Link
+        href={child.href}
+        className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 transition-colors"
+      >
+        {child.name}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => { clearTimeout(timeout.current); setOpen(true); }}
+      onMouseLeave={() => { timeout.current = setTimeout(() => setOpen(false), 150); }}
+    >
+      <Link
+        href={child.href}
+        className="flex items-center justify-between px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 transition-colors"
+      >
+        {child.name}
+        <ChevronDown className={cn("w-3 h-3 -rotate-90", open && "rotate-0")} />
+      </Link>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute left-full top-0 pl-1 z-50"
+          >
+            <div className="bg-white rounded-2xl border border-primary/10 shadow-xl py-2 min-w-[180px]">
+              {child.children.map((sub) => (
+                <Link
+                  key={sub.name}
+                  href={sub.href}
+                  className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 transition-colors"
+                >
+                  {sub.name}
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function DesktopDropdown({ item, isLight }: { item: NavItem; isLight: boolean }) {
   const [open, setOpen] = useState(false);
@@ -84,13 +154,7 @@ function DesktopDropdown({ item, isLight }: { item: NavItem; isLight: boolean })
           >
             <div className="bg-white rounded-2xl border border-primary/10 shadow-xl py-2 min-w-[200px]">
               {item.children!.map((child) => (
-                <Link
-                  key={child.name}
-                  href={child.href}
-                  className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 transition-colors"
-                >
-                  {child.name}
-                </Link>
+                <DesktopSubItem key={child.name} child={child} />
               ))}
             </div>
           </motion.div>
@@ -104,6 +168,7 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const [mobileSubExpanded, setMobileSubExpanded] = useState<string | null>(null);
   const pathname = usePathname();
   const isHome = pathname === "/";
 
@@ -242,11 +307,12 @@ export default function Navbar() {
                     {item.children ? (
                       <>
                         <button
-                          onClick={() =>
+                          onClick={() => {
                             setMobileExpanded(
                               mobileExpanded === item.name ? null : item.name
-                            )
-                          }
+                            );
+                            setMobileSubExpanded(null);
+                          }}
                           className="w-full flex items-center justify-between px-4 py-3 text-base font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
                         >
                           {item.name}
@@ -266,17 +332,62 @@ export default function Navbar() {
                               transition={{ duration: 0.2 }}
                               className="overflow-hidden"
                             >
-                              <div className="pl-6 space-y-1 pb-2">
-                                {item.children.map((child) => (
-                                  <Link
-                                    key={child.name}
-                                    href={child.href}
-                                    onClick={() => setIsMobileOpen(false)}
-                                    className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
-                                  >
-                                    {child.name}
-                                  </Link>
-                                ))}
+                              <div className="pl-4 space-y-1 pb-2">
+                                {item.children.map((child) =>
+                                  child.children ? (
+                                    <div key={child.name}>
+                                      <button
+                                        onClick={() =>
+                                          setMobileSubExpanded(
+                                            mobileSubExpanded === child.name ? null : child.name
+                                          )
+                                        }
+                                        className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
+                                      >
+                                        {child.name}
+                                        <ChevronDown
+                                          className={cn(
+                                            "w-3.5 h-3.5 transition-transform",
+                                            mobileSubExpanded === child.name && "rotate-180"
+                                          )}
+                                        />
+                                      </button>
+                                      <AnimatePresence>
+                                        {mobileSubExpanded === child.name && (
+                                          <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                          >
+                                            <div className="pl-4 space-y-1 pb-1">
+                                              {child.children.map((sub) => (
+                                                <Link
+                                                  key={sub.name}
+                                                  href={sub.href}
+                                                  onClick={() => setIsMobileOpen(false)}
+                                                  className="block px-4 py-2 text-sm text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
+                                                >
+                                                  {sub.name}
+                                                </Link>
+                                              ))}
+                                            </div>
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
+                                    </div>
+                                  ) : (
+                                    <Link
+                                      key={child.name}
+                                      href={child.href}
+                                      onClick={() => setIsMobileOpen(false)}
+                                      className="block px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-primary/5 rounded-xl transition-colors"
+                                    >
+                                      {child.name}
+                                    </Link>
+                                  )
+                                )}
                               </div>
                             </motion.div>
                           )}
