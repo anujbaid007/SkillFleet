@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
       { name: "For CSRs", href: "/partners/csr" },
       {
         name: "For Corporates",
-        href: "/programs/corporates",
+        href: "/programs/corporate-workshops",
         children: [
           { name: "Workshop", href: "/programs/corporate-workshops" },
         ],
