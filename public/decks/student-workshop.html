@@ -931,7 +931,7 @@ document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.
 let tx=0;scaler.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});scaler.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)go(dx<0?cur+1:cur-1);},{passive:true});
 function resize(){const scale=Math.min(window.innerWidth/1280,window.innerHeight/720);const sw=1280*scale,sh=720*scale;scaler.style.transform=`scale(${scale})`;scaler.style.left=`${(window.innerWidth-sw)/2}px`;scaler.style.top=`${(window.innerHeight-sh)/2}px`;}
 window.addEventListener('resize',resize);resize();
-function exportPDF(){setTimeout(()=>window.print(),80);}
+function exportPDF(){const a=document.createElement('a');a.href='/decks/AI-For-Students-Workshop-by-Skillfleet.pdf';a.download='AI For Students Workshop by Skillfleet.pdf';document.body.appendChild(a);a.click();document.body.removeChild(a);}
 </script>
 </body>
 </html>
