@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# supabase (contains schema/migrations we don't want on github)
+/supabase
+
 # vercel
 .vercel
 

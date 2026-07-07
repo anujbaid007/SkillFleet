@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
           },
           { name: "Events", href: "/programs/events" },
           { name: "Competitions", href: "/programs/competitions" },
+          { name: "Internships", href: "/programs/internships" },
         ],
       },
       { name: "For CSRs", href: "/partners/csr" },
@@ -314,6 +315,15 @@ export default function Navbar() {
                   Contact Us
                 </Button>
               </Link>
+              <Link href="/login">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(isLight && "bg-transparent border-white/30 text-white hover:bg-white/10")}
+                >
+                  Log In
+                </Button>
+              </Link>
               <a
                 href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!"
                 target="_blank"
@@ -397,7 +407,12 @@ export default function Navbar() {
                   </motion.div>
                 ))}
                 <div className="pt-4 flex flex-col gap-3">
-                  <Link href="/contact">
+                  <Link href="/login" onClick={() => setIsMobileOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      Log In
+                    </Button>
+                  </Link>
+                  <Link href="/contact" onClick={() => setIsMobileOpen(false)}>
                     <Button variant="outline" className="w-full">
                       Contact Us
                     </Button>

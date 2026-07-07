@@ -11,6 +11,7 @@ const footerLinks = {
     { name: "Workshops", href: "#programs" },
     { name: "Events", href: "#programs" },
     { name: "Competitions", href: "#programs" },
+    { name: "Internships", href: "/programs/internships" },
     { name: "AI Workshops", href: "#ai-workshops" },
   ],
   company: [
