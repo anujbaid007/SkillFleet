@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3 Hours. AI-Ready Employees. — Corporate Workshop Proposal 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+:root {
+  --bg:    #FFFFFF;
+  --bg2:   #F5F0FF;
+  --surf:  #FFFFFF;
+  --surf2: #F8F5FF;
+  --brd:   rgba(15,23,42,0.08);
+  --brd-2: rgba(116,71,225,0.22);
+  --blue:  #7447E1;
+  --ora:   #EA580C;
+  --grn:   #059669;
+  --cyn:   #0891B2;
+  --txt:   #0F172A;
+  --mut:   #475569;
+  --mut-2: #64748B;
+  --dim:   #94A3B8;
+  --f: 'Inter', system-ui, sans-serif;
+  --f-body: 'Lato', system-ui, sans-serif;
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px;
+  --e-1: 0 1px 2px rgba(15,23,42,0.04);
+  --e-2: 0 1px 3px rgba(15,23,42,0.05), 0 4px 12px rgba(116,71,225,0.06);
+  --e-3: 0 2px 6px rgba(15,23,42,0.06), 0 12px 28px rgba(116,71,225,0.10);
+  --e-cta: 0 8px 24px rgba(234,88,12,0.32);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#E2E8F0; font-family:var(--f); overflow:hidden; -webkit-font-smoothing:antialiased; }
+#pres { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+#scaler { width:1280px; height:720px; transform-origin:top left; position:absolute; overflow:hidden; }
+#track { display:flex; width:calc(1280px * 7); height:720px; transition:transform .5s cubic-bezier(.16,1,.3,1); }
+.slide { width:1280px; height:720px; flex-shrink:0; position:relative; overflow:hidden; background:linear-gradient(160deg, var(--bg) 0%, var(--bg2) 100%); color:var(--txt); }
+.blob { position:absolute; border-radius:50%; filter:blur(100px); pointer-events:none; opacity:0.55; animation:drift 15s ease-in-out infinite alternate; }
+@keyframes drift { from{transform:translate(0,0);} to{transform:translate(22px,16px);} }
+.card { background:#FFFFFF; border:1px solid var(--brd); border-radius:var(--r-xl); position:relative; overflow:hidden; box-shadow:var(--e-2); }
+.card-hero { box-shadow:var(--e-3); }
+.card-bar { position:absolute; top:0; left:0; right:0; height:3px; border-radius:var(--r-xl) var(--r-xl) 0 0; }
+.eyebrow { font-size:11px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; line-height:1; display:inline-block; }
+.tabnum { font-variant-numeric:tabular-nums; }
+.tag { display:inline-flex; align-items:center; padding:4px 14px; border-radius:100px; font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+.snum { position:absolute; bottom:24px; right:54px; font-size:12px; font-weight:600; color:var(--dim); }
+.ic { display:inline-flex; vertical-align:middle; flex-shrink:0; }
+.ic svg { width:1em; height:1em; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.ic-circle { display:inline-flex; align-items:center; justify-content:center; border-radius:50%; flex-shrink:0; }
+.stat-num { font-family:var(--f); font-weight:800; background:linear-gradient(135deg,#7447E1,#7447E1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-2px; line-height:1; }
+
+#nav { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:10px; z-index:200; background:rgba(255,255,255,.92); backdrop-filter:blur(16px); border:1px solid rgba(15,23,42,.08); border-radius:100px; padding:8px 14px; box-shadow:0 4px 24px rgba(116,71,225,.12); }
+.nb { width:34px; height:34px; border-radius:50%; background:rgba(116,71,225,.08); border:1px solid rgba(116,71,225,.18); color:#7447E1; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .2s; user-select:none; }
+.nb:hover { background:rgba(116,71,225,.18); }
+.dots { display:flex; gap:7px; align-items:center; }
+.dot { width:6px; height:6px; border-radius:50%; background:rgba(116,71,225,.22); cursor:pointer; transition:all .35s cubic-bezier(.16,1,.3,1); }
+.dot.on { width:22px; border-radius:3px; background:#7447E1; }
+#cnt { font-size:12px; color:rgba(15,23,42,.45); font-weight:600; min-width:36px; text-align:center; }
+#xbtn { position:fixed; top:18px; right:18px; z-index:200; background:linear-gradient(135deg,#7447E1,#7447E1); color:#fff; border:none; border-radius:50px; padding:11px 22px; font-family:var(--f); font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 4px 24px rgba(116,71,225,.4); transition:all .2s; }
+#xbtn:hover { transform:translateY(-1px); box-shadow:0 8px 32px rgba(116,71,225,.55); }
+#hint { position:fixed; top:22px; left:20px; font-size:12px; color:rgba(15,23,42,.4); font-family:var(--f); z-index:200; }
+
+@media print {
+  @page { size:13.333in 7.5in; margin:0; }
+  html, body { overflow:visible !important; background:#FFFFFF !important; width:1280px !important; height:auto !important; margin:0 !important; padding:0 !important; }
+  #nav, #xbtn, #hint { display:none !important; }
+  #pres { position:static !important; display:block !important; overflow:visible !important; inset:auto !important; }
+  #scaler { position:static !important; transform:none !important; width:1280px !important; height:auto !important; left:0 !important; top:0 !important; overflow:visible !important; }
+  #track { display:block !important; width:1280px !important; height:auto !important; transform:none !important; transition:none !important; }
+  .slide { width:1280px !important; height:720px !important; page-break-after:always !important; break-after:page !important; page-break-inside:avoid !important; break-inside:avoid !important; overflow:hidden !important; }
+  .slide:last-child { page-break-after:auto !important; break-after:auto !important; }
+  * { animation:none !important; transition:none !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="pres">
+ <div id="scaler">
+  <div id="track">
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S1 — HERO
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:520px;height:520px;top:-150px;right:-120px;background:rgba(116,71,225,.22);animation-delay:-4s;"></div>
+  <div class="blob" style="width:300px;height:300px;bottom:-80px;left:-60px;background:rgba(249,115,22,.18);animation-delay:0s;"></div>
+
+  <div style="position:absolute;left:60px;top:54px;width:680px;">
+    <img src="/logo.svg" alt="Skillfleet" style="height:40px;width:auto;margin-bottom:18px;display:block;">
+    <div class="tag" style="background:rgba(116,71,225,.18);color:#7447E1;border:1px solid rgba(116,71,225,.38);margin-bottom:22px;">
+      Corporate AI Workshop &nbsp;·&nbsp; 2026
+    </div>
+
+    <div style="font-size:52px;font-weight:800;line-height:1.05;letter-spacing:-1.5px;margin-bottom:22px;">
+      <div style="margin-bottom:6px;">
+        <span style="background:linear-gradient(128deg,#7447E1,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">3 Hours.</span>
+        <span> AI-Ready Employees.</span>
+      </div>
+      <div>
+        <span style="background:linear-gradient(128deg,#EA580C,#FBBF24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Day One.</span>
+        <span> Immediate Impact.</span>
+      </div>
+    </div>
+
+    <div style="font-size:18px;color:var(--mut);line-height:1.55;max-width:680px;margin-bottom:24px;font-family:'Lato',sans-serif;">
+      A practical <span style="color:var(--txt);font-weight:700;">3-hour hands-on workshop</span> for every employee — regardless of role or department. Learn to use AI for emails, meetings, presentations, notes, documents, research, and daily planning.
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(116,71,225,.14),rgba(167,139,250,.06));border-left:4px solid #7447E1;border-radius:8px;padding:14px 18px;max-width:680px;">
+      <div style="font-size:11px;font-weight:700;color:#7447E1;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;">Why Generic?</div>
+      <div style="font-size:17px;line-height:1.45;color:var(--txt);">
+        An HR person's AI demo doesn't help a sales rep. <span style="font-weight:700;">This workshop covers workflows every single employee does — daily.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right -->
+  <div style="position:absolute;right:54px;top:54px;width:460px;display:flex;flex-direction:column;gap:16px;">
+    <div class="card card-hero" style="padding:26px 30px;text-align:center;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#7447E1,#A78BFA);"></div>
+      <div class="eyebrow" style="color:#7447E1;margin-bottom:10px;font-size:12px;">Workshop Format</div>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:12px;">
+        <div class="stat-num tabnum" style="font-size:88px;background:linear-gradient(135deg,#7447E1,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;">3</div>
+        <div style="font-size:26px;font-weight:700;color:var(--txt);">hours</div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:600;color:var(--mut);background:rgba(116,71,225,.08);padding:4px 11px;border-radius:100px;">on-site or virtual</span>
+        <span style="font-size:12px;font-weight:600;color:var(--mut);background:rgba(116,71,225,.08);padding:4px 11px;border-radius:100px;">single session</span>
+        <span style="font-size:12px;font-weight:600;color:var(--mut);background:rgba(116,71,225,.08);padding:4px 11px;border-radius:100px;">every employee</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding:22px 26px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#EA580C,#FBBF24);"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <div class="ic-circle" style="width:34px;height:34px;background:rgba(249,115,22,.18);color:#EA580C;font-size:16px;"><span class="ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span></div>
+        <div class="eyebrow" style="color:#EA580C;font-size:12px;">Daily Workflows Covered</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px;">
+        <div style="text-align:center;"><div class="ic-circle" style="width:40px;height:40px;background:rgba(116,71,225,.12);color:#7447E1;font-size:18px;margin:0 auto 6px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span></div><div style="font-size:12px;color:var(--mut);line-height:1.25;font-weight:500;">Email &amp;<br>Inbox</div></div>
+        <div style="text-align:center;"><div class="ic-circle" style="width:40px;height:40px;background:rgba(8,145,178,.12);color:#0891B2;font-size:18px;margin:0 auto 6px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span></div><div style="font-size:12px;color:var(--mut);line-height:1.25;font-weight:500;">Meetings<br>&amp; Calls</div></div>
+        <div style="text-align:center;"><div class="ic-circle" style="width:40px;height:40px;background:rgba(5,150,105,.12);color:#059669;font-size:18px;margin:0 auto 6px;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span></div><div style="font-size:12px;color:var(--mut);line-height:1.25;font-weight:500;">Presentations<br>&amp; Decks</div></div>
+        <div style="text-align:center;"><div class="ic-circle" style="width:40px;height:40px;background:rgba(234,88,12,.12);color:#EA580C;font-size:18px;margin:0 auto 6px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span></div><div style="font-size:12px;color:var(--mut);line-height:1.25;font-weight:500;">Documents<br>&amp; Notes</div></div>
+        <div style="text-align:center;"><div class="ic-circle" style="width:40px;height:40px;background:rgba(116,71,225,.12);color:#7447E1;font-size:18px;margin:0 auto 6px;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></div><div style="font-size:12px;color:var(--mut);line-height:1.25;font-weight:500;">Planning<br>&amp; Tasks</div></div>
+        <div style="text-align:center;"><div class="ic-circle" style="width:40px;height:40px;background:rgba(5,150,105,.12);color:#059669;font-size:18px;margin:0 auto 6px;"><span class="ic"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span></div><div style="font-size:12px;color:var(--mut);line-height:1.25;font-weight:500;">Excel &amp;<br>Data</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;background:rgba(116,71,225,.08);border:1px solid rgba(116,71,225,.22);border-radius:12px;padding:12px 8px;text-align:center;">
+        <div style="font-size:12px;font-weight:800;color:#7447E1;letter-spacing:1.2px;">ROLE</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px;">agnostic</div>
+      </div>
+      <div style="flex:1;background:rgba(116,71,225,.08);border:1px solid rgba(116,71,225,.22);border-radius:12px;padding:12px 8px;text-align:center;">
+        <div style="font-size:12px;font-weight:800;color:#7447E1;letter-spacing:1.2px;">HANDS-ON</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px;">not theory</div>
+      </div>
+      <div style="flex:1;background:rgba(116,71,225,.08);border:1px solid rgba(116,71,225,.22);border-radius:12px;padding:12px 8px;text-align:center;">
+        <div style="font-size:12px;font-weight:800;color:#7447E1;letter-spacing:1.2px;">DAY ONE</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px;">impact</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="snum">01 / 07</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S2 — WHY NOW
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:380px;height:380px;top:-100px;right:-60px;background:rgba(116,71,225,.14);animation-delay:-2s;"></div>
+
+  <div style="position:absolute;left:60px;top:48px;right:60px;">
+    <div style="font-size:12px;font-weight:700;color:#EA580C;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;">Why Now</div>
+    <div style="font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1.06;">Your employees already use AI.<br>Just <span style="background:linear-gradient(128deg,#DC2626,#F87171);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">not well, and not safely</span>.</div>
+  </div>
+
+  <!-- 3 stat cards -->
+  <div style="position:absolute;left:60px;right:60px;top:196px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+    <div class="card" style="padding:22px 24px;text-align:center;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#DC2626,#F87171);"></div>
+      <div class="stat-num tabnum" style="font-size:64px;background:linear-gradient(135deg,#DC2626,#F87171);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:8px;">78%</div>
+      <div style="font-size:15px;font-weight:700;color:var(--txt);margin-bottom:4px;">use unapproved AI at work</div>
+      <div style="font-size:13px;color:var(--mut);line-height:1.4;">Without training, governance, or data safety awareness.</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;">WalkMe Shadow AI Report, 2025</div>
+    </div>
+    <div class="card" style="padding:22px 24px;text-align:center;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#EA580C,#FBBF24);"></div>
+      <div class="stat-num tabnum" style="font-size:64px;background:linear-gradient(135deg,#EA580C,#FBBF24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:8px;">38%</div>
+      <div style="font-size:15px;font-weight:700;color:var(--txt);margin-bottom:4px;">shared confidential data with AI</div>
+      <div style="font-size:13px;color:var(--mut);line-height:1.4;">Pasting client names, financials, internal docs into public tools.</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;">SQ Magazine, 2026</div>
+    </div>
+    <div class="card" style="padding:22px 24px;text-align:center;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#7447E1,#A78BFA);"></div>
+      <div class="stat-num tabnum" style="font-size:64px;background:linear-gradient(135deg,#7447E1,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:8px;">90%</div>
+      <div style="font-size:15px;font-weight:700;color:var(--txt);margin-bottom:4px;">of AI risk = user error, not tool failure</div>
+      <div style="font-size:13px;color:var(--mut);line-height:1.4;">Training is the fix. Not banning AI. Not buying more tools.</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;">Gartner / RAND Corp, 2026</div>
+    </div>
+  </div>
+
+  <!-- Question reframe -->
+  <div style="position:absolute;left:60px;right:60px;top:440px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="width:32px;height:3px;background:#7447E1;border-radius:2px;"></div>
+      <div class="eyebrow" style="color:#7447E1;">The Real Question for Leadership</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 56px 1.5fr;align-items:stretch;gap:0;">
+      <div style="padding:20px 22px;background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.28);border-radius:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div class="ic-circle" style="width:24px;height:24px;background:rgba(220,38,38,.18);color:#DC2626;font-size:11px;"><span class="ic"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+          <div class="eyebrow" style="color:#DC2626;">Old Question</div>
+        </div>
+        <div style="font-size:21px;font-weight:700;color:var(--mut-2);line-height:1.25;position:relative;display:inline-block;">
+          <span style="position:relative;">Should we allow AI at work?
+            <span style="position:absolute;left:-2%;right:-2%;top:50%;height:2px;background:#DC2626;transform:rotate(-3deg);"></span>
+          </span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;">
+        <div class="ic-circle" style="width:42px;height:42px;background:#FFFFFF;border:2px solid rgba(116,71,225,.30);color:#7447E1;font-size:18px;box-shadow:var(--e-2);"><span class="ic"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+      </div>
+      <div style="padding:22px 26px;background:linear-gradient(135deg,rgba(116,71,225,.14),rgba(167,139,250,.06));border:1.5px solid rgba(116,71,225,.40);border-radius:14px;box-shadow:var(--e-2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div class="ic-circle" style="width:24px;height:24px;background:rgba(116,71,225,.22);color:#7447E1;font-size:11px;"><span class="ic"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+          <div class="eyebrow" style="color:#7447E1;">Today's Question</div>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:var(--txt);line-height:1.22;">Will every employee know how to use it <span style="color:#7447E1;">properly, safely,</span> and <span style="color:#7447E1;">productively — from day one?</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="snum">02 / 07</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S3 — THE DAILY TIME DRAIN
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:420px;height:420px;top:-110px;left:-60px;background:rgba(234,88,12,.16);animation-delay:-5s;"></div>
+
+  <div style="position:absolute;left:60px;top:48px;right:60px;">
+    <div style="font-size:12px;font-weight:700;color:#EA580C;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;">The Daily Time Drain</div>
+    <div style="font-size:42px;font-weight:800;letter-spacing:-1px;line-height:1.06;">Every employee loses <span style="background:linear-gradient(128deg,#EA580C,#FBBF24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">5–9 hours a week</span><br>on tasks AI does in minutes.</div>
+  </div>
+
+  <!-- Left: 9 task pills -->
+  <div style="position:absolute;left:60px;top:180px;bottom:44px;width:720px;display:flex;flex-direction:column;">
+    <div style="font-size:13px;font-weight:700;color:var(--mut);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;">Every single day, hours lost on:</div>
+    <div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:12px;">
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(116,71,225,.06);border:1px solid rgba(116,71,225,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(116,71,225,.18);color:#7447E1;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Reading &amp; writing emails</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(8,145,178,.18);color:#0891B2;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Meeting notes &amp; follow-ups</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(234,88,12,.06);border:1px solid rgba(234,88,12,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(234,88,12,.18);color:#EA580C;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Making presentations</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(5,150,105,.18);color:#059669;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Drafting documents</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(116,71,225,.06);border:1px solid rgba(116,71,225,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(116,71,225,.18);color:#7447E1;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Excel &amp; data work</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(8,145,178,.18);color:#0891B2;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Research &amp; reading</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(234,88,12,.06);border:1px solid rgba(234,88,12,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(234,88,12,.18);color:#EA580C;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Scheduling &amp; planning</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(5,150,105,.18);color:#059669;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Note-taking &amp; organizing</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(116,71,225,.06);border:1px solid rgba(116,71,225,.20);border-radius:14px;padding:16px 18px;">
+        <div class="ic-circle" style="width:38px;height:38px;background:rgba(116,71,225,.18);color:#7447E1;font-size:15px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span></div>
+        <div style="font-size:14px;font-weight:600;color:var(--txt);">Status reports &amp; updates</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Right: time + principle -->
+  <div style="position:absolute;right:54px;top:180px;bottom:44px;width:370px;display:flex;flex-direction:column;gap:12px;">
+    <div style="font-size:13px;font-weight:700;color:var(--mut);letter-spacing:1.2px;text-transform:uppercase;">The Productivity Gap</div>
+
+    <div class="card" style="padding:18px 22px;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#EA580C,#FBBF24);"></div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(234,88,12,.18);color:#EA580C;font-size:16px;margin:0 auto 8px;"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span></div>
+      <div class="stat-num tabnum" style="font-size:64px;background:linear-gradient(135deg,#EA580C,#FBBF24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;">5–9</div>
+      <div style="font-size:14px;color:var(--mut);margin-top:6px;font-weight:600;">hrs/week saved per trained employee</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:3px;">Microsoft Work Trend Index, 2024</div>
+    </div>
+
+    <div class="card" style="padding:18px 22px;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#7447E1,#A78BFA);"></div>
+      <div class="stat-num tabnum" style="font-size:64px;background:linear-gradient(135deg,#7447E1,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;">40%</div>
+      <div style="font-size:14px;color:var(--mut);margin-top:6px;font-weight:600;">average productivity boost with AI</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:3px;">McKinsey State of AI, 2025</div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(5,150,105,.10),rgba(16,185,129,.04));border:1px solid rgba(5,150,105,.30);border-radius:14px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div class="ic-circle" style="width:26px;height:26px;background:rgba(5,150,105,.18);color:#059669;font-size:12px;"><span class="ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span></div>
+        <div style="font-size:11px;font-weight:700;color:#059669;letter-spacing:1px;text-transform:uppercase;">The Principle</div>
+      </div>
+      <div style="font-size:13px;color:var(--txt);line-height:1.45;">
+        These tasks are <span style="font-weight:700;">role-agnostic</span> — sales, HR, finance, or ops. <span style="color:#059669;font-weight:700;">One workshop fixes it for everyone.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="snum">03 / 07</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S4 — 10 DAILY WORKFLOWS AI TRANSFORMS
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:500px;height:500px;top:-160px;right:-80px;background:rgba(116,71,225,.16);animation-delay:-5s;"></div>
+
+  <div style="position:absolute;left:60px;top:44px;right:60px;">
+    <div class="eyebrow" style="color:#7447E1;margin-bottom:10px;">What We Cover</div>
+    <div style="font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1.06;">10 daily workflows. <span style="background:linear-gradient(128deg,#7447E1,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Every employee.</span><br>Before &amp; after — live.</div>
+  </div>
+
+  <!-- 5×2 workflow grid -->
+  <div style="position:absolute;left:60px;right:60px;top:178px;bottom:48px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,1fr);gap:10px;">
+
+    <!-- 01 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#7447E1,#A78BFA);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(116,71,225,.25);line-height:1;width:34px;flex-shrink:0;">01</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(116,71,225,.14);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Morning Email Triage</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">AI summarizes overnight inbox, flags urgent, drafts replies</div>
+      </div>
+    </div>
+
+    <!-- 02 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#0891B2,#06B6D4);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(8,145,178,.25);line-height:1;width:34px;flex-shrink:0;">02</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(8,145,178,.14);color:#0891B2;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Meeting Recording &amp; Summary</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Otter, Fireflies, Copilot — auto-transcribe &amp; summarize</div>
+      </div>
+    </div>
+
+    <!-- 03 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#059669,#10B981);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(5,150,105,.25);line-height:1;width:34px;flex-shrink:0;">03</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(5,150,105,.14);color:#059669;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Action Items → Calendar</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Auto-extract tasks &amp; deadlines from meetings into your calendar</div>
+      </div>
+    </div>
+
+    <!-- 04 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#EA580C,#FBBF24);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(234,88,12,.25);line-height:1;width:34px;flex-shrink:0;">04</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(234,88,12,.14);color:#EA580C;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Presentations in Minutes</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Gamma, Copilot, ChatGPT — deck from a brief, not from scratch</div>
+      </div>
+    </div>
+
+    <!-- 05 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#A78BFA,#7447E1);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(167,139,250,.30);line-height:1;width:34px;flex-shrink:0;">05</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(167,139,250,.18);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Smart Note-Taking &amp; Recall</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Notion AI, OneNote Copilot — organize, search, never lose context</div>
+      </div>
+    </div>
+
+    <!-- 06 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#059669,#10B981);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(5,150,105,.25);line-height:1;width:34px;flex-shrink:0;">06</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(5,150,105,.14);color:#059669;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Excel &amp; Spreadsheet AI</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Natural language formulas, charts, pivot tables — no expertise needed</div>
+      </div>
+    </div>
+
+    <!-- 07 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#7447E1,#A78BFA);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(116,71,225,.25);line-height:1;width:34px;flex-shrink:0;">07</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(116,71,225,.14);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Document Drafting &amp; Editing</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Write, rewrite, summarize, translate — Word Copilot, Claude, ChatGPT</div>
+      </div>
+    </div>
+
+    <!-- 08 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#0891B2,#06B6D4);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(8,145,178,.25);line-height:1;width:34px;flex-shrink:0;">08</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(8,145,178,.14);color:#0891B2;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Research &amp; Quick Learning</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Summarize PDFs, reports, articles — learn anything in minutes</div>
+      </div>
+    </div>
+
+    <!-- 09 -->
+    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:14px;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#EA580C,#FBBF24);"></div>
+      <div style="font-size:28px;font-weight:800;color:rgba(234,88,12,.25);line-height:1;width:34px;flex-shrink:0;">09</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(234,88,12,.14);color:#EA580C;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Professional Email Writing</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">Tone-adjust, translate, draft from bullet points — 45% faster</div>
+      </div>
+    </div>
+
+    <!-- 10 -->
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 18px;background:linear-gradient(135deg,rgba(116,71,225,.14),rgba(167,139,250,.06));border:1.5px solid rgba(116,71,225,.32);border-radius:var(--r-xl);box-shadow:var(--e-2);">
+      <div style="font-size:28px;font-weight:800;color:rgba(116,71,225,.35);line-height:1;width:34px;flex-shrink:0;">10</div>
+      <div class="ic-circle" style="width:36px;height:36px;background:rgba(116,71,225,.20);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Daily Planning &amp; Task Prioritization</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px;">AI scans inbox + calendar → suggests your priority list for the day</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="snum">04 / 07</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S5 — BEFORE vs AFTER (THE PROOF)
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:380px;height:380px;top:-80px;right:80px;background:rgba(5,150,105,.12);animation-delay:-3s;"></div>
+
+  <div style="position:absolute;left:60px;top:48px;right:60px;">
+    <div style="font-size:12px;font-weight:700;color:#059669;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;">The Proof</div>
+    <div style="font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1.06;">Same tasks. <span style="background:linear-gradient(128deg,#059669,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Fraction of the time.</span></div>
+    <div style="font-size:17px;color:var(--mut);margin-top:8px;">Real before &amp; after — for tasks every employee does every day.</div>
+  </div>
+
+  <!-- Before/After comparison table -->
+  <div style="position:absolute;left:60px;right:60px;top:196px;bottom:48px;">
+    <!-- Header row -->
+    <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;margin-bottom:6px;padding:0 18px;">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);letter-spacing:1.2px;text-transform:uppercase;">Task</div>
+      <div style="font-size:11px;font-weight:700;color:#DC2626;letter-spacing:1.2px;text-transform:uppercase;text-align:center;">Before AI</div>
+      <div style="font-size:11px;font-weight:700;color:#059669;letter-spacing:1.2px;text-transform:uppercase;text-align:center;">With AI</div>
+      <div style="font-size:11px;font-weight:700;color:#7447E1;letter-spacing:1.2px;text-transform:uppercase;text-align:center;">Time Saved</div>
+    </div>
+
+    <!-- Rows -->
+    <div style="display:flex;flex-direction:column;gap:6px;">
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;background:#fff;border:1px solid var(--brd);border-radius:12px;padding:14px 18px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="ic-circle" style="width:30px;height:30px;background:rgba(116,71,225,.12);color:#7447E1;font-size:14px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span></div><div style="font-size:14px;font-weight:600;color:var(--txt);">Email triage (50 emails)</div></div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#DC2626;">45 min</div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#059669;">5 min</div>
+        <div style="text-align:center;font-size:14px;font-weight:800;color:#7447E1;">90%</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;background:#fff;border:1px solid var(--brd);border-radius:12px;padding:14px 18px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="ic-circle" style="width:30px;height:30px;background:rgba(8,145,178,.12);color:#0891B2;font-size:14px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span></div><div style="font-size:14px;font-weight:600;color:var(--txt);">Meeting notes + action items</div></div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#DC2626;">30 min</div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#059669;">Instant</div>
+        <div style="text-align:center;font-size:14px;font-weight:800;color:#7447E1;">100%</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;background:#fff;border:1px solid var(--brd);border-radius:12px;padding:14px 18px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="ic-circle" style="width:30px;height:30px;background:rgba(234,88,12,.12);color:#EA580C;font-size:14px;"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span></div><div style="font-size:14px;font-weight:600;color:var(--txt);">10-slide presentation</div></div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#DC2626;">6–8 hrs</div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#059669;">1 hr</div>
+        <div style="text-align:center;font-size:14px;font-weight:800;color:#7447E1;">85%</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;background:#fff;border:1px solid var(--brd);border-radius:12px;padding:14px 18px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="ic-circle" style="width:30px;height:30px;background:rgba(5,150,105,.12);color:#059669;font-size:14px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span></div><div style="font-size:14px;font-weight:600;color:var(--txt);">Summarize 20-page report</div></div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#DC2626;">1 hr</div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#059669;">3 min</div>
+        <div style="text-align:center;font-size:14px;font-weight:800;color:#7447E1;">95%</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;background:#fff;border:1px solid var(--brd);border-radius:12px;padding:14px 18px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="ic-circle" style="width:30px;height:30px;background:rgba(116,71,225,.12);color:#7447E1;font-size:14px;"><span class="ic"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span></div><div style="font-size:14px;font-weight:600;color:var(--txt);">Excel formula + chart</div></div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#DC2626;">2 hrs</div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#059669;">10 min</div>
+        <div style="text-align:center;font-size:14px;font-weight:800;color:#7447E1;">92%</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:0;background:#fff;border:1px solid var(--brd);border-radius:12px;padding:14px 18px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="ic-circle" style="width:30px;height:30px;background:rgba(234,88,12,.12);color:#EA580C;font-size:14px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span></div><div style="font-size:14px;font-weight:600;color:var(--txt);">Draft professional email</div></div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#DC2626;">10 min</div>
+        <div style="text-align:center;font-size:15px;font-weight:700;color:#059669;">2 min</div>
+        <div style="text-align:center;font-size:14px;font-weight:800;color:#7447E1;">80%</div>
+      </div>
+
+    </div>
+
+    <!-- Footer stat -->
+    <div style="position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(116,71,225,.10),rgba(167,139,250,.04));border:1px solid rgba(116,71,225,.30);border-radius:12px;padding:12px 18px;">
+      <div class="ic-circle" style="width:32px;height:32px;background:rgba(116,71,225,.20);color:#7447E1;font-size:15px;flex-shrink:0;">
+        <span class="ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+      </div>
+      <div style="font-size:15px;color:var(--mut);"><span style="color:#7447E1;font-weight:700;">Every task is role-agnostic.</span> Whether you're a manager, analyst, executive, or coordinator — you do these tasks daily. Sources: Microsoft, Forrester, Apollo Technical.</div>
+    </div>
+  </div>
+
+  <div class="snum">05 / 07</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S6 — RESPONSIBLE AI BUILT IN
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:420px;height:420px;top:-110px;left:-60px;background:rgba(5,150,105,.12);animation-delay:-4s;"></div>
+
+  <div style="position:absolute;left:60px;top:48px;right:60px;display:flex;align-items:flex-end;justify-content:space-between;gap:30px;">
+    <div style="flex:1;">
+      <div style="font-size:12px;font-weight:700;color:#059669;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;">Responsible AI</div>
+      <div style="font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1.06;">Your team learns the <span style="background:linear-gradient(128deg,#059669,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">3 rules</span><br>before they touch any tool.</div>
+    </div>
+    <div class="ic-circle" style="width:96px;height:96px;background:linear-gradient(135deg,rgba(5,150,105,.18),rgba(16,185,129,.06));border:2px solid rgba(5,150,105,.40);color:#059669;font-size:44px;flex-shrink:0;">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
+    </div>
+  </div>
+
+  <!-- Key stat -->
+  <div style="position:absolute;left:60px;right:60px;top:204px;background:#FFFFFF;border:1px solid var(--brd);border-left:4px solid #DC2626;border-radius:14px;padding:18px 22px;display:flex;align-items:flex-start;gap:18px;box-shadow:var(--e-2);">
+    <div class="ic-circle" style="width:48px;height:48px;background:rgba(220,38,38,.14);color:#DC2626;font-size:21px;flex-shrink:0;">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    </div>
+    <div style="flex:1;">
+      <div class="eyebrow" style="color:#DC2626;margin-bottom:6px;">Why This Matters</div>
+      <div style="font-size:16px;color:var(--txt);line-height:1.5;">
+        <span style="font-weight:700;color:#DC2626;">90% of AI risk incidents</span> trace back to employees not understanding what the tool can and cannot do. <span style="font-weight:700;">Training — not technology — is the fix.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 rules -->
+  <div style="position:absolute;left:60px;right:60px;top:316px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;height:260px;">
+
+    <div class="card" style="padding:22px 24px;display:flex;flex-direction:column;align-items:flex-start;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#DC2626,#F87171);"></div>
+      <div class="ic-circle" style="width:54px;height:54px;background:rgba(220,38,38,.16);color:#DC2626;font-size:24px;margin-bottom:14px;">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#DC2626;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;">Rule 1 · Data Privacy</div>
+      <div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:8px;line-height:1.2;">Never paste confidential data into public AI.</div>
+      <div style="font-size:13px;color:var(--mut);line-height:1.45;">No client names. No financials. No internal docs. No personal info.</div>
+    </div>
+
+    <div class="card" style="padding:22px 24px;display:flex;flex-direction:column;align-items:flex-start;background:linear-gradient(135deg,rgba(116,71,225,.08),rgba(167,139,250,.02));border-color:rgba(116,71,225,.30);">
+      <div class="card-bar" style="background:linear-gradient(90deg,#7447E1,#A78BFA);"></div>
+      <div class="ic-circle" style="width:54px;height:54px;background:rgba(116,71,225,.20);color:#7447E1;font-size:24px;margin-bottom:14px;">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg></span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#7447E1;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;">Rule 2 · Authority</div>
+      <div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:8px;line-height:1.2;">AI drafts. You decide.</div>
+      <div style="font-size:13px;color:var(--mut);line-height:1.45;">AI is your assistant, not your boss. Every output needs your judgment.</div>
+    </div>
+
+    <div class="card" style="padding:22px 24px;display:flex;flex-direction:column;align-items:flex-start;">
+      <div class="card-bar" style="background:linear-gradient(90deg,#059669,#10B981);"></div>
+      <div class="ic-circle" style="width:54px;height:54px;background:rgba(5,150,105,.16);color:#059669;font-size:24px;margin-bottom:14px;">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#059669;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;">Rule 3 · Verify</div>
+      <div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:8px;line-height:1.2;">Always verify AI output.</div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <div style="font-size:12px;color:var(--mut);"><span style="color:#059669;font-weight:700;">&#10003;</span> Check facts &amp; numbers</div>
+        <div style="font-size:12px;color:var(--mut);"><span style="color:#059669;font-weight:700;">&#10003;</span> Spot hallucinations</div>
+        <div style="font-size:12px;color:var(--mut);"><span style="color:#059669;font-weight:700;">&#10003;</span> Confirm tone &amp; accuracy</div>
+        <div style="font-size:12px;color:var(--mut);"><span style="color:#059669;font-weight:700;">&#10003;</span> Never send without reading</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="position:absolute;left:60px;right:60px;bottom:50px;display:flex;align-items:center;gap:12px;background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.22);border-radius:12px;padding:12px 18px;">
+    <div class="ic-circle" style="width:32px;height:32px;background:rgba(5,150,105,.20);color:#059669;font-size:15px;flex-shrink:0;">
+      <span class="ic"><svg viewBox="0 0 24 24"><polyline points="22 11.08 22 12 12 22 2 12 12 2 17 2"/><polyline points="20 6 12 14 8 10"/></svg></span>
+    </div>
+    <div style="font-size:15px;color:var(--mut);"><span style="color:#059669;font-weight:700;">Built in, not bolted on.</span> A live hallucination-spotting exercise is part of the workshop.</div>
+  </div>
+
+  <div style="position:absolute;bottom:18px;right:54px;font-size:12px;font-weight:600;color:var(--dim);">06 / 07</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     S7 — WHY SAY YES / CTA
+════════════════════════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="blob" style="width:520px;height:520px;top:-140px;right:-100px;background:rgba(116,71,225,.18);animation-delay:-3s;"></div>
+  <div class="blob" style="width:300px;height:300px;bottom:-80px;left:40px;background:rgba(234,88,12,.14);animation-delay:-9s;"></div>
+
+  <div style="position:absolute;left:60px;top:42px;right:60px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;">
+    <div style="flex:1;">
+      <img src="/logo.svg" alt="Skillfleet" style="height:30px;width:auto;margin-bottom:10px;display:block;">
+      <div class="tag" style="background:rgba(116,71,225,.18);color:#7447E1;border:1px solid rgba(116,71,225,.35);margin-bottom:10px;">Why Say Yes</div>
+      <div style="font-size:42px;font-weight:800;line-height:1.06;letter-spacing:-1.3px;">
+        Tomorrow morning, every employee could start their day<br>
+        <span style="background:linear-gradient(128deg,#EA580C,#FBBF24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">5 hours ahead</span> — every week.
+      </div>
+    </div>
+    <div class="ic-circle" style="width:78px;height:78px;background:linear-gradient(135deg,rgba(116,71,225,.18),rgba(167,139,250,.06));border:2px solid rgba(116,71,225,.40);color:#7447E1;font-size:34px;flex-shrink:0;">
+      <span class="ic"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+    </div>
+  </div>
+
+  <!-- 6 benefit pills -->
+  <div style="position:absolute;left:60px;right:60px;top:260px;height:180px;">
+    <div style="font-size:11px;font-weight:700;color:var(--mut);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:10px;">For CEOs &amp; CTOs, This Workshop Delivers</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:10px;">
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(116,71,225,.08);border:1px solid rgba(116,71,225,.22);border-radius:12px;padding:12px 14px;">
+        <div class="ic-circle" style="width:36px;height:36px;background:rgba(116,71,225,.18);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">5–9 hrs/week saved per person</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.22);border-radius:12px;padding:12px 14px;">
+        <div class="ic-circle" style="width:36px;height:36px;background:rgba(8,145,178,.18);color:#0891B2;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Shadow AI risk eliminated</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(234,88,12,.08);border:1px solid rgba(234,88,12,.22);border-radius:12px;padding:12px 14px;">
+        <div class="ic-circle" style="width:36px;height:36px;background:rgba(234,88,12,.18);color:#EA580C;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">40% average productivity boost</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(5,150,105,.08);border:1px solid rgba(5,150,105,.22);border-radius:12px;padding:12px 14px;">
+        <div class="ic-circle" style="width:36px;height:36px;background:rgba(5,150,105,.18);color:#059669;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Works for every single role</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.22);border-radius:12px;padding:12px 14px;">
+        <div class="ic-circle" style="width:36px;height:36px;background:rgba(167,139,250,.18);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Data privacy &amp; AI governance</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(116,71,225,.14),rgba(167,139,250,.04));border:1px solid rgba(116,71,225,.32);border-radius:12px;padding:12px 14px;">
+        <div class="ic-circle" style="width:36px;height:36px;background:rgba(116,71,225,.20);color:#7447E1;font-size:16px;flex-shrink:0;"><span class="ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt);line-height:1.2;">Day-one impact, not months</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Closing line -->
+  <div style="position:absolute;left:60px;right:60px;top:472px;background:linear-gradient(135deg,rgba(116,71,225,.10),rgba(167,139,250,.04));border:1px solid rgba(116,71,225,.30);border-radius:14px;padding:18px 22px;">
+    <div style="font-size:18px;color:var(--txt);line-height:1.45;">
+      One workshop changes how every employee <span style="color:#7447E1;font-weight:700;">reads email, runs meetings, builds presentations, writes documents, and plans their day</span> — starting tomorrow.
+    </div>
+  </div>
+
+  <!-- Contact bar -->
+  <div style="position:absolute;left:60px;right:60px;bottom:46px;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+    <div>
+      <div style="font-size:13px;font-weight:600;font-style:italic;color:#7447E1;margin-bottom:8px;">Schedule a 20-minute call to customise this for your organization.</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="ic-circle" style="width:24px;height:24px;background:rgba(116,71,225,.14);color:#7447E1;font-size:12px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt);">Mayank Gupta</div>
+        <div style="font-size:13px;color:var(--mut);">·</div>
+        <div style="font-size:13px;color:var(--mut);">Founder, Skillfleet</div>
+      </div>
+    </div>
+    <a href="tel:+917508807490" style="display:inline-flex;align-items:center;gap:12px;background:linear-gradient(135deg,#EA580C,#F97316);border-radius:14px;padding:14px 22px;color:#fff;text-decoration:none;box-shadow:var(--e-cta);transition:transform .2s ease,box-shadow .2s ease;">
+      <div class="ic-circle" style="width:32px;height:32px;background:rgba(255,255,255,.22);color:#fff;font-size:15px;"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span></div>
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;opacity:.85;line-height:1;">Call now</div>
+        <div class="tabnum" style="font-size:25px;font-weight:800;letter-spacing:-.3px;line-height:1.15;">+91 75088 07490</div>
+      </div>
+    </a>
+  </div>
+
+  <div style="position:absolute;bottom:18px;right:54px;font-size:12px;font-weight:600;color:var(--dim);">07 / 07</div>
+</div>
+
+
+  </div>
+ </div>
+</div>
+
+<div id="nav">
+  <button class="nb" id="prev">&#8249;</button>
+  <div class="dots" id="dots"></div>
+  <span id="cnt">1 / 7</span>
+  <button class="nb" id="next">&#8250;</button>
+</div>
+<button id="xbtn" onclick="exportPDF()">&#8595; Export PDF</button>
+<div id="hint">← → Arrow keys to navigate</div>
+
+<script>
+const TOTAL=7;let cur=0;
+const track=document.getElementById('track'),scaler=document.getElementById('scaler'),pres=document.getElementById('pres'),cntEl=document.getElementById('cnt'),dotsEl=document.getElementById('dots');
+for(let i=0;i<TOTAL;i++){const d=document.createElement('div');d.className='dot'+(i===0?' on':'');d.onclick=()=>go(i);dotsEl.appendChild(d);}
+function go(n){cur=Math.max(0,Math.min(TOTAL-1,n));track.style.transform=`translateX(${-cur*1280}px)`;cntEl.textContent=`${cur+1} / ${TOTAL}`;document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===cur));}
+document.getElementById('prev').onclick=()=>go(cur-1);document.getElementById('next').onclick=()=>go(cur+1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();go(cur+1);}if(e.key==='ArrowLeft'){e.preventDefault();go(cur-1);}if(e.key==='Home'){e.preventDefault();go(0);}if(e.key==='End'){e.preventDefault();go(TOTAL-1);}});
+let tx=0;scaler.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});scaler.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)go(dx<0?cur+1:cur-1);},{passive:true});
+function resize(){const scale=Math.min(window.innerWidth/1280,window.innerHeight/720);const sw=1280*scale,sh=720*scale;scaler.style.transform=`scale(${scale})`;scaler.style.left=`${(window.innerWidth-sw)/2}px`;scaler.style.top=`${(window.innerHeight-sh)/2}px`;}
+window.addEventListener('resize',resize);resize();
+function exportPDF(){setTimeout(()=>window.print(),80);}
+</script>
+</body>
+</html>
