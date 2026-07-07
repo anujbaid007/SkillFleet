@@ -9,6 +9,7 @@ import {
   Wrench,
   CalendarDays,
   Trophy,
+  Briefcase,
   ArrowRight,
 } from "lucide-react";
 import FloatingDoodles from "@/components/ui/floating-doodles";
@@ -58,6 +59,17 @@ const programs = [
     highlights: ["Scholarships", "National Exposure", "Awards & Prizes"],
     image: "/images/kid-raising-hand.jpg",
   },
+  {
+    icon: Briefcase,
+    title: "Internships",
+    href: "/programs/internships",
+    description:
+      "Mentored, real-world work experiences at companies and startups. Older students shadow professionals, build a project, and get a first taste of a real career.",
+    color: "bg-accent-yellow/10 text-accent-yellow",
+    gradient: "from-accent-yellow/20 to-primary/10",
+    highlights: ["Industry Mentors", "Hands-On Projects", "Experience Certificate"],
+    image: "/images/kids-group.jpg",
+  },
 ];
 
 const cardVariants = {
@@ -91,7 +103,7 @@ export default function Programs() {
             Our Programs
           </span>
           <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-4">
-            Four Pillars of{" "}
+            Five Pillars of{" "}
             <span className="text-primary">Real-World Learning</span>
           </h2>
           <p className="text-sm sm:text-lg text-muted max-w-2xl mx-auto">
