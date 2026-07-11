@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Compass } from 'lucide-react'
+import { Compass, Bell } from 'lucide-react'
 import { CatalogStatusFilter } from '@/components/catalog/status-filter'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
@@ -16,6 +16,8 @@ interface RawOffering {
   min_age: number | null
   max_age: number | null
   scheduled_at: string | null
+  image_url: string | null
+  interest_count: number
   topics: { id: string; name: string; category_id: string; categories: { id: string; name: string } | null } | null
 }
 
@@ -39,7 +41,7 @@ export default async function CatalogPage({
   const [{ data: offerings }, { data: categories }] = (await Promise.all([
     supabase
       .from('offerings')
-      .select('id, title, description, type, status, price_paise, min_age, max_age, scheduled_at, topics(id, name, category_id, categories(id, name))')
+      .select('id, title, description, type, status, price_paise, min_age, max_age, scheduled_at, image_url, interest_count, topics(id, name, category_id, categories(id, name))')
       .in('status', ['planned', 'live', 'completed'])
       .order('scheduled_at', { ascending: true, nullsFirst: false }),
     supabase.from('categories').select('id, name').eq('is_active', true).order('display_order'),
@@ -133,33 +135,55 @@ export default async function CatalogPage({
             const status = OFFERING_STATUS_META[o.status]
             return (
               <Reveal key={o.id} delay={Math.min(i * 0.05, 0.4)}>
-                <Link href={`/catalog/${o.id}`} className="clay-card p-5 flex flex-col h-full group relative overflow-hidden">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${meta?.tint ?? 'from-primary/[0.08]'} to-transparent pointer-events-none`} />
-                  <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 bg-gradient-to-br ${meta?.gradient ?? 'from-primary to-primary-light'} group-hover:scale-105 transition-transform`}>
-                        {Icon && <Icon className="w-5 h-5" />}
+                <Link href={`/catalog/${o.id}`} className="clay-card p-0 flex flex-col h-full group overflow-hidden">
+                  {/* Cover image (or a type-coded gradient fallback). Rendered as a
+                      background so it always fills the box, matching the fallback exactly.
+                      shrink-0 guarantees the 40-tall image never compresses in the flex column. */}
+                  <div className="relative h-40 w-full shrink-0 overflow-hidden">
+                    {o.image_url ? (
+                      <div
+                        role="img"
+                        aria-label={o.title}
+                        className="absolute inset-0 group-hover:scale-105 transition-transform duration-300"
+                        style={{ backgroundImage: `url("${o.image_url}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      />
+                    ) : (
+                      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${meta?.gradient ?? 'from-primary to-primary-light'}`}>
+                        {Icon && <Icon className="w-10 h-10 text-white/90" />}
                       </div>
-                      {status && (
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${status.badge}`}>
-                          {status.label}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold ${meta?.text ?? 'text-primary'}`}>{meta?.label ?? o.type}</span>
-                      {o.topics?.categories && (
-                        <span className="text-xs text-muted truncate">· {o.topics.categories.name}</span>
-                      )}
-                    </div>
+                    )}
+                    {/* Consistent hairline frame so cover-image and gradient cards read with equal weight */}
+                    <div className="absolute inset-0 ring-1 ring-inset ring-black/[0.07] pointer-events-none" />
+                    {/* Type chip (top-left) + status (top-right) overlays */}
+                    <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-foreground backdrop-blur-sm">
+                      {Icon && <Icon className="w-3 h-3" />} {meta?.label ?? o.type}
+                    </span>
+                    {status && (
+                      <span className={`absolute top-2.5 right-2.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${status.badge}`}>
+                        {status.label}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Info below */}
+                  <div className="flex flex-col flex-1 p-5">
+                    {o.topics?.categories && (
+                      <span className="text-xs text-muted truncate mb-1">{o.topics.categories.name}</span>
+                    )}
                     <h2 className="font-display font-bold text-foreground leading-snug">{o.title}</h2>
                     {o.description && <p className="text-xs text-muted line-clamp-2 mt-1">{o.description}</p>}
                     <div className="flex items-center justify-between pt-3 mt-auto">
                       <span className="font-display text-lg font-bold text-foreground">{formatPrice(o.price_paise)}</span>
-                      {(o.min_age || o.max_age) && (
-                        <span className="text-xs text-muted font-medium">
-                          Ages {o.min_age ?? '0'}–{o.max_age ?? '18+'}
+                      {o.status === 'planned' ? (
+                        <span className="text-xs text-accent-yellow font-semibold inline-flex items-center gap-1">
+                          <Bell className="w-3 h-3" /> {o.interest_count} interested
                         </span>
+                      ) : (
+                        (o.min_age || o.max_age) && (
+                          <span className="text-xs text-muted font-medium">
+                            Ages {o.min_age ?? '0'}–{o.max_age ?? '18+'}
+                          </span>
+                        )
                       )}
                     </div>
                   </div>

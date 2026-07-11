@@ -17,6 +17,30 @@ export async function archiveOfferingAction(formData: FormData) {
   revalidatePath('/admin/offerings')
 }
 
+/** Approve or reject a vendor-submitted offering. */
+export async function reviewOfferingAction(formData: FormData) {
+  const id = formData.get('id') as string
+  const decision = formData.get('decision') as string
+  const notes = (formData.get('notes') as string)?.trim() || null
+  if (!id || (decision !== 'approve' && decision !== 'reject')) return
+
+  const supabase = await createClient()
+  await supabase.rpc('admin_review_offering', { p_offering_id: id, p_decision: decision, p_notes: notes })
+  revalidatePath('/admin/offerings')
+  revalidatePath('/catalog')
+}
+
+/** Convert a planned offering to live so waitlisted users can book it. */
+export async function goLiveOfferingAction(formData: FormData) {
+  const id = formData.get('id') as string
+  if (!id) return
+
+  const supabase = await createClient()
+  await supabase.from('offerings').update({ status: 'live', updated_at: new Date().toISOString() }).eq('id', id)
+  revalidatePath('/admin/offerings')
+  revalidatePath('/catalog')
+}
+
 function parseFormData(formData: FormData, parameterIds: string[]) {
   const priceRupees = formData.get('price_rupees') as string
   const scheduledRaw = formData.get('scheduled_at') as string // 'YYYY-MM-DDTHH:MM'
@@ -41,6 +65,10 @@ function parseFormData(formData: FormData, parameterIds: string[]) {
   const validModes = modeOptionsForType(type).map((m) => m.value)
   const mode = rawMode && validModes.includes(rawMode) ? rawMode : null
 
+  // Meeting link only applies to an online workshop; ignored otherwise.
+  const rawMeeting = (formData.get('meeting_url') as string)?.trim() || null
+  const meeting_url = type === 'workshop' && mode === 'online' ? rawMeeting : null
+
   return {
     title: (formData.get('title') as string)?.trim() ?? '',
     description: (formData.get('description') as string)?.trim() || null,
@@ -54,7 +82,24 @@ function parseFormData(formData: FormData, parameterIds: string[]) {
     duration_minutes: duration ? parseInt(duration, 10) : null,
     location: (formData.get('location') as string)?.trim() || null,
     mode,
+    image_url: (formData.get('image_url') as string)?.trim() || null,
+    meeting_url,
     contributions,
+  }
+}
+
+/** Upserts the online-workshop meeting link, or clears it when not applicable. */
+async function syncMeetingLink(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  offeringId: string,
+  meetingUrl: string | null
+) {
+  if (meetingUrl) {
+    await supabase
+      .from('offering_meeting_links')
+      .upsert({ offering_id: offeringId, meeting_url: meetingUrl, updated_at: new Date().toISOString() })
+  } else {
+    await supabase.from('offering_meeting_links').delete().eq('offering_id', offeringId)
   }
 }
 
@@ -95,6 +140,7 @@ export async function createOfferingAction(
       duration_minutes: parsed.duration_minutes,
       location: parsed.location,
       mode: parsed.mode,
+      image_url: parsed.image_url,
     })
     .select('id')
     .single()
@@ -106,6 +152,8 @@ export async function createOfferingAction(
       .from('offering_parameter_contributions')
       .insert(parsed.contributions.map((c) => ({ ...c, offering_id: offering.id })))
   }
+
+  await syncMeetingLink(supabase, offering.id, parsed.meeting_url)
 
   revalidatePath('/admin/offerings')
   redirect('/admin/offerings')
@@ -146,6 +194,7 @@ export async function updateOfferingAction(
       duration_minutes: parsed.duration_minutes,
       location: parsed.location,
       mode: parsed.mode,
+      image_url: parsed.image_url,
       updated_at: new Date().toISOString(),
     })
     .eq('id', offeringId)
@@ -159,6 +208,8 @@ export async function updateOfferingAction(
       .from('offering_parameter_contributions')
       .insert(parsed.contributions.map((c) => ({ ...c, offering_id: offeringId })))
   }
+
+  await syncMeetingLink(supabase, offeringId, parsed.meeting_url)
 
   revalidatePath('/admin/offerings')
   redirect('/admin/offerings')

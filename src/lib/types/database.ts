@@ -393,6 +393,102 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          id: string
+          org_name: string
+          contact_phone: string | null
+          about: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id: string
+          org_name: string
+          contact_phone?: string | null
+          about?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_name?: string
+          contact_phone?: string | null
+          about?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      offering_interest: {
+        Row: { offering_id: string; user_id: string; created_at: string }
+        Insert: { offering_id: string; user_id: string; created_at?: string }
+        Update: { offering_id?: string; user_id?: string; created_at?: string }
+        Relationships: []
+      }
+      offering_requests: {
+        Row: {
+          id: string
+          requester_id: string
+          title: string
+          description: string | null
+          category_id: string | null
+          status: string
+          support_count: number
+          admin_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          requester_id: string
+          title: string
+          description?: string | null
+          category_id?: string | null
+          status?: string
+          support_count?: number
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          requester_id?: string
+          title?: string
+          description?: string | null
+          category_id?: string | null
+          status?: string
+          support_count?: number
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      offering_request_supporters: {
+        Row: { request_id: string; user_id: string; created_at: string }
+        Insert: { request_id: string; user_id: string; created_at?: string }
+        Update: { request_id?: string; user_id?: string; created_at?: string }
+        Relationships: []
+      }
+      offering_meeting_links: {
+        Row: {
+          offering_id: string
+          meeting_url: string
+          updated_at: string
+        }
+        Insert: {
+          offering_id: string
+          meeting_url: string
+          updated_at?: string
+        }
+        Update: {
+          offering_id?: string
+          meeting_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       offering_parameter_contributions: {
         Row: {
           offering_id: string
@@ -440,6 +536,10 @@ export type Database = {
           min_age: number | null
           mode: string | null
           price_paise: number
+          review_notes: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           scheduled_at: string | null
           source: string
           status: string
@@ -462,6 +562,10 @@ export type Database = {
           min_age?: number | null
           mode?: string | null
           price_paise?: number
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           scheduled_at?: string | null
           source?: string
           status?: string
@@ -484,6 +588,10 @@ export type Database = {
           min_age?: number | null
           mode?: string | null
           price_paise?: number
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           scheduled_at?: string | null
           source?: string
           status?: string
@@ -846,6 +954,90 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_plans: {
+        Row: {
+          id: string
+          student_id: string
+          generated_at: string
+          target_size: number
+          model: string
+          summary: string | null
+          price_total_paise: number
+          items: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          generated_at?: string
+          target_size: number
+          model?: string
+          summary?: string | null
+          price_total_paise?: number
+          items?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          generated_at?: string
+          target_size?: number
+          model?: string
+          summary?: string | null
+          price_total_paise?: number
+          items?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      recommendation_runs: {
+        Row: {
+          id: string
+          student_id: string
+          generated_at: string
+          model: string
+          summary: string | null
+          items: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          generated_at?: string
+          model?: string
+          summary?: string | null
+          items?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          generated_at?: string
+          model?: string
+          summary?: string | null
+          items?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      student_shortlist: {
+        Row: {
+          student_id: string
+          offering_id: string
+          created_at: string
+        }
+        Insert: {
+          student_id: string
+          offering_id: string
+          created_at?: string
+        }
+        Update: {
+          student_id?: string
+          offering_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       student_parameter_scores: {
         Row: {
           accrued_score: number
@@ -1101,6 +1293,26 @@ export type Database = {
       book_multiple_with_package: {
         Args: { p_package_id: string; p_offering_ids: string[] }
         Returns: { status: string; booked: number }[]
+      }
+      toggle_offering_interest: {
+        Args: { p_offering_id: string }
+        Returns: { interested: boolean; total: number }[]
+      }
+      create_offering_request: {
+        Args: { p_title: string; p_description: string | null; p_category_id: string | null }
+        Returns: string
+      }
+      toggle_request_support: {
+        Args: { p_request_id: string }
+        Returns: { supporting: boolean; total: number }[]
+      }
+      admin_promote_vendor: {
+        Args: { p_email: string; p_org_name: string; p_phone?: string | null; p_about?: string | null }
+        Returns: { status: string; vendor_id: string | null }[]
+      }
+      admin_review_offering: {
+        Args: { p_offering_id: string; p_decision: string; p_notes?: string | null }
+        Returns: string
       }
       create_package_upgrade: {
         Args: { p_package_id: string; p_new_tier_id: string }

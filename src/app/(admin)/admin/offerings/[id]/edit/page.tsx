@@ -18,7 +18,7 @@ export default async function EditOfferingPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [offeringRes, catsRes, topicsRes, paramsRes, contribsRes] = await Promise.all([
+  const [offeringRes, catsRes, topicsRes, paramsRes, contribsRes, meetingRes] = await Promise.all([
     supabase.from('offerings').select('*').eq('id', id).single(),
     supabase.from('categories').select('id, name').eq('is_active', true).order('display_order'),
     supabase.from('topics').select('id, name, category_id').eq('is_active', true).order('display_order'),
@@ -27,13 +27,14 @@ export default async function EditOfferingPage({
       .from('offering_parameter_contributions')
       .select('parameter_id, points')
       .eq('offering_id', id) as unknown as { data: RawContribution[] | null },
+    supabase.from('offering_meeting_links').select('meeting_url').eq('offering_id', id).maybeSingle(),
   ])
 
   if (!offeringRes.data) notFound()
   const o = offeringRes.data
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <Link
         href="/admin/offerings"
         className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors"
@@ -60,6 +61,8 @@ export default async function EditOfferingPage({
           duration_minutes: o.duration_minutes,
           location: o.location ?? '',
           mode: o.mode ?? '',
+          image_url: o.image_url ?? '',
+          meeting_url: meetingRes.data?.meeting_url ?? '',
           contributions: contribsRes.data ?? [],
         }}
       />

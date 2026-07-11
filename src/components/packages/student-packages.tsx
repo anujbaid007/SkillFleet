@@ -19,7 +19,7 @@ function fmtDate(dateStr: string | null) {
 
 export function StudentPackages({ packages }: { packages: StudentPkg[] }) {
   return (
-    <div className="space-y-7 max-w-4xl">
+    <div className="space-y-7">
       <PageHeader
         eyebrow="Bought for you"
         icon={Layers}

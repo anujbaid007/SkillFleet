@@ -1,8 +1,10 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useTransition } from 'react'
+import { ImagePlus, X, Video } from 'lucide-react'
 import type { OfferingFormState } from '@/app/(admin)/admin/offerings/actions'
 import { modeOptionsForType } from '@/lib/offering-meta'
+import { createClient } from '@/lib/supabase/client'
 
 interface Topic {
   id: string
@@ -25,6 +27,8 @@ interface InitialContribution {
 interface Props {
   action: (prev: OfferingFormState, formData: FormData) => Promise<OfferingFormState>
   offeringId?: string
+  /** Vendor mode hides admin-only controls (status, meeting link) and requires a skill tag. */
+  vendorMode?: boolean
   categories: Category[]
   topics: Topic[]
   parameters: Parameter[]
@@ -41,9 +45,13 @@ interface Props {
     duration_minutes?: number | null
     location?: string | null
     mode?: string | null
+    image_url?: string | null
+    meeting_url?: string | null
     contributions?: InitialContribution[]
   }
 }
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5 MB
 
 const TYPES = ['workshop', 'trip', 'event', 'competition', 'internship']
 const STATUSES = ['planned', 'live', 'completed', 'retired']
@@ -58,21 +66,50 @@ function toDatetimeLocal(ts: string | null | undefined): string {
   return `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}T${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())}`
 }
 
-export function OfferingForm({ action, offeringId, categories, topics, parameters, initial = {} }: Props) {
+export function OfferingForm({ action, offeringId, vendorMode = false, categories, topics, parameters, initial = {} }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined)
   const [selectedCat, setSelectedCat] = useState<string>(() => {
     if (!initial.topic_id) return ''
     return topics.find((t) => t.id === initial.topic_id)?.category_id ?? ''
   })
   const [selectedType, setSelectedType] = useState<string>(initial.type ?? 'workshop')
+  const [selectedMode, setSelectedMode] = useState<string>(initial.mode ?? '')
+
+  const [imageUrl, setImageUrl] = useState<string>(initial.image_url ?? '')
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [uploading, startUpload] = useTransition()
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError('Image must be under 5 MB.')
+      return
+    }
+    setImageError(null)
+    startUpload(async () => {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `covers/${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from('offering-images').upload(path, file, { upsert: false })
+      if (error) {
+        setImageError('Upload failed. Please try again.')
+        return
+      }
+      const { data } = supabase.storage.from('offering-images').getPublicUrl(path)
+      setImageUrl(data.publicUrl)
+    })
+  }
 
   const modeOptions = modeOptionsForType(selectedType)
+  const showMeetingLink = selectedType === 'workshop' && selectedMode === 'online'
   const filteredTopics = selectedCat ? topics.filter((t) => t.category_id === selectedCat) : topics
   const initialPts = new Map((initial.contributions ?? []).map((c) => [c.parameter_id, c.points]))
   const errors = state?.errors ?? {}
 
   return (
-    <form action={formAction} className="space-y-6 max-w-2xl">
+    <form action={formAction} className="space-y-6">
       {offeringId && <input type="hidden" name="offering_id" value={offeringId} />}
 
       {state?.error && <div className="p-3 rounded-xl bg-red-50 text-red-600 text-sm">{state.error}</div>}
@@ -91,13 +128,58 @@ export function OfferingForm({ action, offeringId, categories, topics, parameter
           {errors.title && <p className="text-xs text-red-500">{errors.title}</p>}
         </div>
 
+        {/* Cover image — common to every offering type, drives the Explore card. */}
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-foreground">Cover image</label>
+          <input type="hidden" name="image_url" value={imageUrl} />
+          {imageUrl ? (
+            <div className="relative w-full overflow-hidden rounded-xl border border-black/10">
+              <div
+                role="img"
+                aria-label="Cover preview"
+                className="w-full h-44"
+                style={{ backgroundImage: `url("${imageUrl}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
+              <button
+                type="button"
+                onClick={() => setImageUrl('')}
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                aria-label="Remove cover image"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <label
+              className={[
+                'flex flex-col items-center justify-center gap-1.5 h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors text-sm',
+                uploading ? 'border-black/[0.06] text-muted cursor-not-allowed' : 'border-primary/40 text-primary hover:bg-primary/5',
+              ].join(' ')}
+            >
+              <ImagePlus className="w-5 h-5" />
+              {uploading ? 'Uploading…' : 'Add a cover image (JPG, PNG, WebP · max 5 MB)'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={uploading}
+                onChange={handleImageChange}
+              />
+            </label>
+          )}
+          {imageError && <p className="text-xs text-red-500">{imageError}</p>}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Type *</label>
             <select
               name="type"
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+              onChange={(e) => {
+                setSelectedType(e.target.value)
+                setSelectedMode('') // modes differ per type — reset the choice
+              }}
               className="w-full px-4 py-2.5 rounded-xl border border-black/10 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               {TYPES.map((t) => (
@@ -108,20 +190,22 @@ export function OfferingForm({ action, offeringId, categories, topics, parameter
             </select>
             {errors.type && <p className="text-xs text-red-500">{errors.type}</p>}
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Status</label>
-            <select
-              name="status"
-              defaultValue={initial.status ?? 'live'}
-              className="w-full px-4 py-2.5 rounded-xl border border-black/10 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!vendorMode && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Status</label>
+              <select
+                name="status"
+                defaultValue={initial.status ?? 'live'}
+                className="w-full px-4 py-2.5 rounded-xl border border-black/10 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {modeOptions.length > 0 && (
@@ -129,8 +213,8 @@ export function OfferingForm({ action, offeringId, categories, topics, parameter
             <label className="text-sm font-medium text-foreground">Mode</label>
             <select
               name="mode"
-              defaultValue={initial.mode ?? ''}
-              key={selectedType}
+              value={selectedMode}
+              onChange={(e) => setSelectedMode(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-black/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <option value="">— Select mode —</option>
@@ -140,6 +224,27 @@ export function OfferingForm({ action, offeringId, categories, topics, parameter
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* Meeting link — only for online workshops. Shown to the parent/student
+            only after their booking is confirmed & paid (enforced by RLS). */}
+        {showMeetingLink && !vendorMode && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <Video className="w-4 h-4 text-primary" /> Meeting link
+            </label>
+            <input
+              name="meeting_url"
+              type="url"
+              inputMode="url"
+              defaultValue={initial.meeting_url ?? ''}
+              placeholder="https://meet.google.com/…"
+              className="w-full px-4 py-2.5 rounded-xl border border-black/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <p className="text-xs text-muted">
+              Only revealed to a learner once their booking is confirmed and paid.
+            </p>
           </div>
         )}
 

@@ -23,7 +23,7 @@ export default async function AssessmentsPage() {
   const rows = assessments ?? []
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Onboarding"
         icon={ClipboardList}

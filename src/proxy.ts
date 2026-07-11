@@ -11,6 +11,13 @@ const PROTECTED_PREFIXES = [
   '/parent',
   '/children',
   '/admin',
+  '/vendor',
+  '/requests',
+  '/recommendations',
+  '/packages',
+  '/bookings',
+  '/profile',
+  '/account',
 ]
 
 // Auth pages — redirect to /dashboard if already logged in

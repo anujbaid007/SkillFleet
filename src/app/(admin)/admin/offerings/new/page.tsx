@@ -4,7 +4,12 @@ import { createOfferingAction } from '../actions'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export default async function NewOfferingPage() {
+export default async function NewOfferingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from_request?: string }>
+}) {
+  const { from_request } = await searchParams
   const supabase = await createClient()
 
   const [{ data: categories }, { data: topics }, { data: parameters }] = await Promise.all([
@@ -13,8 +18,19 @@ export default async function NewOfferingPage() {
     supabase.from('growth_parameters').select('id, name').eq('is_active', true).order('display_order'),
   ])
 
+  // Prefill from a demand request → default it to a "planned" offering.
+  let initial: { title?: string; description?: string; status?: string } | undefined
+  if (from_request) {
+    const { data: req } = await supabase
+      .from('offering_requests')
+      .select('title, description')
+      .eq('id', from_request)
+      .single()
+    if (req) initial = { title: req.title, description: req.description ?? '', status: 'planned' }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <Link
         href="/admin/offerings"
         className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors"
@@ -27,6 +43,7 @@ export default async function NewOfferingPage() {
         categories={categories ?? []}
         topics={topics ?? []}
         parameters={parameters ?? []}
+        initial={initial}
       />
     </div>
   )

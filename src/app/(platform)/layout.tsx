@@ -22,8 +22,9 @@ export default async function PlatformLayout({ children }: { children: ReactNode
 
   if (!profile) redirect('/login')
 
-  // Admin goes to admin layout
+  // Admin and vendor have their own consoles
   if (profile.role === 'admin') redirect('/admin')
+  if (profile.role === 'vendor') redirect('/vendor')
 
   // Students must give their required details before using the platform.
   if (profile.role === 'student' && !isStudentDetailsComplete(profile)) {
@@ -53,8 +54,10 @@ export default async function PlatformLayout({ children }: { children: ReactNode
         <PlatformNav profile={profile} />
       </MobileNavDrawer>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+      {/* Main content — centered in a consistent content frame */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="mx-auto w-full max-w-5xl">{children}</div>
+      </main>
     </div>
   )
 }

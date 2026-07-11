@@ -13,6 +13,8 @@ import {
   Users,
   FileCheck,
   CheckSquare,
+  Megaphone,
+  Store,
   LogOut,
 } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
@@ -22,6 +24,8 @@ const adminNavItems = [
   { href: '/admin/parameters', label: 'Parameters', icon: Sliders },
   { href: '/admin/taxonomy', label: 'Taxonomy', icon: FolderTree },
   { href: '/admin/offerings', label: 'Offerings', icon: Package },
+  { href: '/admin/vendors', label: 'Vendors', icon: Store },
+  { href: '/admin/requests', label: 'Requests', icon: Megaphone },
   { href: '/admin/packages', label: 'Packages', icon: Layers },
   { href: '/admin/questionnaire', label: 'Questionnaire', icon: HelpCircle },
   { href: '/admin/assessments', label: 'Assessments', icon: ClipboardList },

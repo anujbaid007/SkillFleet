@@ -72,7 +72,7 @@ export default async function CompletionsPage({
     b.status !== 'completed' && !b.score_applied
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Attendance"
         icon={CheckSquare}

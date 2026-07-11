@@ -17,7 +17,7 @@ export function ChildrenManager({ students }: { students: LinkedChild[] }) {
   const [showForm, setShowForm] = useState(false)
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-2">

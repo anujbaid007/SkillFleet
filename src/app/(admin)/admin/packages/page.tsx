@@ -29,7 +29,7 @@ export default async function AdminPackagesPage() {
   const rows = tiers ?? []
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Catalog"
         icon={Layers}

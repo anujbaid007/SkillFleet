@@ -6,6 +6,7 @@ import { motion } from 'motion/react'
 import { signupStudentAction } from '@/app/actions/auth'
 import type { AuthFormState } from '@/app/actions/auth'
 import { PasswordField } from '@/components/auth/password-field'
+import { CheckEmailNotice } from '@/components/auth/check-email-notice'
 import { MIN_SIGNUP_AGE } from '@/lib/validation/dob'
 
 export default function StudentSignupPage() {
@@ -31,6 +32,10 @@ export default function StudentSignupPage() {
       transition={{ type: 'spring', stiffness: 80, damping: 18 }}
       className="clay-card p-8"
     >
+      {state?.success ? (
+        <CheckEmailNotice message={state.success} />
+      ) : (
+        <>
       <h1 className="font-display text-2xl font-bold text-foreground mb-2">Student sign up</h1>
       <p className="text-muted text-sm mb-6">Create your SkillFleet account</p>
 
@@ -83,11 +88,6 @@ export default function StudentSignupPage() {
         {state?.error && (
           <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3">{state.error}</p>
         )}
-        {state?.success && (
-          <p className="text-sm text-accent-teal bg-accent-teal/10 rounded-xl px-4 py-3">
-            {state.success}
-          </p>
-        )}
 
         <button
           type="submit"
@@ -104,6 +104,8 @@ export default function StudentSignupPage() {
           Sign in
         </Link>
       </p>
+        </>
+      )}
     </motion.div>
   )
 }
