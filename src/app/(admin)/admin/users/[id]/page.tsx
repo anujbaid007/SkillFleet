@@ -74,7 +74,7 @@ export default async function UserDetailPage({
   if (!profile) notFound()
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <Link href="/admin/users" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
         <ArrowLeft className="w-4 h-4" /> Back to Users
       </Link>

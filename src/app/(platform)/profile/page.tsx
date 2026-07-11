@@ -7,6 +7,7 @@ import { ParameterCard } from '@/components/dashboard/parameter-card'
 import { ProgressRing } from '@/components/dashboard/progress-ring'
 import { Reveal } from '@/components/ui/reveal'
 import { GradientCard } from '@/components/ui/gradient-card'
+import { RecommendationTeaser } from '@/components/recommendations/recommendation-teaser'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -126,6 +127,10 @@ export default async function ProfilePage() {
             </ProgressRing>
           </div>
         </GradientCard>
+      </Reveal>
+
+      <Reveal>
+        <RecommendationTeaser name={firstName} />
       </Reveal>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

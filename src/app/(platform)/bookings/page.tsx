@@ -63,7 +63,7 @@ export default async function BookingsPage({
   const rows = bookings ?? []
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Your activity"
         icon={ShoppingBag}

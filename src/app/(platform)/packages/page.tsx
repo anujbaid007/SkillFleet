@@ -110,7 +110,7 @@ export default async function PackagesPage({
   ]
 
   return (
-    <div className="space-y-7 max-w-4xl">
+    <div className="space-y-7">
       <PageHeader
         eyebrow="Plan ahead"
         icon={Layers}

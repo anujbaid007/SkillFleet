@@ -38,7 +38,7 @@ export default async function ParametersPage() {
   ])) as [{ data: RawParameter[] | null }, { data: RawScoreLevel[] | null }]
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-8 max-w-2xl mx-auto">
       <div className="space-y-4">
         <PageHeader
           eyebrow="Scoring"

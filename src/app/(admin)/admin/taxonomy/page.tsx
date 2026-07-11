@@ -40,7 +40,7 @@ export default async function TaxonomyPage() {
   }))
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <PageHeader
         eyebrow="Catalog"
         icon={FolderTree}

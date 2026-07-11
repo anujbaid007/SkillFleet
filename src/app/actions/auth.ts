@@ -14,6 +14,17 @@ export type AuthFormState =
     }
   | undefined
 
+// Where Supabase sends the email-confirmation link. It lands on our callback,
+// which exchanges the code for a session and forwards to `next`.
+function buildAuthRedirect(next: string) {
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+  return `${base}/auth/callback?next=${encodeURIComponent(next)}`
+}
+
+function confirmEmailMessage(email: string) {
+  return `We've sent a confirmation link to ${email}. Click it to finish creating your account, then sign in.`
+}
+
 // -------------------------------------------------------
 // LOGIN
 // -------------------------------------------------------
@@ -33,6 +44,9 @@ export async function loginAction(
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
+    if (error.message.toLowerCase().includes('not confirmed')) {
+      return { error: 'Please confirm your email first — check your inbox for the link we sent.' }
+    }
     return { error: error.message }
   }
 
@@ -84,25 +98,30 @@ export async function signupStudentAction(
   }
 
   const supabase = await createClient()
+  const next = '/onboarding/details'
 
   // The DB trigger reads this metadata to create the user_profiles row
   // (role is sanitized server-side to 'student' | 'parent').
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { role: 'student', full_name: fullName, date_of_birth: dob },
+      emailRedirectTo: buildAuthRedirect(next),
     },
   })
 
   if (error) return { error: error.message }
 
-  // New users are auto-confirmed by trigger, so sign in immediately.
+  // With email confirmation enabled there is no session until the link is clicked.
+  if (!data.session) return { success: confirmEmailMessage(email) }
+
+  // Auto-confirm is on → establish the session and continue.
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
   if (signInError) return { error: signInError.message }
 
   // Brand-new students have no details yet — collect them first.
-  redirect('/onboarding/details')
+  redirect(next)
 }
 
 // -------------------------------------------------------
@@ -127,21 +146,25 @@ export async function signupParentAction(
   }
 
   const supabase = await createClient()
+  const next = '/signup/parent/link-student'
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { role: 'parent', full_name: fullName, phone: phone || '' },
+      emailRedirectTo: buildAuthRedirect(next),
     },
   })
 
   if (error) return { error: error.message }
 
+  if (!data.session) return { success: confirmEmailMessage(email) }
+
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
   if (signInError) return { error: signInError.message }
 
-  redirect('/signup/parent/link-student')
+  redirect(next)
 }
 
 // -------------------------------------------------------

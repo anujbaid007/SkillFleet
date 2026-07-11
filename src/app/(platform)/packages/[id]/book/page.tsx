@@ -107,7 +107,7 @@ export default async function BulkBookPage({ params }: { params: Promise<{ id: s
   const expired = pkg.valid_until != null && new Date(pkg.valid_until).getTime() < Date.now()
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <Link href={`/packages/${id}`} className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
         <ArrowLeft className="w-4 h-4" /> Back to package
       </Link>

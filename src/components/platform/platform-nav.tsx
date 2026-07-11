@@ -2,14 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, Baby, LogOut, UserRound, Award, Layers } from 'lucide-react'
+import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, Baby, LogOut, UserRound, Award, Layers, Sparkles, Megaphone } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
 import type { UserProfile } from '@/lib/types/database'
 
 const studentNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Growth Profile', icon: Activity },
+  { href: '/recommendations', label: 'Recommendations', icon: Sparkles },
   { href: '/catalog', label: 'Explore', icon: BookOpen },
+  { href: '/requests', label: 'Requests', icon: Megaphone },
   { href: '/packages', label: 'My Packages', icon: Layers },
   { href: '/bookings', label: 'My Bookings', icon: ShoppingBag },
   { href: '/certificates', label: 'Certificates', icon: Award },
@@ -18,7 +20,9 @@ const studentNav = [
 const parentNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/children', label: 'My Children', icon: Baby },
+  { href: '/recommendations', label: 'Recommendations', icon: Sparkles },
   { href: '/catalog', label: 'Explore', icon: BookOpen },
+  { href: '/requests', label: 'Requests', icon: Megaphone },
   { href: '/packages', label: 'Packages', icon: Layers },
   { href: '/bookings', label: 'My Bookings', icon: ShoppingBag },
 ]

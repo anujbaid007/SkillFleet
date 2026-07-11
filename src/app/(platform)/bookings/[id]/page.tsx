@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Video } from 'lucide-react'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, MODE_LABEL } from '@/lib/offering-meta'
 
@@ -108,8 +108,22 @@ export default async function BookingDetailPage({
     booking.payment_status !== 'paid' &&
     booking.status !== 'cancelled'
 
+  // Meeting link for online workshops — RLS only returns it for a confirmed/paid
+  // booking, so fetching it here already enforces the access rule.
+  const bookingActive =
+    (booking.status === 'confirmed' || booking.status === 'completed') && booking.payment_status === 'paid'
+  let meetingUrl: string | null = null
+  if (bookingActive) {
+    const { data: link } = await supabase
+      .from('offering_meeting_links')
+      .select('meeting_url')
+      .eq('offering_id', booking.offering_id)
+      .maybeSingle()
+    meetingUrl = link?.meeting_url ?? null
+  }
+
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <Link href="/bookings" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
         <ArrowLeft className="w-4 h-4" /> Back to My Bookings
       </Link>
@@ -190,6 +204,32 @@ export default async function BookingDetailPage({
           )}
         </div>
       </Reveal>
+
+      {/* Meeting link — only present (via RLS) for a confirmed & paid online workshop */}
+      {meetingUrl && (
+        <Reveal delay={0.08}>
+          <div className="clay-card p-6 flex items-center justify-between gap-4 flex-wrap relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-accent-teal/[0.08] to-transparent pointer-events-none" />
+            <div className="relative z-10 flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent-teal to-primary flex items-center justify-center text-white shrink-0">
+                <Video className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-display font-bold text-foreground">Online session</p>
+                <p className="text-sm text-muted">Your meeting link is ready — join at the scheduled time.</p>
+              </div>
+            </div>
+            <a
+              href={meetingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative z-10 clay-button bg-cta text-white px-5 h-11 font-semibold text-sm inline-flex items-center gap-2"
+            >
+              <Video className="w-4 h-4" /> Join meeting
+            </a>
+          </div>
+        </Reveal>
+      )}
 
       {/* Offering details */}
       <Reveal delay={0.1}>

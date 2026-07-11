@@ -106,7 +106,7 @@ export default async function ChildProgressPage({
   const avgLevel = scoreLevelFor(avgDisplay, levels)
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <Link href="/children" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
         <ArrowLeft className="w-4 h-4" /> Back to My Children
       </Link>

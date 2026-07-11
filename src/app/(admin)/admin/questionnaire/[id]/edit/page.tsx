@@ -71,7 +71,7 @@ export default async function EditQuestionPage({
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <Link
         href="/admin/questionnaire"
         className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
