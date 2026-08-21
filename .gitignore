@@ -45,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# reference data — source spreadsheet for the schools import, kept local
+cbse_schools_master.xlsx
