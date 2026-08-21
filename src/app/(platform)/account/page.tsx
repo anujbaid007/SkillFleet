@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AccountForm } from '@/components/account/account-form'
 import { ParentDetailsForm } from '@/components/account/parent-details-form'
 import { getSchoolStates } from '@/app/actions/schools'
+import { SchoolRejectedNotice } from '@/components/platform/school-rejected-notice'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 
@@ -14,7 +15,7 @@ export default async function AccountPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: familyRows }, states] = await Promise.all([
+  const [{ data: profile }, { data: familyRows }, states, { data: schoolReview }] = await Promise.all([
     supabase
       .from('user_profiles')
       .select(
@@ -24,7 +25,18 @@ export default async function AccountPage() {
       .single(),
     supabase.rpc('get_my_family'),
     getSchoolStates(),
+    supabase.rpc('get_my_school_review_status'),
   ])
+
+  // The school they typed in was rejected. This is the page where they fix it.
+  const rejectedSchool =
+    (
+      (schoolReview ?? []) as {
+        school_name: string
+        review_status: string
+        review_notes: string | null
+      }[]
+    ).find((s) => s.review_status === 'rejected') ?? null
 
   if (!profile) redirect('/login')
 
@@ -56,6 +68,15 @@ export default async function AccountPage() {
           </div>
         </div>
       </Reveal>
+
+      {rejectedSchool && (
+        <Reveal delay={0.045}>
+          <SchoolRejectedNotice
+            schoolName={rejectedSchool.school_name}
+            reason={rejectedSchool.review_notes}
+          />
+        </Reveal>
+      )}
 
       <Reveal delay={0.06}>
       <AccountForm

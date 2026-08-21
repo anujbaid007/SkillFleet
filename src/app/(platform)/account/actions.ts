@@ -87,6 +87,10 @@ export async function updateAccountAction(
   if (error) return { error: 'Could not save changes. Please try again.' }
 
   revalidatePath('/account')
+  // The dashboard carries the "we couldn't verify your school" notice, so it
+  // has to refresh too — otherwise fixing the school here leaves a stale
+  // warning sitting on the dashboard.
+  revalidatePath('/dashboard')
   return { success: 'Saved.' }
 }
 

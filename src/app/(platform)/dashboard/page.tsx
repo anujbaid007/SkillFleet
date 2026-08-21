@@ -22,6 +22,7 @@ import { Reveal } from '@/components/ui/reveal'
 import { GradientCard } from '@/components/ui/gradient-card'
 import { OFFERING_TYPE_META } from '@/lib/offering-meta'
 import { removeFromShortlistAction } from '@/app/actions/shortlist'
+import { SchoolRejectedNotice } from '@/components/platform/school-rejected-notice'
 
 const ACTION_GRADIENT: Record<string, string> = {
   primary: 'from-primary to-primary-light',
@@ -144,6 +145,7 @@ export default async function DashboardPage() {
     { data: rawLevels },
     { data: familyRows },
     { data: pendingRows },
+    { data: schoolReview },
   ] = await Promise.all([
     supabase
       .from('student_parameter_scores')
@@ -160,7 +162,19 @@ export default async function DashboardPage() {
       .order('display_order'),
     supabase.rpc('get_family_students'),
     supabase.rpc('get_pending_family_members'),
+    supabase.rpc('get_my_school_review_status'),
   ])
+
+  // An admin rejected the school this student typed in. Told, not redirected —
+  // nothing they can do right now is actually blocked.
+  const rejectedSchool =
+    (
+      (schoolReview ?? []) as {
+        school_name: string
+        review_status: string
+        review_notes: string | null
+      }[]
+    ).find((s) => s.review_status === 'rejected') ?? null
 
   const levels = (rawLevels ?? []) as ScoreLevel[]
 
@@ -249,6 +263,15 @@ export default async function DashboardPage() {
             </div>
             <ArrowRight className="w-4 h-4 text-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
           </Link>
+        </Reveal>
+      )}
+
+      {rejectedSchool && (
+        <Reveal delay={0.045}>
+          <SchoolRejectedNotice
+            schoolName={rejectedSchool.school_name}
+            reason={rejectedSchool.review_notes}
+          />
         </Reveal>
       )}
 
