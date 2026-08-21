@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { getSchoolDistrictsAction, getSchoolsAction, type SchoolOption } from '@/app/actions/schools'
 import { MANUAL_SENTINEL } from '@/lib/schools/validate'
-import { filterSchools } from '@/lib/schools/search'
+import { SearchableSelect, type SelectOption } from '@/components/ui/searchable-select'
 
 const MANUAL_DISTRICT = '__manual_district__'
 
@@ -24,6 +24,10 @@ interface Props {
  * is answered, because districts only make sense within a state and school
  * names are only unique-ish within a district.
  *
+ * All three are SearchableSelect rather than a native <select>: the lists are
+ * long enough that a native dropdown flips upward near the bottom of the page,
+ * and they need to be typed into as well as picked from.
+ *
  * The district's schools are fetched once on selection (729 rows worst case)
  * and filtered in the browser, so typing narrows the list with no round-trip.
  */
@@ -42,9 +46,7 @@ export function SchoolLocationFields({
   const [manualDistrict, setManualDistrict] = useState('')
   const [schools, setSchools] = useState<SchoolOption[]>([])
   const [schoolId, setSchoolId] = useState(initialSchoolId)
-  const [query, setQuery] = useState(initialSchoolName)
   const [manualName, setManualName] = useState('')
-  const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const districtIsManual = district === MANUAL_DISTRICT
@@ -74,23 +76,33 @@ export function SchoolLocationFields({
     })
   }, [state, district, districtIsManual])
 
-  const filtered = useMemo(() => filterSchools(schools, query), [schools, query])
+  const stateOptions = useMemo<SelectOption[]>(
+    () => states.map((s) => ({ value: s, label: s })),
+    [states]
+  )
+  const districtOptions = useMemo<SelectOption[]>(
+    () => districts.map((d) => ({ value: d, label: d })),
+    [districts]
+  )
+  const schoolOptions = useMemo<SelectOption[]>(
+    () => schools.map((s) => ({ value: s.id, label: s.name, sublabel: s.address })),
+    [schools]
+  )
 
-  const selected = schools.find((s) => s.id === schoolId)
+  // A saved profile shows its school name before the district's list arrives.
+  const selectedSchoolKnown = schools.some((s) => s.id === schoolId)
 
   function pickState(next: string) {
     setState(next)
     setDistrict('')
     setManualDistrict('')
     setSchoolId('')
-    setQuery('')
     setManualName('')
   }
 
   function pickDistrict(next: string) {
     setDistrict(next)
     setSchoolId(next === MANUAL_DISTRICT ? MANUAL_SENTINEL : '')
-    setQuery('')
     setManualName('')
   }
 
@@ -105,44 +117,40 @@ export function SchoolLocationFields({
 
       {/* State */}
       <div>
-        <label htmlFor="school_state" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="school_state_input" className="block text-sm font-medium text-foreground mb-1">
           State
         </label>
-        <select
-          id="school_state"
-          name="school_state"
-          required
-          value={state}
-          onChange={(e) => pickState(e.target.value)}
+        <SearchableSelect
+          inputId="school_state_input"
+          ariaLabel="State"
           className={className}
-        >
-          <option value="" disabled>Select your state</option>
-          {states.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+          options={stateOptions}
+          value={state}
+          onChange={pickState}
+          placeholder="Search or select your state"
+        />
+        <input type="hidden" name="school_state" value={state} />
       </div>
 
       {/* District */}
       <div>
-        <label htmlFor="school_district_select" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="school_district_input" className="block text-sm font-medium text-foreground mb-1">
           District
         </label>
-        <select
-          id="school_district_select"
-          value={district}
-          onChange={(e) => pickDistrict(e.target.value)}
-          disabled={!state}
+        <SearchableSelect
+          inputId="school_district_input"
+          ariaLabel="District"
           className={className}
-        >
-          <option value="" disabled>
-            {state ? 'Select your district' : 'Select a state first'}
-          </option>
-          {districts.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-          <option value={MANUAL_DISTRICT}>My district isn&apos;t listed</option>
-        </select>
+          options={districtOptions}
+          value={district}
+          onChange={pickDistrict}
+          disabled={!state}
+          loading={Boolean(state) && districts.length === 0 && pending}
+          placeholder={state ? 'Search or select your district' : 'Select a state first'}
+          footerAction={
+            state ? { label: "My district isn't listed", onSelect: () => pickDistrict(MANUAL_DISTRICT) } : undefined
+          }
+        />
 
         {districtIsManual && (
           <input
@@ -160,7 +168,7 @@ export function SchoolLocationFields({
 
       {/* School */}
       <div>
-        <label htmlFor="school_query" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="school_input" className="block text-sm font-medium text-foreground mb-1">
           School name
         </label>
 
@@ -191,54 +199,28 @@ export function SchoolLocationFields({
             </p>
           </>
         ) : (
-          <div className="relative">
-            <input
-              id="school_query"
-              type="text"
-              autoComplete="off"
-              value={selected ? selected.name : query}
-              onChange={(e) => { setQuery(e.target.value); setSchoolId(''); setOpen(true) }}
-              onFocus={() => setOpen(true)}
-              disabled={!effectiveDistrict}
-              placeholder={
-                effectiveDistrict
-                  ? pending ? 'Loading schools…' : 'Start typing your school name'
-                  : 'Select a district first'
-              }
-              className={className}
-            />
-
-            {open && effectiveDistrict && (
-              <ul className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto clay-card p-1 bg-white">
-                {filtered.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => { setSchoolId(s.id); setQuery(s.name); setOpen(false) }}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-black/[0.04]"
-                    >
-                      <span className="block text-sm font-medium text-foreground">{s.name}</span>
-                      {s.address && (
-                        <span className="block text-xs text-muted truncate">{s.address}</span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-                {filtered.length === 0 && !pending && (
-                  <li className="px-3 py-2 text-sm text-muted">No match in this district.</li>
-                )}
-                <li className="border-t border-black/[0.06] mt-1 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => { setSchoolId(MANUAL_SENTINEL); setOpen(false) }}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-primary/[0.06]"
-                  >
-                    + My school isn&apos;t listed
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
+          <SearchableSelect
+            inputId="school_input"
+            ariaLabel="School name"
+            className={className}
+            options={schoolOptions}
+            value={selectedSchoolKnown ? schoolId : ''}
+            onChange={setSchoolId}
+            disabled={!effectiveDistrict}
+            loading={Boolean(effectiveDistrict) && schools.length === 0 && pending}
+            placeholder={
+              effectiveDistrict
+                ? initialSchoolName && !selectedSchoolKnown
+                  ? initialSchoolName
+                  : 'Start typing your school name'
+                : 'Select a district first'
+            }
+            footerAction={
+              effectiveDistrict
+                ? { label: "+ My school isn't listed", onSelect: () => setSchoolId(MANUAL_SENTINEL) }
+                : undefined
+            }
+          />
         )}
 
         <input type="hidden" name="school_id" value={schoolId} />
