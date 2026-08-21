@@ -5,6 +5,8 @@
 export interface StudentDetailsFields {
   school_class: string | null
   school_name: string | null
+  school_state: string | null
+  school_district: string | null
   city: string | null
   parent_mobile: string | null
 }
@@ -13,6 +15,8 @@ export function isStudentDetailsComplete(p: StudentDetailsFields): boolean {
   return Boolean(
     p.school_class?.trim() &&
       p.school_name?.trim() &&
+      p.school_state?.trim() &&
+      p.school_district?.trim() &&
       p.city?.trim() &&
       p.parent_mobile?.trim()
   )

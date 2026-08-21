@@ -11,6 +11,8 @@ import {
 const full = {
   school_class: 'Class 8',
   school_name: 'Delhi Public School',
+  school_state: 'Maharashtra',
+  school_district: 'Pune',
   city: 'Pune',
   parent_mobile: '9876543210',
 }
@@ -36,6 +38,15 @@ describe('isStudentDetailsComplete', () => {
 
   it('false when a field is empty string', () =>
     expect(isStudentDetailsComplete({ ...full, school_name: '' })).toBe(false))
+
+  it('false when school_state is null — this is what re-gates existing students', () =>
+    expect(isStudentDetailsComplete({ ...full, school_state: null })).toBe(false))
+
+  it('false when school_district is null', () =>
+    expect(isStudentDetailsComplete({ ...full, school_district: null })).toBe(false))
+
+  it('false when school_state is whitespace-only', () =>
+    expect(isStudentDetailsComplete({ ...full, school_state: '   ' })).toBe(false))
 })
 
 describe('classRequiresBranch', () => {
