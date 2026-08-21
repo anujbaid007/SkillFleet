@@ -14,6 +14,7 @@ import {
   CheckSquare,
   Megaphone,
   Store,
+  School,
   LogOut,
 } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
@@ -24,6 +25,7 @@ const adminNavItems = [
   { href: '/admin/taxonomy', label: 'Taxonomy', icon: FolderTree },
   { href: '/admin/offerings', label: 'Offerings', icon: Package },
   { href: '/admin/vendors', label: 'Vendors', icon: Store },
+  { href: '/admin/schools', label: 'Schools', icon: School },
   { href: '/admin/requests', label: 'Requests', icon: Megaphone },
   { href: '/admin/questionnaire', label: 'Questionnaire', icon: HelpCircle },
   { href: '/admin/assessments', label: 'Assessments', icon: ClipboardList },
