@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 
+// Default view is "available to book". The other views are deliberate
+// detours — upcoming activities you can register interest in, and past ones.
 const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'live', label: 'Live' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'completed', label: 'Completed' },
+  { value: '', label: 'Available to book' },
+  { value: 'planned', label: 'Planned (coming soon)' },
+  { value: 'completed', label: 'Past activities' },
+  { value: 'all', label: 'Show everything' },
 ]
 
 // Status dropdown for the catalog. Navigates with the chosen status while
@@ -35,7 +37,7 @@ export function CatalogStatusFilter({
     <select
       value={status ?? ''}
       onChange={handleChange}
-      aria-label="Filter by status"
+      aria-label="Filter by availability"
       className="h-9 px-3 rounded-full border border-black/10 bg-white text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
     >
       {STATUS_OPTIONS.map((o) => (

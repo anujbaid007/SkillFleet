@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { ChildrenManager } from '@/components/platform/children-manager'
+import { FamilyManager } from '@/components/platform/family-manager'
+import type { FamilyMember, PendingMember, FamilySummary } from '@/components/platform/family-manager'
 
-export default async function ChildrenPage() {
+export default async function FamilyPage() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -10,16 +11,23 @@ export default async function ChildrenPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'student') redirect('/dashboard')
 
-  // Only parents manage children.
-  if (profile?.role !== 'parent') redirect('/dashboard')
+  const [{ data: members }, { data: pending }, { data: familyRows }] = await Promise.all([
+    supabase.rpc('get_family_students'),
+    supabase.rpc('get_pending_family_members'),
+    supabase.rpc('get_my_family'),
+  ])
 
-  const { data: children } = await supabase.rpc('get_my_children')
+  const family = ((familyRows ?? []) as FamilySummary[])[0] ?? null
 
-  return <ChildrenManager students={children ?? []} />
+  return (
+    <FamilyManager
+      currentUserId={user.id}
+      members={(members ?? []) as FamilyMember[]}
+      pending={(pending ?? []) as PendingMember[]}
+      family={family}
+    />
+  )
 }

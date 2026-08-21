@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { updateAccountAction } from '@/app/(platform)/account/actions'
 import type { AccountFormState } from '@/app/(platform)/account/actions'
 import { ClassBranchFields } from '@/components/onboarding/class-branch-fields'
+import { SchoolLocationFields } from '@/components/onboarding/school-location-fields'
 
 const INPUT_CLASS =
   'w-full h-11 px-4 rounded-xl border-2 border-black/[0.06] bg-white text-foreground placeholder:text-muted/60 focus:outline-none focus:border-primary transition-colors disabled:bg-black/[0.03] disabled:text-muted'
@@ -11,6 +12,7 @@ const INPUT_CLASS =
 interface AccountFormProps {
   role: string
   email: string
+  states: string[]
   initial: {
     full_name: string
     date_of_birth: string
@@ -18,12 +20,15 @@ interface AccountFormProps {
     school_class: string
     school_branch: string
     school_name: string
+    school_id: string
+    school_state: string
+    school_district: string
     city: string
     parent_mobile: string
   }
 }
 
-export function AccountForm({ role, email, initial }: AccountFormProps) {
+export function AccountForm({ role, email, states, initial }: AccountFormProps) {
   const [state, action, pending] = useActionState<AccountFormState, FormData>(
     updateAccountAction,
     undefined
@@ -91,20 +96,14 @@ export function AccountForm({ role, email, initial }: AccountFormProps) {
             initialClass={initial.school_class}
             initialBranch={initial.school_branch}
           />
-          <div>
-            <label htmlFor="school_name" className="block text-sm font-medium text-foreground mb-1">
-              School name
-            </label>
-            <input
-              id="school_name"
-              name="school_name"
-              type="text"
-              required
-              defaultValue={initial.school_name}
-              className={INPUT_CLASS}
-              placeholder="e.g. Delhi Public School"
-            />
-          </div>
+          <SchoolLocationFields
+            className={INPUT_CLASS}
+            states={states}
+            initialState={initial.school_state}
+            initialDistrict={initial.school_district}
+            initialSchoolId={initial.school_id}
+            initialSchoolName={initial.school_name}
+          />
           <div>
             <label htmlFor="city" className="block text-sm font-medium text-foreground mb-1">
               City

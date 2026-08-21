@@ -3,8 +3,9 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { validateMobile } from '@/lib/validation/mobile'
 import { validateClassBranch, branchToStore } from '@/lib/profile/details'
+import { parseSchoolSelection, validateSchoolSelection } from '@/lib/schools/validate'
+import { resolveSchoolId } from '@/app/actions/schools'
 
 export type DetailsFormState = { error?: string } | undefined
 
@@ -13,19 +14,17 @@ export async function saveStudentDetailsAction(
   formData: FormData
 ): Promise<DetailsFormState> {
   const schoolClass = (formData.get('school_class') as string)?.trim()
-  const schoolName = (formData.get('school_name') as string)?.trim()
   const city = (formData.get('city') as string)?.trim()
   const schoolBranch = (formData.get('school_branch') as string)?.trim() || null
-  const parentMobileRaw = (formData.get('parent_mobile') as string) ?? ''
+  const selection = parseSchoolSelection(formData)
 
-  if (!schoolClass || !schoolName || !city) {
+  if (!schoolClass || !city) {
     return { error: 'All fields are required.' }
   }
   const classBranchError = validateClassBranch(schoolClass, schoolBranch)
   if (classBranchError) return { error: classBranchError }
-  const mobileError = validateMobile(parentMobileRaw)
-  if (mobileError) return { error: mobileError }
-  const parentMobile = parentMobileRaw.replace(/\s+/g, '')
+  const schoolError = validateSchoolSelection(selection)
+  if (schoolError) return { error: schoolError }
 
   const supabase = await createClient()
   const {
@@ -43,15 +42,20 @@ export async function saveStudentDetailsAction(
   if (!profile) redirect('/login')
   if (profile.role !== 'student') redirect('/dashboard')
 
+  const resolved = await resolveSchoolId(selection)
+  if ('error' in resolved) return { error: resolved.error }
+
   // role is intentionally NOT in this update (see security note).
   const { error } = await supabase
     .from('user_profiles')
     .update({
       school_class: schoolClass,
       school_branch: branchToStore(schoolClass, schoolBranch),
-      school_name: schoolName,
+      school_id: resolved.schoolId,
+      school_name: resolved.name,
+      school_state: selection.state,
+      school_district: selection.district,
       city,
-      parent_mobile: parentMobile,
     })
     .eq('id', user.id)
 

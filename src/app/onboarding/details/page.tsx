@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import { DetailsForm } from '@/components/onboarding/details-form'
+import { getSchoolStates } from '@/app/actions/schools'
 
 export default async function OnboardingDetailsPage() {
   const supabase = await createClient()
@@ -24,6 +25,7 @@ export default async function OnboardingDetailsPage() {
     redirect(profile.onboarding_completed ? '/dashboard' : '/onboarding')
   }
 
+  const states = await getSchoolStates()
   const firstName = profile.full_name?.split(' ')[0] ?? 'there'
 
   return (
@@ -37,7 +39,7 @@ export default async function OnboardingDetailsPage() {
             Tell us a little about you so we can personalise your SkillFleet experience.
           </p>
         </div>
-        <DetailsForm />
+        <DetailsForm states={states} previousFreeText={profile.school_name ?? ''} />
       </div>
     </main>
   )

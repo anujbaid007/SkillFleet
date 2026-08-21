@@ -45,7 +45,7 @@ export default async function RequestsPage() {
 
   const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
   if (profile?.role === 'admin') redirect('/admin/requests')
-  if (profile?.role !== 'parent' && profile?.role !== 'student') redirect('/dashboard')
+  if (profile?.role !== 'student') redirect('/dashboard')
 
   const [{ data: watch }, { data: requests }, { data: mySupport }, { data: categories }] = await Promise.all([
     supabase

@@ -8,6 +8,7 @@ import { ParameterCard } from '@/components/dashboard/parameter-card'
 import { ProgressRing } from '@/components/dashboard/progress-ring'
 import { Reveal } from '@/components/ui/reveal'
 import { GradientCard } from '@/components/ui/gradient-card'
+import { RankCard, type RankInfo } from '@/components/dashboard/rank-card'
 
 interface RawChild {
   student_id: string
@@ -53,15 +54,22 @@ export default async function ChildProgressPage({
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'parent') redirect('/dashboard')
+  if (profile?.role !== 'student') redirect('/dashboard')
 
-  // Only children linked to this parent are reachable. get_my_children is the
-  // parent's authorised view; if the id isn't in it, it's not their child.
-  const { data: kids } = await supabase.rpc('get_my_children')
+  // Your own profile lives at /profile; this page is for the rest of the family.
+  if (id === user.id) redirect('/profile')
+
+  // Only active members of your family are reachable. get_family_students is
+  // the authorised view — if the id isn't in it, it isn't your family.
+  const { data: kids } = await supabase.rpc('get_family_students')
   const child = (kids as RawChild[] | null)?.find((k) => k.student_id === id)
   if (!child) notFound()
 
-  const firstName = child.full_name?.split(' ')[0] ?? 'Your child'
+  const firstName = child.full_name?.split(' ')[0] ?? 'Your sibling'
+
+  // Where they stand within their age band (family members are authorised).
+  const { data: rankRows } = await supabase.rpc('get_student_rank', { p_student_id: id })
+  const rank = ((rankRows ?? []) as RankInfo[])[0] ?? null
 
   const [{ data: rawScores }, { data: rawParameters }, { data: rawLevels }, { data: rawContributions }] =
     await Promise.all([
@@ -95,7 +103,9 @@ export default async function ChildProgressPage({
     }
   })
 
-  const hasScores = parameterScores.some((p) => p.total > 0)
+  // Points accrue from completed activities on top of a zero baseline, so the
+  // breakdown is always shown — an un-onboarded sibling simply reads as zeros.
+  const hasPoints = parameterScores.some((p) => p.total > 0)
 
   // Overall = average total across all parameters.
   const avgTotal =
@@ -107,8 +117,8 @@ export default async function ChildProgressPage({
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Link href="/children" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
-        <ArrowLeft className="w-4 h-4" /> Back to My Children
+      <Link href="/family" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+        <ArrowLeft className="w-4 h-4" /> Back to My Family
       </Link>
 
       {/* Gradient hero */}
@@ -119,81 +129,85 @@ export default async function ChildProgressPage({
               <p className="text-white/70 text-sm font-medium">Growth Profile</p>
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">{firstName}</h1>
               <p className="text-white/70 text-sm mt-1 truncate">{child.email}</p>
-              {hasScores && (
-                <div className="mt-3 inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-3.5 py-1.5">
-                  <span className="text-base">🌱</span>
-                  <span className="text-white text-sm font-semibold">
-                    {avgLevel?.name ?? 'Seed'} · {avgTotal} avg pts
-                  </span>
-                </div>
-              )}
+              <div className="mt-3 inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-3.5 py-1.5">
+                <span className="text-base">🌱</span>
+                <span className="text-white text-sm font-semibold">
+                  {avgLevel?.name ?? 'Seed'} · {avgTotal} avg pts
+                </span>
+              </div>
             </div>
-            {hasScores && (
-              <ProgressRing percent={avgDisplay} variant="light" size={124}>
-                <span className="font-display text-3xl font-bold text-white">{avgDisplay}%</span>
-                <span className="text-[10px] uppercase tracking-widest text-white/70 mt-0.5">growth</span>
-              </ProgressRing>
-            )}
+            <ProgressRing percent={avgDisplay} variant="light" size={124}>
+              <span className="font-display text-3xl font-bold text-white">{avgDisplay}%</span>
+              <span className="text-[10px] uppercase tracking-widest text-white/70 mt-0.5">growth</span>
+            </ProgressRing>
           </div>
         </GradientCard>
       </Reveal>
 
-      {!hasScores ? (
+      {rank && (
+        <Reveal delay={0.04}>
+          <RankCard rank={rank} name={firstName} />
+        </Reveal>
+      )}
+
+      {!hasPoints && (
         <Reveal delay={0.05}>
-          <div className="clay-card p-8 text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto text-2xl">🌱</div>
-            <p className="font-display font-bold text-foreground">No scores yet</p>
-            <p className="text-muted text-sm max-w-md mx-auto">
-              {firstName} hasn&apos;t completed onboarding yet. Scores appear here once they finish their
-              starter assessment, and grow as they complete offerings.
-            </p>
+          <div className="clay-card p-5 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">
+              🌱
+            </div>
+            <div className="text-sm">
+              <p className="font-display font-bold text-foreground">Nothing scored yet</p>
+              <p className="text-muted mt-0.5">
+                {firstName}{' '}hasn&apos;t taken the starter assessment. Their skills fill in below once
+                they do — or as soon as they finish an activity booked from the catalogue.
+              </p>
+            </div>
           </div>
         </Reveal>
-      ) : (
-        <>
-          {/* Parameter breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {parameterScores.map((p, i) => (
-              <Reveal key={p.parameterId} delay={Math.min(i * 0.05, 0.4)}>
-                <ParameterCard
-                  name={p.name}
-                  total={p.total}
-                  levelName={p.levelName}
-                  levelColorClass={p.levelColorClass}
-                />
-              </Reveal>
+      )}
+
+      {/* Parameter breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {parameterScores.map((p, i) => (
+          <Reveal key={p.parameterId} delay={Math.min(i * 0.05, 0.4)}>
+            <ParameterCard
+              name={p.name}
+              total={p.total}
+              levelName={p.levelName}
+              levelColorClass={p.levelColorClass}
+            />
+          </Reveal>
+        ))}
+      </div>
+
+      {/* Recent activity */}
+      <div className="space-y-3">
+        <h2 className="font-semibold text-foreground">Recent Activity</h2>
+        {contributions.length === 0 ? (
+          <div className="clay-card p-5 text-sm text-muted">No activity yet.</div>
+        ) : (
+          <div className="clay-card divide-y divide-black/[0.06]">
+            {contributions.map((c) => (
+              <div key={c.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {c.growth_parameters?.name ?? 'Unknown parameter'}
+                  </p>
+                  <p className="text-xs text-muted truncate">
+                    {SOURCE_LABEL[c.source_type] ?? c.source_type}
+                    {c.description ? ` · ${c.description}` : ''}
+                  </p>
+                </div>
+                <span className={`text-sm font-semibold shrink-0 ${c.points < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {c.points > 0 ? `+${c.points}` : c.points}
+                </span>
+                <span className="text-xs text-muted shrink-0 hidden sm:inline">{fmtDate(c.created_at)}</span>
+              </div>
             ))}
           </div>
-
-          {/* Recent activity */}
-          <div className="space-y-3">
-            <h2 className="font-semibold text-foreground">Recent Activity</h2>
-            {contributions.length === 0 ? (
-              <div className="clay-card p-5 text-sm text-muted">No activity yet.</div>
-            ) : (
-              <div className="clay-card divide-y divide-black/[0.06]">
-                {contributions.map((c) => (
-                  <div key={c.id} className="flex items-center gap-4 px-5 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {c.growth_parameters?.name ?? 'Unknown parameter'}
-                      </p>
-                      <p className="text-xs text-muted truncate">
-                        {SOURCE_LABEL[c.source_type] ?? c.source_type}
-                        {c.description ? ` · ${c.description}` : ''}
-                      </p>
-                    </div>
-                    <span className={`text-sm font-semibold shrink-0 ${c.points < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {c.points > 0 ? `+${c.points}` : c.points}
-                    </span>
-                    <span className="text-xs text-muted shrink-0 hidden sm:inline">{fmtDate(c.created_at)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
 }

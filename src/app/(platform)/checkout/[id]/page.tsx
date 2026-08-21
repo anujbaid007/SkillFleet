@@ -44,8 +44,7 @@ export default async function CheckoutPage({
     .eq('id', user.id)
     .single()
 
-  // Payments are parent-only.
-  if (profile?.role !== 'parent') redirect('/bookings')
+  if (profile?.role !== 'student') redirect('/bookings')
 
   const { data: booking } = (await supabase
     .from('bookings')
@@ -53,11 +52,11 @@ export default async function CheckoutPage({
     .eq('id', id)
     .single()) as unknown as { data: RawBooking | null }
 
-  // RLS already limits parents to their own bookings; this is a friendly guard.
+  // RLS already limits this to the family's own bookings; this is a friendly guard.
   if (!booking || booking.booked_by !== user.id) notFound()
 
   // Resolve the child's name for the summary.
-  const { data: kids } = await supabase.rpc('get_my_children')
+  const { data: kids } = await supabase.rpc('get_family_students')
   const childName =
     (kids as RawChild[] | null)?.find((k) => k.student_id === booking.student_id)?.full_name ?? 'your child'
 

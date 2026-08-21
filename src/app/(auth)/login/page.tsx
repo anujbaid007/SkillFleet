@@ -67,18 +67,15 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 text-center space-y-2">
+      <div className="mt-6 text-center">
         <p className="text-sm text-muted">
-          New student?{' '}
-          <Link href="/signup/student" className="text-primary font-semibold hover:underline">
-            Create a student account
+          New here?{' '}
+          <Link href="/signup" className="text-primary font-semibold hover:underline">
+            Create your account
           </Link>
         </p>
-        <p className="text-sm text-muted">
-          Parent or guardian?{' '}
-          <Link href="/signup/parent" className="text-primary font-semibold hover:underline">
-            Create a parent account
-          </Link>
+        <p className="text-xs text-muted mt-1">
+          One account per student — a parent&apos;s details are part of signing up.
         </p>
       </div>
     </motion.div>

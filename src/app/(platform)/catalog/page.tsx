@@ -5,6 +5,7 @@ import { CatalogStatusFilter } from '@/components/catalog/status-filter'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, OFFERING_STATUS_META } from '@/lib/offering-meta'
+import { calculateAge, isAgeEligible } from '@/lib/utils/age'
 
 interface RawOffering {
   id: string
@@ -38,6 +39,10 @@ export default async function CatalogPage({
   const { category: categoryFilter, type: typeFilter, status: statusFilter } = await searchParams
   const supabase = await createClient()
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const [{ data: offerings }, { data: categories }] = (await Promise.all([
     supabase
       .from('offerings')
@@ -47,10 +52,69 @@ export default async function CatalogPage({
     supabase.from('categories').select('id, name').eq('is_active', true).order('display_order'),
   ])) as [{ data: RawOffering[] | null }, { data: RawCategory[] | null }]
 
+  // Who are we filtering "age-appropriate" and "already booked" against?
+  // Age is judged against the whole family — one suitable sibling keeps it visible.
+  let learners: { id: string; dob: string | null }[] = []
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role, date_of_birth')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role === 'student') {
+      // Everyone in the family — an activity stays visible if any sibling can book it.
+      const { data: family } = await supabase.rpc('get_family_students')
+      const rows = (family ?? []) as { student_id: string; date_of_birth: string | null }[]
+      learners = rows.length
+        ? rows.map((k) => ({ id: k.student_id, dob: k.date_of_birth }))
+        : [{ id: user.id, dob: profile.date_of_birth }]
+    }
+  }
+
+  // Offerings already paid for, per learner.
+  const bookedByLearner = new Map<string, Set<string>>()
+  if (learners.length > 0) {
+    const { data: booked } = await supabase
+      .from('bookings')
+      .select('student_id, offering_id')
+      .in('student_id', learners.map((l) => l.id))
+      .eq('payment_status', 'paid')
+      .neq('status', 'cancelled')
+    for (const b of booked ?? []) {
+      const set = bookedByLearner.get(b.student_id) ?? new Set<string>()
+      set.add(b.offering_id)
+      bookedByLearner.set(b.student_id, set)
+    }
+  }
+
+  /** Is there at least one learner who could still book this? */
+  function bookableBySomeone(o: RawOffering): boolean {
+    if (learners.length === 0) return true // signed out / admin preview — don't over-filter
+    return learners.some((l) => {
+      if (bookedByLearner.get(l.id)?.has(o.id)) return false
+      if (!l.dob) return true
+      const age = calculateAge(l.dob)
+      return isAgeEligible(age, o.min_age, o.max_age)
+    })
+  }
+
+  const nowMs = Date.now()
+  const isUpcoming = (o: RawOffering) =>
+    o.scheduled_at == null || new Date(o.scheduled_at).getTime() >= nowMs
+
   let rows = offerings ?? []
   if (typeFilter) rows = rows.filter((o) => o.type === typeFilter)
   if (categoryFilter) rows = rows.filter((o) => o.topics?.category_id === categoryFilter)
-  if (statusFilter) rows = rows.filter((o) => o.status === statusFilter)
+
+  if (statusFilter === 'planned' || statusFilter === 'completed') {
+    rows = rows.filter((o) => o.status === statusFilter)
+  } else if (statusFilter === 'all') {
+    // Everything, unfiltered — the explicit "show me the lot" escape hatch.
+  } else {
+    // Default: only what this family can actually book right now.
+    rows = rows.filter((o) => o.status === 'live' && isUpcoming(o) && bookableBySomeone(o))
+  }
 
   const buildHref = (o: { type?: string | null; category?: string | null }) => {
     const params = new URLSearchParams()
@@ -124,7 +188,11 @@ export default async function CatalogPage({
               <Compass className="w-7 h-7 text-primary" />
             </div>
             <p className="font-display font-bold text-foreground">Nothing here yet</p>
-            <p className="text-muted text-sm">No offerings match these filters — try a different type or status.</p>
+            <p className="text-muted text-sm max-w-md mx-auto">
+              {statusFilter
+                ? 'No activities match these filters — try a different type or category.'
+                : 'Nothing left to book here right now. Activities already booked, or outside your child’s age range, are hidden — switch to “Show everything” to see the full catalogue.'}
+            </p>
           </div>
         </Reveal>
       ) : (
