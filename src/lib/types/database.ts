@@ -1276,6 +1276,9 @@ export type Database = {
           level: string | null
           source: string
           review_status: string
+          review_notes: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
           created_by: string | null
           created_at: string
         }
@@ -1290,6 +1293,9 @@ export type Database = {
           level?: string | null
           source?: string
           review_status?: string
+          review_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -1304,6 +1310,9 @@ export type Database = {
           level?: string | null
           source?: string
           review_status?: string
+          review_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -1407,6 +1416,29 @@ export type Database = {
       decide_family_member: { Args: { p_student_id: string; p_approve: boolean }; Returns: string }
       get_school_states: { Args: Record<string, never>; Returns: { state: string }[] }
       get_school_districts: { Args: { p_state: string }; Returns: { district: string }[] }
+      find_similar_schools: {
+        Args: { p_school_id: string }
+        Returns: {
+          id: string
+          name: string
+          address: string | null
+          review_status: string
+          score: number
+        }[]
+      }
+      admin_review_school: {
+        Args: {
+          p_school_id: string
+          p_decision: string
+          p_notes?: string | null
+          p_merge_into?: string | null
+        }
+        Returns: string
+      }
+      get_my_school_review_status: {
+        Args: Record<string, never>
+        Returns: { school_name: string; review_status: string; review_notes: string | null }[]
+      }
       add_pending_school: {
         Args: { p_name: string; p_state: string; p_district: string }
         Returns: string
