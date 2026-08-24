@@ -1264,6 +1264,84 @@ export type Database = {
           },
         ]
       }
+      isc_entries: {
+        Row: {
+          id: string
+          track: string
+          school_id: string
+          created_by: string
+          status: string
+          submission: Json
+          consent_given_at: string | null
+          submitted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          track: string
+          school_id: string
+          created_by: string
+          status?: string
+          submission?: Json
+          consent_given_at?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          track?: string
+          school_id?: string
+          created_by?: string
+          status?: string
+          submission?: Json
+          consent_given_at?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      isc_entry_members: {
+        Row: {
+          id: string
+          entry_id: string
+          track: string
+          user_id: string | null
+          invited_email: string | null
+          invite_token: string | null
+          is_leader: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entry_id: string
+          track: string
+          user_id?: string | null
+          invited_email?: string | null
+          invite_token?: string | null
+          is_leader?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entry_id?: string
+          track?: string
+          user_id?: string | null
+          invited_email?: string | null
+          invite_token?: string | null
+          is_leader?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      isc_config: {
+        Row: { track: string; screening_deadline: string }
+        Insert: { track: string; screening_deadline: string }
+        Update: { track?: string; screening_deadline?: string }
+        Relationships: []
+      }
       schools: {
         Row: {
           id: string
