@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { getSchoolDistrictsAction, getSchoolsAction, type SchoolOption } from '@/app/actions/schools'
 import { MANUAL_SENTINEL } from '@/lib/schools/validate'
 import { SearchableSelect, type SelectOption } from '@/components/ui/searchable-select'
@@ -17,6 +17,12 @@ interface Props {
   initialSchoolName?: string
   /** Free text the student entered before the cascade existed, shown as a hint. */
   previousFreeText?: string
+  /**
+   * Fires with the fully resolved picked school, or null whenever the
+   * selection is cleared or typed in by hand. Used by the coordinator form to
+   * pre-fill the board without a second round trip.
+   */
+  onSchoolPicked?: (school: SchoolOption | null) => void
 }
 
 /**
@@ -39,6 +45,7 @@ export function SchoolLocationFields({
   initialSchoolId = '',
   initialSchoolName = '',
   previousFreeText = '',
+  onSchoolPicked,
 }: Props) {
   const [state, setState] = useState(initialState)
   const [districts, setDistricts] = useState<string[]>([])
@@ -91,6 +98,25 @@ export function SchoolLocationFields({
 
   // A saved profile shows its school name before the district's list arrives.
   const selectedSchoolKnown = schools.some((s) => s.id === schoolId)
+
+  const selectedSchool = useMemo(
+    () => schools.find((s) => s.id === schoolId) ?? null,
+    [schools, schoolId]
+  )
+
+  // Held in a ref so an inline arrow from the parent does not re-fire this on
+  // every render — the effect should track the selection, not the callback.
+  const onSchoolPickedRef = useRef(onSchoolPicked)
+  useEffect(() => {
+    onSchoolPickedRef.current = onSchoolPicked
+  }, [onSchoolPicked])
+
+  // Reports the resolved school rather than firing inside each handler: this
+  // also covers the case where a school id is set before the district's list
+  // has finished loading, which a per-handler call would miss.
+  useEffect(() => {
+    onSchoolPickedRef.current?.(selectedSchool)
+  }, [selectedSchool])
 
   function pickState(next: string) {
     setState(next)
