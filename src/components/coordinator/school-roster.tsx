@@ -1,11 +1,44 @@
 import { CLASS_OPTIONS } from '@/lib/profile/details'
+import { ISC_TRACKS } from '@/lib/isc/tracks'
 import type { RosterStudent } from '@/app/actions/coordinator'
+
+const SHORT: Record<string, string> = {
+  ai_for_impact: 'AI',
+  entrepreneurship: 'YE',
+  content_creator: 'CC',
+}
+
+/** One chip per enterable track: a single value cannot say which track. */
+function AttemptChips({ status }: { status: Record<string, string> }) {
+  return (
+    <span className="flex flex-wrap gap-1">
+      {ISC_TRACKS.map((t) => {
+        const state = status[t.id]
+        const cls =
+          state === 'submitted'
+            ? 'bg-primary/10 text-primary'
+            : state === 'draft'
+              ? 'bg-accent-yellow/15 text-accent-yellow'
+              : 'bg-black/[0.05] text-muted'
+        return (
+          <span
+            key={t.id}
+            title={`${t.name}: ${state ?? 'not started'}`}
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${cls}`}
+          >
+            {SHORT[t.id]}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
 
 /**
  * Grouped by class, in the same order CLASS_OPTIONS defines everywhere else in
- * the app. Attempt / Qualify Status are real columns carrying placeholder text
- * — neither ISC entries nor judging exist yet, but the shape does not change
- * once they do; only the placeholder is replaced with real values.
+ * the app. Attempt Status is real: because teammates are linked to real
+ * accounts, every member of a team reads as having entered, not only whoever
+ * pressed Submit. Qualify Status stays a placeholder until judging exists.
  */
 export function SchoolRoster({ students }: { students: RosterStudent[] }) {
   if (students.length === 0) {
@@ -41,7 +74,7 @@ export function SchoolRoster({ students }: { students: RosterStudent[] }) {
             {(byClass.get(cls) ?? []).map((s) => (
               <div key={s.studentId} className="grid grid-cols-3 gap-4 px-4 py-3 text-sm">
                 <span className="text-foreground font-medium">{s.fullName ?? 'Student'}</span>
-                <span className="text-muted">Opens when ISC 2026 launches</span>
+                <AttemptChips status={s.iscStatus} />
                 <span className="text-muted">Opens when ISC 2026 launches</span>
               </div>
             ))}

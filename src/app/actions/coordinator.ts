@@ -148,6 +148,8 @@ export interface RosterStudent {
   studentId: string
   fullName: string | null
   schoolClass: string | null
+  /** Track id -> 'draft' | 'submitted'. An absent track means not started. */
+  iscStatus: Record<string, string>
 }
 
 export async function getSchoolRoster(): Promise<RosterStudent[]> {
@@ -157,5 +159,6 @@ export async function getSchoolRoster(): Promise<RosterStudent[]> {
     studentId: r.student_id,
     fullName: r.full_name,
     schoolClass: r.school_class,
+    iscStatus: (r.isc_status ?? {}) as Record<string, string>,
   }))
 }

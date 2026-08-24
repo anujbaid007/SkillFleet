@@ -1563,7 +1563,12 @@ export type Database = {
       }
       get_school_roster: {
         Args: Record<string, never>
-        Returns: { student_id: string; full_name: string | null; school_class: string | null }[]
+        Returns: {
+          student_id: string
+          full_name: string | null
+          school_class: string | null
+          isc_status: Json
+        }[]
       }
       get_my_family: {
         Args: Record<string, never>
