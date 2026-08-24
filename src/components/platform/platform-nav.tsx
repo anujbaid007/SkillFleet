@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, LogOut, UserRound, Award, Megaphone, ShoppingCart, Wallet, CalendarDays } from 'lucide-react'
+import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, LogOut, UserRound, Award, Megaphone, ShoppingCart, Wallet, CalendarDays, Trophy } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
 import { AccountSwitcher } from '@/components/platform/account-switcher'
 import type { SwitchTarget } from '@/app/actions/switch'
@@ -13,6 +13,7 @@ import type { UserProfile } from '@/lib/types/database'
 const studentNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Growth Profile', icon: Activity },
+  { href: '/isc', label: 'ISC 2026', icon: Trophy },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/catalog', label: 'Explore', icon: BookOpen },
   { href: '/requests', label: 'Requests', icon: Megaphone },
