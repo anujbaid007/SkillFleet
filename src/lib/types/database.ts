@@ -1536,6 +1536,11 @@ export type Database = {
         Args: { p_name: string; p_state: string; p_district: string }
         Returns: string
       }
+      isc_start_entry: { Args: { p_track: string }; Returns: Json }
+      isc_save_entry: { Args: { p_entry_id: string; p_submission: Json }; Returns: Json }
+      isc_submit_entry: { Args: { p_entry_id: string; p_consent: boolean }; Returns: Json }
+      isc_get_my_entries: { Args: Record<string, never>; Returns: Json }
+      isc_get_entry: { Args: { p_entry_id: string }; Returns: Json }
       apply_as_coordinator: {
         Args: { p_school_id: string; p_board: string; p_student_count_range: string }
         Returns: string
