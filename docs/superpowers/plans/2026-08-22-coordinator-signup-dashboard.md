@@ -87,7 +87,11 @@ ALTER TABLE public.schools
   ADD COLUMN IF NOT EXISTS coordinator_status  TEXT NOT NULL DEFAULT 'none'
                            CHECK (coordinator_status IN ('none', 'pending', 'approved', 'rejected')),
   ADD COLUMN IF NOT EXISTS board                TEXT,
-  ADD COLUMN IF NOT EXISTS student_count_range  TEXT;
+  ADD COLUMN IF NOT EXISTS student_count_range  TEXT,
+  -- Separate from the school's own review_notes: a school can be approved
+  -- (or rejected) independently of the coordinator claim attached to it
+  -- (Case A), so the two rejection reasons must not share a column.
+  ADD COLUMN IF NOT EXISTS coordinator_notes    TEXT;
 
 -- The whole CBSE register is, by definition, CBSE. A coordinator's form
 -- pre-fills from this instead of asking a question we already know the
@@ -191,9 +195,18 @@ BEGIN
     RETURN 'already_has_coordinator';
   END IF;
 
+  -- A coordinator has at most one active claim. Rejection keeps coordinator_id
+  -- set (so the rejected row stays visible to them — see below), so without
+  -- this, applying to a second school would leave two rows pointing at the
+  -- same auth.uid() and get_my_coordinator_school() would return both.
+  UPDATE public.schools
+     SET coordinator_id = NULL, coordinator_status = 'none', coordinator_notes = NULL
+   WHERE coordinator_id = auth.uid() AND id <> p_school_id;
+
   UPDATE public.schools
      SET coordinator_id = auth.uid(),
          coordinator_status = 'pending',
+         coordinator_notes = NULL,
          board = v_board,
          student_count_range = v_count
    WHERE id = p_school_id;
@@ -215,15 +228,19 @@ BEGIN
   IF NOT public.is_admin() THEN RETURN 'forbidden'; END IF;
 
   IF p_decision = 'approve' THEN
-    UPDATE public.schools SET coordinator_status = 'approved'
+    UPDATE public.schools SET coordinator_status = 'approved', coordinator_notes = NULL
      WHERE id = p_school_id AND coordinator_status = 'pending';
     IF NOT FOUND THEN RETURN 'not_pending'; END IF;
     RETURN 'approved';
 
   ELSIF p_decision = 'reject' THEN
     IF v_notes IS NULL THEN RETURN 'notes_required'; END IF;
+    -- coordinator_id is deliberately kept (not nulled) — the coordinator still
+    -- needs to look up their own claim by it to see this rejection and reason.
+    -- A rejected school stays claimable by anyone: apply_as_coordinator's
+    -- already_has_coordinator check only fires for 'pending'/'approved'.
     UPDATE public.schools
-       SET coordinator_id = NULL, coordinator_status = 'none'
+       SET coordinator_status = 'rejected', coordinator_notes = v_notes
      WHERE id = p_school_id AND coordinator_status = 'pending';
     IF NOT FOUND THEN RETURN 'not_pending'; END IF;
     RETURN 'rejected';
@@ -233,13 +250,19 @@ BEGIN
 END;
 $$;
 
-/** The caller's own coordinator claim, in whichever state it is in. */
+/**
+ * The caller's own coordinator claim, in whichever state it is in.
+ * LIMIT 1 is defensive, not load-bearing: apply_as_coordinator clears any
+ * other row for the same coordinator_id before creating a new one, so at
+ * most one row should ever match.
+ */
 CREATE OR REPLACE FUNCTION public.get_my_coordinator_school()
 RETURNS TABLE (school_id UUID, school_name TEXT, coordinator_status TEXT, review_notes TEXT)
 LANGUAGE sql SECURITY DEFINER STABLE SET search_path = '' AS $$
-  SELECT s.id, s.name, s.coordinator_status, s.review_notes
+  SELECT s.id, s.name, s.coordinator_status, s.coordinator_notes
     FROM public.schools s
-   WHERE s.coordinator_id = auth.uid();
+   WHERE s.coordinator_id = auth.uid()
+   LIMIT 1;
 $$;
 
 /**
@@ -289,14 +312,14 @@ UNION ALL SELECT 'fns: ' || string_agg(p.proname, ',' ORDER BY p.proname)
 UNION ALL SELECT 'schools cols: ' || string_agg(column_name, ',' ORDER BY column_name)
   FROM information_schema.columns
  WHERE table_schema='public' AND table_name='schools'
-   AND column_name IN ('coordinator_id','coordinator_status','board','student_count_range')
+   AND column_name IN ('coordinator_id','coordinator_status','board','student_count_range','coordinator_notes')
 UNION ALL SELECT 'cbse without board: ' || count(*)::text FROM public.schools WHERE source='cbse' AND board IS NULL
 UNION ALL SELECT 'cbse with board: ' || count(*)::text FROM public.schools WHERE source='cbse' AND board='CBSE';
 SQL
 powershell -NoProfile -File "$SP/sbq.ps1" -File "$SP/v47.sql"
 ```
 
-Expected: the role check includes `coordinator`; all four function names; all four column names; `cbse without board: 0`; `cbse with board: 32882` (or whatever the current CBSE-sourced count is).
+Expected: the role check includes `coordinator`; all four function names; all five column names; `cbse without board: 0`; `cbse with board: 32882` (or whatever the current CBSE-sourced count is).
 
 - [ ] **Step 4: Verify the coordinator signup branch, both cases of the claim flow, and the roster gate — against the live database**
 
@@ -325,10 +348,22 @@ BEGIN
   SELECT role INTO out_txt FROM public.user_profiles WHERE id = coord1;
   out_txt := format('1) trigger branch role = %s (want coordinator)', out_txt) || E'\n';
 
-  SELECT id INTO a_school FROM public.schools
-   WHERE state='Maharashtra' AND district='Pune' AND review_status='approved' LIMIT 1;
+  -- Deliberately the school with the MOST students linked, not an arbitrary
+  -- approved one — the roster assertions below are about real rows coming
+  -- back, and most approved schools have no students at all.
+  SELECT p.school_id INTO a_school
+    FROM public.user_profiles p
+    JOIN public.schools s ON s.id = p.school_id
+   WHERE p.role = 'student' AND s.review_status = 'approved'
+   GROUP BY p.school_id
+   ORDER BY count(*) DESC, p.school_id
+   LIMIT 1;
 
-  PERFORM set_config('role','authenticated', true);
+  -- NOTE: do NOT set the 'role' GUC here. set_config('role', 'authenticated')
+  -- actually switches the session's Postgres role, and `authenticated` holds no
+  -- grant on auth.users — every later read of that table then fails. These RPCs
+  -- are SECURITY DEFINER and read auth.uid() from request.jwt.claims, so the
+  -- claims alone are sufficient to impersonate.
   PERFORM set_config('request.jwt.claims', json_build_object('sub', coord1,'role','authenticated')::text, true);
 
   SELECT public.apply_as_coordinator(a_school, 'CBSE', '301-600') INTO res;
@@ -349,7 +384,7 @@ BEGIN
   SELECT count(*) INTO n FROM public.get_school_roster();
   out_txt := out_txt || format('5) roster while pending = %s (want 0)', n) || E'\n';
 
-  -- Admin approves. Roster now shows real students (Maya + Arjun are both Pune).
+  -- Admin approves. The roster then returns that school's real students.
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', (SELECT id FROM public.user_profiles WHERE role='admin' LIMIT 1),'role','authenticated')::text, true);
   SELECT public.admin_review_coordinator_claim(a_school, 'approve') INTO res;
@@ -376,7 +411,13 @@ BEGIN
 
   -- Reject a fresh claim on a different school; must reset cleanly and not
   -- lock the school from a later, different applicant.
-  DECLARE b_school uuid;
+  DECLARE
+    b_school uuid;
+    d_school uuid;
+    coord3   uuid := gen_random_uuid();
+    v_status text;
+    v_notes  text;
+    v_school uuid;
   BEGIN
     SELECT id INTO b_school FROM public.schools
      WHERE state='Karnataka' AND district='Bengaluru Urban' AND review_status='approved' LIMIT 1;
@@ -386,9 +427,43 @@ BEGIN
     SELECT public.admin_review_coordinator_claim(b_school, 'reject', 'Could not verify affiliation') INTO res;
     out_txt := out_txt || format('9) reject -> %s (want rejected)', res) || E'\n';
 
+    -- coord2 (already created in step 8, and still the active jwt from that
+    -- step) is the one who just applied to and was rejected from b_school.
+    -- They can still see the rejection: this is the exact query
+    -- get_my_coordinator_school() runs, and the whole point of not nulling
+    -- coordinator_id on reject.
     PERFORM set_config('request.jwt.claims', json_build_object('sub', coord2,'role','authenticated')::text, true);
+    SELECT school_id, coordinator_status, review_notes INTO v_school, v_status, v_notes
+      FROM public.get_my_coordinator_school();
+    out_txt := out_txt || format('10) rejected coordinator still sees their claim -> school=%s status=%s notes=%s (want status=rejected, notes=Could not verify affiliation)',
+      (v_school = b_school), v_status, v_notes) || E'\n';
+
+    -- A different coordinator can now claim the same, rejected school.
+    INSERT INTO auth.users (
+      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+      created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token, email_change_token_new, email_change
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000000', coord3, 'authenticated', 'authenticated',
+      'coordtest3@example.invalid', 'x', now(), now(), now(), '{}'::jsonb,
+      jsonb_build_object('signup_type','coordinator','full_name','Third Coordinator'),
+      '', '', '', ''
+    );
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', coord3,'role','authenticated')::text, true);
     SELECT public.apply_as_coordinator(b_school, 'CBSE', '1-100') INTO res;
-    out_txt := out_txt || format('10) different coordinator claims the rejected school -> %s (want pending)', res) || E'\n';
+    out_txt := out_txt || format('11) a third, different coordinator claims the rejected school -> %s (want pending)', res) || E'\n';
+
+    -- coord2 (still rejected on b_school) now applies to a brand new school.
+    -- Their stale rejected row on b_school must be cleared so
+    -- get_my_coordinator_school() never returns more than one row for them.
+    SELECT id INTO d_school FROM public.schools
+     WHERE state='Tamil Nadu' AND review_status='approved' AND id <> b_school LIMIT 1;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', coord2,'role','authenticated')::text, true);
+    SELECT public.apply_as_coordinator(d_school, 'CBSE', '1-100') INTO res;
+    out_txt := out_txt || format('12) rejected coordinator applies elsewhere -> %s (want pending)', res) || E'\n';
+
+    SELECT count(*) INTO n FROM public.schools WHERE coordinator_id = coord2;
+    out_txt := out_txt || format('13) coord2 has exactly one active claim after moving on -> %s (want 1)', n) || E'\n';
   END;
 
   RAISE EXCEPTION E'\n%', out_txt;
@@ -397,7 +472,7 @@ SQL
 powershell -NoProfile -File "$SP/sbq.ps1" -File "$SP/t47.sql"
 ```
 
-Expected, each matching its `(want …)`: trigger role `coordinator`; first claim `pending`; resubmit `pending`; student applies `forbidden`; roster while pending `0`; admin approves `approved`; roster once approved `true`; second coordinator on an approved school `already_has_coordinator`; reject `rejected`; a different coordinator claiming the now-reset school `pending`.
+Expected, each matching its `(want …)`: trigger role `coordinator`; first claim `pending`; resubmit `pending`; student applies `forbidden`; roster while pending `0`; admin approves `approved`; roster once approved `true`; second coordinator on an approved school `already_has_coordinator`; reject `rejected`; the rejected coordinator can still see their own claim with the exact reason; a third coordinator claiming the rejected school `pending`; the original rejected coordinator applying to an unrelated school `pending`; and after that move, exactly `1` row in `schools` still has `coordinator_id = coord2` — proving the stale rejected row was cleared, not left behind as a duplicate.
 
 The `RAISE EXCEPTION` rolls every bit of this back — no test data persists.
 
@@ -1080,7 +1155,7 @@ Expected: tsc exit 0; `✓ Compiled successfully`; `/signup/coordinator` and `/o
 
 Start the app: `npm run dev`
 
-Visit `/signup/coordinator`. Fill in a real name/email/password/phone, submit.
+Visit `/signup/coordinator`. Use email `coordinator.hinjawadi.test@example.invalid` (a fixed test address, so later tasks' SQL and browser steps can find this exact account again), any real name/phone, and a password meeting `validatePassword`'s rules — remember it, later tasks sign back in as this account. Submit.
 
 Expected: redirected to `/onboarding/coordinator` (or shown "check your email" if confirmation is required — confirm, then log in, and you land there anyway).
 
@@ -1495,13 +1570,26 @@ cat > "$SP/clean47.sql" <<'SQL'
 DELETE FROM public.schools WHERE name = 'Case A Test School';
 UPDATE public.user_profiles SET role = 'student'
   WHERE id = (SELECT id FROM auth.users WHERE email = 'ishaan@gmail.com');
-UPDATE public.schools SET coordinator_id = NULL, coordinator_status = 'none'
-  WHERE name = 'Delhi Public School Hinjawadi';
+
+-- Reassert the Task 4 coordinator's claim as a clean 'pending', via the same
+-- RPC the app uses (not a raw UPDATE) — this is idempotent whether or not
+-- this step's own Approve/Reject buttons on the Delhi row were clicked
+-- while verifying Step 6, so Task 6's walkthrough always starts from
+-- 'pending' regardless of what happened here.
+DO $$
+DECLARE v_coord uuid; v_school uuid;
+BEGIN
+  v_coord := (SELECT id FROM auth.users WHERE email = 'coordinator.hinjawadi.test@example.invalid');
+  v_school := (SELECT id FROM public.schools WHERE name = 'Delhi Public School Hinjawadi');
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_coord, 'role', 'authenticated')::text, true);
+  PERFORM public.apply_as_coordinator(v_school, 'CBSE', '301-600');
+END $$;
 SQL
 powershell -NoProfile -File "$SP/sbq.ps1" -File "$SP/clean47.sql"
 ```
 
-Note: the last statement resets the Task 4 test coordinator's claim so Task 6's walkthrough starts from a clean `pending` state rather than whatever this task left it in.
+Note: the `apply_as_coordinator` call resets the Task 4 test coordinator's claim to a clean `pending` state so Task 6's walkthrough starts from a known point, regardless of whether this task's Step 6 exercised the Approve/Reject buttons on that same row while verifying the UI.
 
 - [ ] **Step 7: Commit**
 
@@ -1768,7 +1856,7 @@ Expected: tsc exit 0; `✓ Compiled successfully`; `/coordinator` in the route l
 
 - [ ] **Step 6: Walk the three states in the browser**
 
-Sign in as the Task 4 test coordinator (their claim was reset to `pending` at the end of Task 5).
+Sign in as the Task 4 test coordinator (`coordinator.hinjawadi.test@example.invalid` — their claim was reset to `pending` at the end of Task 5).
 
 Expected: the **pending** waiting-room screen, naming their school.
 
@@ -1778,7 +1866,7 @@ Expected: the **rejected** screen shows the admin's reason and an "Apply again" 
 
 Apply again (same school), then approve it as admin. Reload as the coordinator.
 
-Expected: the real **roster** — Maya and Arjun (both Pune, from the seed data), grouped under **Class 9** and **Class 5**, each row showing *"Opens when ISC 2026 launches"* in both status columns.
+Expected: the real **roster** — the four seeded students actually linked to Delhi Public School Hinjawadi, each in their own class group, in `CLASS_OPTIONS` order: **Class 7** Sara Khan, **Class 8** Rhea Iyer, **Class 9** Maya Sharma, **Class 10** Ananya Nair. Every row shows *"Opens when ISC 2026 launches"* in both status columns. (Verified against the live DB during Task 1 — note Maya Sharma is a different account from "Maya", and Arjun Sharma is at a Mumbai school, so neither of the latter two should appear here.)
 
 - [ ] **Step 7: Commit**
 
@@ -1844,6 +1932,25 @@ git commit -m "feat: route coordinators to their own dashboard; surface the sign
 ```
 
 ---
+
+## Corrections made during execution
+
+Recorded here because the plan was wrong in these specific ways, and the reasons matter more than the diffs:
+
+1. **A rejected claim kept `coordinator_id`.** As first written, the reject branch nulled `coordinator_id`, which made `get_my_coordinator_school()` — which looks up by exactly that column — unable to find a rejected coordinator's own row. The whole "rejected" dashboard state was unreachable dead code. Reject now sets `coordinator_status = 'rejected'` and keeps the id. The school stays claimable by anyone because `already_has_coordinator` only fires for `pending`/`approved`.
+2. **A new `schools.coordinator_notes` column.** The rejection reason cannot share `review_notes` with the school's own review — in Case A both decisions exist independently on one row.
+3. **`apply_as_coordinator` clears the coordinator's other claims.** Since rejection now keeps `coordinator_id`, applying elsewhere would otherwise leave two rows pointing at the same person.
+4. **`/onboarding/coordinator` must let a *rejected* claim through.** The plan's `if (existing) redirect('/coordinator')` would have made Task 6's "Apply again" link bounce straight back in an infinite loop.
+5. **`set_config('role', 'authenticated')` must not be used in the test harness.** It switches the real Postgres session role, and `authenticated` has no grant on `auth.users`, so every later read of that table fails. The claims alone are enough for `SECURITY DEFINER` RPCs.
+6. **The roster fixture picked a school with no students.** `WHERE district='Pune' … LIMIT 1` grabbed an arbitrary approved school. The test now picks the school with the most students. Relatedly, the plan's claim that "Maya + Arjun are both Pune" was false — they are at Mumbai schools; the four Hinjawadi students are Sara Khan, Rhea Iyer, Maya Sharma and Ananya Nair.
+7. **Applicant contact is the phone, not the email.** Email lives on `auth.users` and needs the service-role key, which is still a placeholder in `.env.local`. `user_profiles.phone` is already captured at signup and gives the admin something real to verify against. Showing the email is a follow-up.
+8. **`SchoolLocationFields` reports the picked school via a derived-selection effect**, not a callback in each handler — the real component uses `onChange={setSchoolId}`, and the effect also covers a school id being set before the district's list has loaded.
+9. **A successful application redirects** to `/coordinator` rather than returning a success flag, so `ApplyState` carries only an error.
+
+Two notes for whoever tests this next:
+
+- **Playwright's `browser_click` does not submit forms on `/admin/schools`** — something on that page swallows the click, for the pre-existing school buttons as much as the new ones. It is not an application bug: `form.requestSubmit(button)` via `browser_evaluate` works, and the server action runs correctly. Use that to drive that page.
+- **Verifying the admin queue needs an admin session.** The only admin is `admin@skillfleet.test`, whose password is unknown. A seeded student was temporarily promoted, used, and **reverted to `student`** — confirmed afterwards that `admin@skillfleet.test` is once again the only admin.
 
 ## Done when
 
