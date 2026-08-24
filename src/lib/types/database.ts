@@ -1536,6 +1536,8 @@ export type Database = {
         Args: { p_name: string; p_state: string; p_district: string }
         Returns: string
       }
+      isc_add_member: { Args: { p_entry_id: string; p_email: string }; Returns: Json }
+      isc_remove_member: { Args: { p_entry_id: string; p_member_id: string }; Returns: Json }
       isc_start_entry: { Args: { p_track: string }; Returns: Json }
       isc_save_entry: { Args: { p_entry_id: string; p_submission: Json }; Returns: Json }
       isc_submit_entry: { Args: { p_entry_id: string; p_consent: boolean }; Returns: Json }

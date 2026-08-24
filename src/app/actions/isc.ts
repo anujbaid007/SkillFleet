@@ -205,3 +205,59 @@ export async function getTrackDeadline(track: IscTrackId): Promise<string | null
     .single()
   return data?.screening_deadline ?? null
 }
+
+export type TeamState = { error?: string; ok?: string } | undefined
+
+const TEAM_ERR: Record<string, string> = {
+  bad_email: 'That does not look like an email address.',
+  team_full: 'A team can have at most three people, you included.',
+  self_add: 'You are already on this team.',
+  wrong_school: 'Teammates must be students at your school.',
+  already_in_track: 'They are already in another entry for this track.',
+  already_invited: 'You have already invited that email.',
+}
+
+export async function addMemberAction(_prev: TeamState, formData: FormData): Promise<TeamState> {
+  const entryId = (formData.get('entry_id') as string)?.trim()
+  const slug = (formData.get('slug') as string)?.trim()
+  const email = ((formData.get('email') as string) ?? '').trim()
+  if (!entryId || !email) return { error: 'Enter an email address.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('isc_add_member', {
+    p_entry_id: entryId,
+    p_email: email,
+  })
+  if (error) return { error: iscError(undefined) }
+
+  const r = data as { ok: boolean; error?: string; state?: string; name?: string }
+  if (!r?.ok) return { error: TEAM_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+
+  revalidatePath(`/isc/${slug}`)
+  return {
+    ok:
+      r.state === 'linked'
+        ? `${r.name ?? 'Your classmate'} has been added to the team.`
+        : 'No account yet — share the invite link below so they can join.',
+  }
+}
+
+export async function removeMemberAction(_prev: TeamState, formData: FormData): Promise<TeamState> {
+  const entryId = (formData.get('entry_id') as string)?.trim()
+  const memberId = (formData.get('member_id') as string)?.trim()
+  const slug = (formData.get('slug') as string)?.trim()
+  if (!entryId || !memberId) return { error: 'Missing team member.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('isc_remove_member', {
+    p_entry_id: entryId,
+    p_member_id: memberId,
+  })
+  if (error) return { error: iscError(undefined) }
+
+  const r = data as { ok: boolean; error?: string }
+  if (!r?.ok) return { error: TEAM_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+
+  revalidatePath(`/isc/${slug}`)
+  return { ok: 'Removed.' }
+}

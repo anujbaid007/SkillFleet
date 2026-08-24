@@ -6,6 +6,7 @@ import { trackBySlug } from '@/lib/isc/tracks'
 import { isEligibleClass, isTrackLocked } from '@/lib/isc/validate'
 import { ensureIscEntry, getIscEntry, getTrackDeadline } from '@/app/actions/isc'
 import { EntryForm } from '@/components/isc/entry-form'
+import { TeamPanel } from '@/components/isc/team-panel'
 
 export default async function IscTrackPage({
   params,
@@ -55,6 +56,14 @@ export default async function IscTrackPage({
         <h1 className="font-display text-2xl font-bold text-foreground">{track.name}</h1>
         <p className="text-muted mt-1 max-w-2xl">{track.brief}</p>
       </div>
+
+      <TeamPanel
+        entryId={entry.entryId}
+        slug={track.slug}
+        members={entry.members}
+        maxTeamSize={track.maxTeamSize}
+        canEdit={entry.isLeader && !locked}
+      />
 
       <EntryForm
         entryId={entry.entryId}
