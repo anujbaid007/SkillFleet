@@ -8,6 +8,7 @@ export interface SchoolOption {
   name: string
   address: string | null
   pincode: string | null
+  board: string | null
 }
 
 /** Distinct states, for the first dropdown. Called from server components. */
@@ -37,7 +38,7 @@ export async function getSchoolsAction(
   const supabase = await createClient()
   const { data } = await supabase
     .from('schools')
-    .select('id, name, address, pincode')
+    .select('id, name, address, pincode, board')
     .eq('state', state)
     .eq('district', district)
     .eq('review_status', 'approved')
