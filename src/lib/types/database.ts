@@ -1281,6 +1281,11 @@ export type Database = {
           reviewed_at: string | null
           created_by: string | null
           created_at: string
+          coordinator_id: string | null
+          coordinator_status: string
+          coordinator_notes: string | null
+          board: string | null
+          student_count_range: string | null
         }
         Insert: {
           id?: string
@@ -1298,6 +1303,11 @@ export type Database = {
           reviewed_at?: string | null
           created_by?: string | null
           created_at?: string
+          coordinator_id?: string | null
+          coordinator_status?: string
+          coordinator_notes?: string | null
+          board?: string | null
+          student_count_range?: string | null
         }
         Update: {
           id?: string
@@ -1315,6 +1325,11 @@ export type Database = {
           reviewed_at?: string | null
           created_by?: string | null
           created_at?: string
+          coordinator_id?: string | null
+          coordinator_status?: string
+          coordinator_notes?: string | null
+          board?: string | null
+          student_count_range?: string | null
         }
         Relationships: []
       }
@@ -1442,6 +1457,27 @@ export type Database = {
       add_pending_school: {
         Args: { p_name: string; p_state: string; p_district: string }
         Returns: string
+      }
+      apply_as_coordinator: {
+        Args: { p_school_id: string; p_board: string; p_student_count_range: string }
+        Returns: string
+      }
+      admin_review_coordinator_claim: {
+        Args: { p_school_id: string; p_decision: string; p_notes?: string | null }
+        Returns: string
+      }
+      get_my_coordinator_school: {
+        Args: Record<string, never>
+        Returns: {
+          school_id: string
+          school_name: string
+          coordinator_status: string
+          review_notes: string | null
+        }[]
+      }
+      get_school_roster: {
+        Args: Record<string, never>
+        Returns: { student_id: string; full_name: string | null; school_class: string | null }[]
       }
       get_my_family: {
         Args: Record<string, never>
