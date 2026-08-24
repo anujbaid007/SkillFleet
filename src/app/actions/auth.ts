@@ -7,6 +7,7 @@ import { validateDob } from '@/lib/validation/dob'
 import { validateMobile } from '@/lib/validation/mobile'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import { clearFamilySessions } from '@/lib/auth/family-sessions'
+import { isExistingEmailSignup } from '@/lib/auth/signup'
 
 export type AuthFormState =
   | {
@@ -133,6 +134,13 @@ export async function signupAction(
   })
 
   if (error) return { error: error.message }
+
+  // Must come before the no-session branch below: an already-registered email
+  // also returns without a session, and would otherwise be told to go and
+  // check an inbox for a mail that is never sent.
+  if (isExistingEmailSignup(data)) {
+    return { error: 'An account with this email already exists. Please sign in instead.' }
+  }
 
   // With email confirmation enabled there is no session until the link is clicked.
   if (!data.session) return { success: confirmEmailMessage(email) }

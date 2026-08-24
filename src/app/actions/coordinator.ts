@@ -7,6 +7,7 @@ import { validatePassword } from '@/lib/validation/password'
 import { validateMobile } from '@/lib/validation/mobile'
 import { parseSchoolSelection, validateSchoolSelection } from '@/lib/schools/validate'
 import { validateCoordinatorApplication } from '@/lib/coordinator/validate'
+import { isExistingEmailSignup } from '@/lib/auth/signup'
 import { resolveSchoolId } from '@/app/actions/schools'
 import type { AuthFormState } from '@/app/actions/auth'
 
@@ -54,6 +55,13 @@ export async function signupCoordinatorAction(
   })
 
   if (error) return { error: error.message }
+
+  // Must come before the no-session branch below: an already-registered email
+  // also returns without a session, and would otherwise be told to go and
+  // check an inbox for a mail that is never sent.
+  if (isExistingEmailSignup(data)) {
+    return { error: 'An account with this email already exists. Please sign in instead.' }
+  }
 
   // With email confirmation enabled there is no session until the link is clicked.
   if (!data.session) {
