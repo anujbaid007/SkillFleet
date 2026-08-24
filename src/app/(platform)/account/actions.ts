@@ -86,6 +86,10 @@ export async function updateAccountAction(
   const { error } = await supabase.from('user_profiles').update(update).eq('id', user.id)
   if (error) return { error: 'Could not save changes. Please try again.' }
 
+  // A student who corrects their school should pick up any ISC invite that
+  // now matches it.
+  await supabase.rpc('isc_claim_invites')
+
   revalidatePath('/account')
   // The dashboard carries the "we couldn't verify your school" notice, so it
   // has to refresh too — otherwise fixing the school here leaves a stale

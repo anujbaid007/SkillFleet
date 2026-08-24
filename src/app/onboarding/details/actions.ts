@@ -61,6 +61,10 @@ export async function saveStudentDetailsAction(
 
   if (error) return { error: 'Could not save your details. Please try again.' }
 
+  // The student's school is only known now, so this is the first moment a
+  // pending ISC invite can be matched against the same-school rule.
+  await supabase.rpc('isc_claim_invites')
+
   // New students continue to the questionnaire; returning students go to the dashboard.
   if (!profile.onboarding_completed) {
     redirect('/onboarding')
