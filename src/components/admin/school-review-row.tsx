@@ -1,7 +1,11 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { reviewSchoolAction, type SchoolReviewState } from '@/app/(admin)/admin/schools/actions'
+import {
+  reviewSchoolAction,
+  reviewCoordinatorClaimAction,
+  type SchoolReviewState,
+} from '@/app/(admin)/admin/schools/actions'
 
 export interface SimilarSchool {
   id: string
@@ -9,6 +13,13 @@ export interface SimilarSchool {
   address: string | null
   review_status: string
   score: number
+}
+
+export interface CoordinatorClaimOnSchool {
+  applicantName: string
+  applicantPhone: string | null
+  board: string | null
+  studentCountRange: string | null
 }
 
 export interface PendingSchool {
@@ -19,6 +30,8 @@ export interface PendingSchool {
   created_at: string
   submittedBy: string
   similar: SimilarSchool[]
+  /** Set when someone has applied to coordinate this still-pending school. */
+  coordinatorClaim: CoordinatorClaimOnSchool | null
 }
 
 function fmtDate(iso: string) {
@@ -36,6 +49,14 @@ export function SchoolReviewRow({ school }: { school: PendingSchool }) {
     undefined
   )
   const [rejecting, setRejecting] = useState(false)
+
+  // A separate hook from the school's own review: the two decisions are
+  // independent, so one completing must not clear the other's state.
+  const [claimState, claimAction, claimPending] = useActionState<SchoolReviewState, FormData>(
+    reviewCoordinatorClaimAction,
+    undefined
+  )
+  const [rejectingClaim, setRejectingClaim] = useState(false)
 
   // Only an approved school can absorb a duplicate.
   const mergeable = school.similar.filter((s) => s.review_status === 'approved')
@@ -133,6 +154,74 @@ export function SchoolReviewRow({ school }: { school: PendingSchool }) {
               </button>
             </form>
           ))}
+        </div>
+      )}
+
+      {/*
+        A claim on a school that is itself still pending. Approving the school
+        does not lose this: the school becomes approved with its claim still
+        pending, so it reappears under "Coordinator applications" below.
+      */}
+      {school.coordinatorClaim && (
+        <div className="rounded-xl bg-primary/[0.05] border border-primary/20 p-3 space-y-2">
+          {claimState?.ok ? (
+            <p className="text-xs text-green-700">{claimState.ok}</p>
+          ) : (
+            <>
+              <p className="text-xs text-foreground">
+                <span className="font-semibold">{school.coordinatorClaim.applicantName}</span>
+                {school.coordinatorClaim.applicantPhone &&
+                  ` (${school.coordinatorClaim.applicantPhone})`}{' '}
+                has applied to coordinate this school
+                {school.coordinatorClaim.board && ` · ${school.coordinatorClaim.board}`}
+                {school.coordinatorClaim.studentCountRange &&
+                  ` · ${school.coordinatorClaim.studentCountRange} students`}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <form action={claimAction}>
+                  <input type="hidden" name="school_id" value={school.id} />
+                  <input type="hidden" name="decision" value="approve" />
+                  <button
+                    type="submit"
+                    disabled={claimPending}
+                    className="px-3 h-8 rounded-lg text-xs font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    Approve coordinator
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  onClick={() => setRejectingClaim((v) => !v)}
+                  className="px-3 h-8 rounded-lg text-xs font-semibold border border-black/10 text-muted hover:text-red-600"
+                >
+                  Reject coordinator
+                </button>
+              </div>
+
+              {rejectingClaim && (
+                <form action={claimAction} className="flex items-center gap-2 flex-wrap">
+                  <input type="hidden" name="school_id" value={school.id} />
+                  <input type="hidden" name="decision" value="reject" />
+                  <input
+                    name="notes"
+                    required
+                    placeholder="Why is this coordinator being rejected?"
+                    aria-label="Reason for rejecting this coordinator"
+                    className="flex-1 min-w-[220px] h-8 px-3 rounded-lg border-2 border-black/[0.06] text-xs focus:outline-none focus:border-primary"
+                  />
+                  <button
+                    type="submit"
+                    disabled={claimPending}
+                    className="px-3 h-8 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    Confirm reject
+                  </button>
+                </form>
+              )}
+
+              {claimState?.error && <p className="text-xs text-red-600">{claimState.error}</p>}
+            </>
+          )}
         </div>
       )}
 
