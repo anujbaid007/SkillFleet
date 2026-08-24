@@ -1,9 +1,9 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
+import { TRACK_FIELDS, trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
+import { validateSubmission } from '@/lib/isc/validate'
 
 const ERR: Record<string, string> = {
   not_student: 'Only student accounts can enter ISC.',
@@ -48,8 +48,18 @@ export async function getMyIscEntries(): Promise<MyEntry[]> {
   }))
 }
 
-/** Creates the draft if needed, then sends the student to the form. */
-export async function startEntryAction(slug: string): Promise<{ error?: string }> {
+/**
+ * Creates this student's draft for a track if they have none, and returns its
+ * id either way.
+ *
+ * Deliberately NOT a mutating action: the track page calls this during render,
+ * and Next.js forbids revalidatePath() there. The RPC is idempotent, so there
+ * is nothing to revalidate — a first visit creates the draft, later visits
+ * return the same one.
+ */
+export async function ensureIscEntry(
+  slug: string
+): Promise<{ entryId: string } | { error: string }> {
   const track = trackBySlug(slug)
   if (!track) return { error: 'Unknown track.' }
 
@@ -57,11 +67,10 @@ export async function startEntryAction(slug: string): Promise<{ error?: string }
   const { data, error } = await supabase.rpc('isc_start_entry', { p_track: track.id })
   if (error) return { error: iscError(undefined) }
 
-  const result = data as { ok: boolean; error?: string }
-  if (!result?.ok) return { error: iscError(result?.error) }
+  const result = data as { ok: boolean; error?: string; entry_id?: string }
+  if (!result?.ok || !result.entry_id) return { error: iscError(result?.error) }
 
-  revalidatePath('/isc')
-  redirect(`/isc/${slug}`)
+  return { entryId: result.entry_id }
 }
 
 export interface IscMember {
@@ -121,4 +130,78 @@ export async function getIscEntry(entryId: string): Promise<IscEntryDetail | nul
       isLeader: m.is_leader,
     })),
   }
+}
+
+export type EntryFormState = { error?: string; ok?: string } | undefined
+
+/** Reads the posted fields for a track into a plain submission object. */
+function readSubmission(track: IscTrackId, formData: FormData): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const spec of TRACK_FIELDS[track]) {
+    out[spec.key] = ((formData.get(spec.key) as string) ?? '').trim()
+  }
+  return out
+}
+
+/**
+ * One action for both buttons, dispatched on `intent`. Two separate
+ * useActionState hooks cannot express "whichever ran most recently", so a
+ * failed submit would permanently mask a later successful save.
+ */
+export async function entryFormAction(
+  _prev: EntryFormState,
+  formData: FormData
+): Promise<EntryFormState> {
+  const entryId = (formData.get('entry_id') as string)?.trim()
+  const trackId = (formData.get('track') as string)?.trim()
+  const intent = (formData.get('intent') as string)?.trim()
+  const track = trackById(trackId)
+  if (!entryId || !track) return { error: 'Missing entry.' }
+
+  const submission = readSubmission(track.id, formData)
+  const supabase = await createClient()
+
+  if (intent === 'submit') {
+    // Field rules live in TypeScript; the RPC owns authorisation and consent.
+    const invalid = validateSubmission(track.id, submission)
+    if (invalid) return { error: invalid }
+    if (formData.get('consent') !== 'on') return { error: iscError('consent_required') }
+  }
+
+  const { data: saved, error: saveError } = await supabase.rpc('isc_save_entry', {
+    p_entry_id: entryId,
+    p_submission: submission,
+  })
+  if (saveError) return { error: iscError(undefined) }
+  const savedResult = saved as { ok: boolean; error?: string }
+  if (!savedResult?.ok) return { error: iscError(savedResult?.error) }
+
+  if (intent !== 'submit') {
+    revalidatePath(`/isc/${track.slug}`)
+    revalidatePath('/isc')
+    return { ok: 'Draft saved.' }
+  }
+
+  const { data, error } = await supabase.rpc('isc_submit_entry', {
+    p_entry_id: entryId,
+    p_consent: true,
+  })
+  if (error) return { error: iscError(undefined) }
+
+  const result = data as { ok: boolean; error?: string }
+  if (!result?.ok) return { error: iscError(result?.error) }
+
+  revalidatePath(`/isc/${track.slug}`)
+  revalidatePath('/isc')
+  return { ok: 'Entry submitted. You can still edit it until the deadline.' }
+}
+
+export async function getTrackDeadline(track: IscTrackId): Promise<string | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('isc_config')
+    .select('screening_deadline')
+    .eq('track', track)
+    .single()
+  return data?.screening_deadline ?? null
 }
