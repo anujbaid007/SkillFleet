@@ -24,9 +24,10 @@ export default async function PlatformLayout({ children }: { children: ReactNode
 
   if (!profile) redirect('/login')
 
-  // Admin and vendor have their own consoles
+  // Admin, vendor and coordinator each have their own console
   if (profile.role === 'admin') redirect('/admin')
   if (profile.role === 'vendor') redirect('/vendor')
+  if (profile.role === 'coordinator') redirect('/coordinator')
 
   // Students must give their required details before using the platform.
   if (profile.role === 'student' && !isStudentDetailsComplete(profile)) {

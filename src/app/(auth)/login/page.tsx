@@ -77,6 +77,12 @@ export default function LoginPage() {
         <p className="text-xs text-muted mt-1">
           One account per student — a parent&apos;s details are part of signing up.
         </p>
+        <p className="text-xs text-muted mt-3">
+          Are you a school coordinator?{' '}
+          <Link href="/signup/coordinator" className="text-primary font-semibold hover:underline">
+            Apply here
+          </Link>
+        </p>
       </div>
     </motion.div>
   )
