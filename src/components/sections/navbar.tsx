@@ -63,7 +63,9 @@ const navItems: NavItem[] = [
     ],
   },
   { name: "Blog", href: "/blog" },
-  { name: "Contact", href: "/contact" },
+  // No "Contact" link here: the Contact Us button in the CTA group already
+  // goes to /contact, and two controls to the same page in one bar is a
+  // decision the reader has to make for no reason.
 ];
 
 function DesktopSubItem({ child }: { child: NavNode }) {
@@ -282,8 +284,10 @@ export default function Navbar() {
               />
             </Link>
 
-            {/* Desktop Nav */}
-            <div className="hidden lg:flex items-center gap-1">
+            {/* Desktop Nav. flex-1 + centre rather than leaving it to
+                justify-between: with one link fewer the group would otherwise
+                sit off to the left with a gap before the buttons. */}
+            <div className="hidden lg:flex flex-1 items-center justify-center gap-1">
               {navItems.map((item) =>
                 item.children ? (
                   <DesktopDropdown key={item.name} item={item} isLight={isLight} />

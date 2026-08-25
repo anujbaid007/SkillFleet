@@ -26,6 +26,15 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="text-xs text-muted">{children}</p>
 }
 
+/**
+ * Numeric columns in the two tables.
+ *
+ * The left padding is doing real work: right-aligned headings with no gutter
+ * run together into "ENTRIESSUBMITTEDSTUDENTS", and tabular-nums keeps the
+ * digits in a column so the figures can be compared down the page.
+ */
+const NUM_CELL = 'text-right tabular-nums whitespace-nowrap pl-4'
+
 /** A labelled count with a proportional bar, used by the class and board panels. */
 function BarList({ rows, accent }: { rows: CountRow[]; accent: string }) {
   const max = Math.max(1, ...rows.map((r) => r.count))
@@ -86,9 +95,9 @@ export function IscInsights({
                 <thead>
                   <tr className="text-muted uppercase tracking-wide">
                     <th className="text-left font-semibold pb-2">School</th>
-                    <th className="text-right font-semibold pb-2">Entries</th>
-                    <th className="text-right font-semibold pb-2">Submitted</th>
-                    <th className="text-right font-semibold pb-2">Students</th>
+                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Entries</th>
+                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Submitted</th>
+                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Students</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.06]">
@@ -98,11 +107,11 @@ export function IscInsights({
                         <span className="block text-foreground font-medium">{s.schoolName}</span>
                         <span className="block text-muted">{s.state || 'State not recorded'}</span>
                       </td>
-                      <td className="py-2 text-right text-muted tabular-nums">{s.entries}</td>
-                      <td className="py-2 text-right text-green-700 font-semibold tabular-nums">
+                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.entries}</td>
+                      <td className={`py-2 text-green-700 font-semibold ${NUM_CELL}`}>
                         {s.submitted}
                       </td>
-                      <td className="py-2 text-right text-muted tabular-nums">{s.students}</td>
+                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.students}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -120,18 +129,18 @@ export function IscInsights({
                 <thead>
                   <tr className="text-muted uppercase tracking-wide">
                     <th className="text-left font-semibold pb-2">State</th>
-                    <th className="text-right font-semibold pb-2">Schools</th>
-                    <th className="text-right font-semibold pb-2">Entries</th>
-                    <th className="text-right font-semibold pb-2">Submitted</th>
+                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Schools</th>
+                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Entries</th>
+                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Submitted</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.06]">
                   {states.map((s) => (
                     <tr key={s.state}>
                       <td className="py-2 pr-3 text-foreground font-medium">{s.state}</td>
-                      <td className="py-2 text-right text-muted tabular-nums">{s.schools}</td>
-                      <td className="py-2 text-right text-muted tabular-nums">{s.entries}</td>
-                      <td className="py-2 text-right text-green-700 font-semibold tabular-nums">
+                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.schools}</td>
+                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.entries}</td>
+                      <td className={`py-2 text-green-700 font-semibold ${NUM_CELL}`}>
                         {s.submitted}
                       </td>
                     </tr>

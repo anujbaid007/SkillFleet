@@ -37,7 +37,11 @@ export function IscFilters({
     // drop it, or the list goes empty for a reason nothing on screen explains.
     if (key === 'state') next.delete('district')
     const qs = next.toString()
-    router.push(qs ? `/admin/isc?${qs}` : '/admin/isc')
+    // scroll: false — Next scrolls to the top of the page on every navigation
+    // by default, which throws the admin back to the header each time they
+    // touch a filter, so they have to scroll down again to read the result
+    // they just asked for. The filters and their results are the same view.
+    router.push(qs ? `/admin/isc?${qs}` : '/admin/isc', { scroll: false })
   }
 
   const active = ['track', 'status', 'state', 'district', 'school', 'language', 'q'].filter((k) =>
@@ -159,7 +163,7 @@ export function IscFilters({
         {active.length > 0 && (
           <button
             type="button"
-            onClick={() => router.push('/admin/isc')}
+            onClick={() => router.push('/admin/isc', { scroll: false })}
             className="text-xs font-semibold text-muted hover:text-foreground inline-flex items-center gap-1"
           >
             <X className="w-3 h-3" />
