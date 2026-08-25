@@ -8,6 +8,7 @@ import { signupCoordinatorAction } from '@/app/actions/coordinator'
 import type { AuthFormState } from '@/app/actions/auth'
 import { PasswordField } from '@/components/auth/password-field'
 import { CheckEmailNotice } from '@/components/auth/check-email-notice'
+import { SignupTypeToggle } from '@/components/auth/signup-type-toggle'
 
 /**
  * Coordinator signup collects the account only. School, board and student
@@ -36,6 +37,7 @@ export default function CoordinatorSignupPage() {
         <CheckEmailNotice message={state.success} />
       ) : (
         <>
+          <SignupTypeToggle active="coordinator" />
           <div className="flex items-center gap-2 mb-2">
             <span className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
               <School className="w-4 h-4 text-primary" />

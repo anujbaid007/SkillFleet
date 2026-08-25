@@ -5,15 +5,17 @@ export type TrackCardState = 'not_started' | 'draft' | 'submitted' | 'coming_soo
 
 const STATE_LABEL: Record<TrackCardState, string> = {
   not_started: 'Open to enter',
-  draft: 'Draft saved',
-  submitted: 'Submitted',
+  // "Draft saved" sounds like an accomplishment. It is not an entry, and the
+  // card is where a student checks whether they are actually in.
+  draft: 'Draft — not entered',
+  submitted: 'Entered',
   coming_soon: 'Coming soon',
   closed: 'Entries closed',
 }
 
 const STATE_CLASS: Record<TrackCardState, string> = {
   not_started: 'bg-black/[0.05] text-muted',
-  draft: 'bg-accent-yellow/15 text-accent-yellow',
+  draft: 'bg-accent-yellow/20 text-accent-yellow',
   submitted: 'bg-green-50 text-green-700',
   coming_soon: 'bg-black/[0.05] text-muted',
   closed: 'bg-black/[0.05] text-muted',

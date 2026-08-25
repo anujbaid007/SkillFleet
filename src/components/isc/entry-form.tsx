@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect } from 'react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { entryFormAction, type EntryFormState } from '@/app/actions/isc'
 import { TRACK_FIELDS, type IscTrackId } from '@/lib/isc/tracks'
 
@@ -58,6 +59,29 @@ export function EntryForm({
       <input type="hidden" name="entry_id" value={entryId} />
       <input type="hidden" name="track" value={track} />
 
+      {/*
+        A saved draft is not an entry. Without saying so plainly, a student can
+        fill everything in, save, close the tab, and never actually compete.
+      */}
+      {status === 'submitted' ? (
+        <div className="rounded-xl bg-green-50 px-4 py-3 flex items-start gap-2.5">
+          <CheckCircle2 className="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
+          <p className="text-sm text-green-800">
+            <span className="font-semibold">Your entry is in.</span> You can keep changing it until
+            the deadline — press <span className="font-semibold">Save changes</span> after any edit.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-accent-yellow/10 border border-accent-yellow/30 px-4 py-3 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-accent-yellow shrink-0 mt-0.5" />
+          <p className="text-sm text-foreground">
+            <span className="font-semibold">This is a draft — it will not be judged.</span> Saving
+            keeps your work, but your entry only counts once you press{' '}
+            <span className="font-semibold">Submit entry</span> at the bottom.
+          </p>
+        </div>
+      )}
+
       {!readOnly && (
         <p className="text-xs text-muted">
           All fields are required
@@ -112,7 +136,7 @@ export function EntryForm({
                 maxLength={spec.max}
                 disabled={readOnly}
                 aria-invalid={errored || undefined}
-                placeholder={spec.placeholder ?? (spec.kind === 'url' ? 'https://' : undefined)}
+                placeholder={spec.placeholder ?? (spec.kind === 'url' ? 'Paste your link here' : undefined)}
                 className={cls}
               />
             )}
