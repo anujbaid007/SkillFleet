@@ -6,6 +6,7 @@ import { ISC_TRACKS, LANGUAGE_OPTIONS, type IscTrackId } from '@/lib/isc/tracks'
 import { IscEntryRow, type AdminIscEntry } from '@/components/admin/isc-entry-row'
 import { IscStatsPanel, type IscStats } from '@/components/admin/isc-stats'
 import { IscFilters } from '@/components/admin/isc-filters'
+import { parseRevisions, type EntryRevision } from '@/lib/isc/revisions'
 
 interface RawEntry {
   id: string
@@ -62,6 +63,48 @@ export default async function AdminIscPage({
     : { data: [] }
 
   const leaderById = new Map((leaders ?? []).map((l) => [l.id, l.full_name]))
+
+  // One query for the whole page. The admin list already loads every entry, and
+  // the screening set is a few thousand rows at most; a query per row would be
+  // hundreds of round trips for a panel most rows never expand.
+  const { data: revisionRows } = all.length
+    ? await supabase
+        .from('isc_entry_revisions')
+        .select('id, entry_id, edited_by, changed, edited_at')
+        .in(
+          'entry_id',
+          all.map((r) => r.id)
+        )
+        .order('edited_at', { ascending: false })
+    : { data: [] }
+
+  const trackByEntry = new Map(all.map((e) => [e.id, e.track as IscTrackId]))
+
+  const rawByEntry = new Map<string, unknown[]>()
+  for (const row of revisionRows ?? []) {
+    const list = rawByEntry.get(row.entry_id) ?? []
+    list.push({
+      revision_id: row.id,
+      edited_at: row.edited_at,
+      // Only the leader can edit, so the editor is always the entry's
+      // created_by and leaderById already covers them. A future rule change
+      // that lets teammates edit would need a wider name lookup here.
+      editor_name: row.edited_by ? (leaderById.get(row.edited_by) ?? null) : null,
+      changed: row.changed,
+    })
+    rawByEntry.set(row.entry_id, list)
+  }
+
+  // Parsed once per entry, not once per row: parseRevisions rebuilds a label
+  // and ordering map from TRACK_FIELDS on every call.
+  const revisionsByEntry = new Map<string, EntryRevision[]>()
+  for (const [entryId, rows] of rawByEntry) {
+    const track = trackByEntry.get(entryId)
+    // An orphan revision cannot be labelled without knowing its track; skipping
+    // beats guessing a track and mislabelling every field in it.
+    if (!track) continue
+    revisionsByEntry.set(entryId, parseRevisions(track, rows))
+  }
   const schoolById = new Map((schools ?? []).map((s) => [s.id, s]))
 
   const sizeByEntry = new Map<string, number>()
@@ -82,6 +125,8 @@ export default async function AdminIscPage({
     submittedAt: r.submitted_at,
     updatedAt: r.updated_at,
     language: (r.submission?.language as string) ?? null,
+    editCount: (revisionsByEntry.get(r.id) ?? []).length,
+    revisions: revisionsByEntry.get(r.id) ?? [],
     submission: r.submission ?? {},
   }))
 

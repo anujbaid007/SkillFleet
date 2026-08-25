@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { TRACK_FIELDS, trackById, type IscTrackId } from '@/lib/isc/tracks'
+import { editCountLabel, type EntryRevision } from '@/lib/isc/revisions'
+import { IscEntryHistory } from '@/components/admin/isc-entry-history'
 
 export interface AdminIscEntry {
   entryId: string
@@ -15,6 +17,8 @@ export interface AdminIscEntry {
   submittedAt: string | null
   updatedAt: string
   language: string | null
+  editCount: number
+  revisions: EntryRevision[]
   submission: Record<string, unknown>
 }
 
@@ -50,8 +54,10 @@ export function IscEntryRow({ entry }: { entry: AdminIscEntry }) {
             {entry.submittedAt
               ? `Submitted ${new Date(entry.submittedAt).toLocaleDateString('en-IN')}`
               : 'Not submitted'}
-            {' · last edited '}
-            {new Date(entry.updatedAt).toLocaleDateString('en-IN')}
+            {' · '}
+            {editCountLabel(entry.editCount)}
+            {entry.editCount > 0 &&
+              ` · last edit ${new Date(entry.updatedAt).toLocaleDateString('en-IN')}`}
           </span>
         </span>
         <span className="flex items-center gap-2 shrink-0">
@@ -103,6 +109,12 @@ export function IscEntryRow({ entry }: { entry: AdminIscEntry }) {
             )
           })}
         </dl>
+      )}
+
+      {open && (
+        <div className="mt-4 rounded-xl bg-black/[0.02] p-4">
+          <IscEntryHistory revisions={entry.revisions} />
+        </div>
       )}
     </div>
   )
