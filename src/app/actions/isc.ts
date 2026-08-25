@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { TRACK_FIELDS, trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
-import { validateSubmission } from '@/lib/isc/validate'
+import { firstInvalidField } from '@/lib/isc/validate'
 
 const ERR: Record<string, string> = {
   not_student: 'Only student accounts can enter ISC.',
@@ -133,7 +133,14 @@ export async function getIscEntry(entryId: string): Promise<IscEntryDetail | nul
   }
 }
 
-export type EntryFormState = { error?: string; ok?: string } | undefined
+export type EntryFormState =
+  | {
+      error?: string
+      ok?: string
+      /** Which field the error is about, so the form can focus it. */
+      field?: string
+    }
+  | undefined
 
 /** Reads the posted fields for a track into a plain submission object. */
 function readSubmission(track: IscTrackId, formData: FormData): Record<string, string> {
@@ -181,11 +188,11 @@ export async function entryFormAction(
   }
 
   // Field rules live in TypeScript; the RPC owns authorisation and consent.
-  const invalid = validateSubmission(track.id, submission)
+  const invalid = firstInvalidField(track.id, submission)
   if (invalid) {
     // Revalidate so the re-render shows the work we just saved.
     revalidatePath(`/isc/${track.slug}`)
-    return { error: invalid }
+    return { error: invalid.message, field: invalid.key }
   }
 
   const { data, error } = await supabase.rpc('isc_submit_entry', {
@@ -239,11 +246,16 @@ export async function addMemberAction(_prev: TeamState, formData: FormData): Pro
   if (!r?.ok) return { error: TEAM_ERR[r?.error ?? ''] ?? iscError(r?.error) }
 
   revalidatePath(`/isc/${slug}`)
+
+  if (r.state === 'linked') {
+    return { ok: `${r.name ?? 'Your classmate'} has been added to the team.` }
+  }
+
+  // Not a failure, but it must not read like a success either: nobody is on
+  // the team until that person actually registers. Say so plainly, and name
+  // the address so a typo is obvious.
   return {
-    ok:
-      r.state === 'linked'
-        ? `${r.name ?? 'Your classmate'} has been added to the team.`
-        : 'No account yet — share the invite link below so they can join.',
+    ok: `${email} is not registered on SkillFleet yet — they need to create an account first. Send them the invite link below and they'll join your team automatically once they sign up.`,
   }
 }
 

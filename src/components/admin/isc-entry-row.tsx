@@ -8,10 +8,13 @@ export interface AdminIscEntry {
   entryId: string
   track: IscTrackId
   schoolName: string
+  schoolState: string
   leaderName: string
   teamSize: number
   status: string
   submittedAt: string | null
+  updatedAt: string
+  language: string | null
   submission: Record<string, unknown>
 }
 
@@ -39,10 +42,16 @@ export function IscEntryRow({ entry }: { entry: AdminIscEntry }) {
             {track?.name ?? entry.track} · {entry.schoolName}
           </span>
           <span className="block text-xs text-muted">
-            {entry.leaderName} · team of {entry.teamSize} ·{' '}
+            {entry.leaderName} · team of {entry.teamSize}
+            {entry.schoolState && ` · ${entry.schoolState}`}
+            {entry.language && ` · ${entry.language}`}
+          </span>
+          <span className="block text-xs text-muted">
             {entry.submittedAt
-              ? `submitted ${new Date(entry.submittedAt).toLocaleDateString('en-IN')}`
-              : 'draft'}
+              ? `Submitted ${new Date(entry.submittedAt).toLocaleDateString('en-IN')}`
+              : 'Not submitted'}
+            {' · last edited '}
+            {new Date(entry.updatedAt).toLocaleDateString('en-IN')}
           </span>
         </span>
         <span className="flex items-center gap-2 shrink-0">

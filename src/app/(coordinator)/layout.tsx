@@ -19,6 +19,14 @@ export default async function CoordinatorLayout({ children }: { children: ReactN
     .single()
   if (profile?.role !== 'coordinator') redirect('/')
 
+  // Being a coordinator is not the same as being an approved one. The roster
+  // RPC already refuses unapproved callers, so no student data could leak —
+  // but the console itself should not open until an admin has said yes.
+  // /coordinator is exempt: that is where the pending and rejected states live.
+  const { data: claim } = await supabase.rpc('get_my_coordinator_school')
+  const status = ((claim ?? []) as { coordinator_status: string }[])[0]?.coordinator_status
+  const approved = status === 'approved'
+
   return (
     <div
       className="flex flex-col md:flex-row h-screen"
@@ -42,12 +50,12 @@ export default async function CoordinatorLayout({ children }: { children: ReactN
           </span>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <CoordinatorNav />
+          <CoordinatorNav approved={approved} />
         </div>
       </aside>
 
       <MobileNavDrawer subtitle="Coordinator">
-        <CoordinatorNav />
+        <CoordinatorNav approved={approved} />
       </MobileNavDrawer>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">

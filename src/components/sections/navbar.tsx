@@ -324,13 +324,9 @@ export default function Navbar() {
                   Log In
                 </Button>
               </Link>
-              <a
-                href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <Link href="/signup">
                 <Button size="sm">Enroll Now</Button>
-              </a>
+              </Link>
             </div>
 
             {/* Mobile Toggle */}
@@ -417,13 +413,9 @@ export default function Navbar() {
                       Contact Us
                     </Button>
                   </Link>
-                  <a
-                    href="https://wa.me/917508807490?text=Hi%2C%20i'm%20interested%20to%20know%20more%20about%20SkillFleet!"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <Link href="/signup" onClick={() => setIsMobileOpen(false)}>
                     <Button className="w-full">Enroll Now</Button>
-                  </a>
+                  </Link>
                 </div>
               </div>
             </motion.div>

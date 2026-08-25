@@ -64,7 +64,9 @@ export function TeamPanel({
                 <span className="font-medium text-foreground">{m.name ?? m.invitedEmail}</span>
                 {m.schoolClass && <span className="text-muted"> · {m.schoolClass}</span>}
                 {m.isLeader && <span className="text-muted"> · team leader</span>}
-                {!m.userId && <span className="text-muted"> · not signed up yet</span>}
+                {!m.userId && (
+                  <span className="text-accent-yellow"> · not registered yet — invite sent</span>
+                )}
               </span>
             </span>
 
@@ -121,7 +123,7 @@ export function TeamPanel({
             name="email"
             type="email"
             required
-            placeholder="Classmate's email"
+            placeholder="Teammate's registered SkillFleet email"
             aria-label="Teammate email"
             className="flex-1 min-w-[220px] h-10 px-3 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
           />

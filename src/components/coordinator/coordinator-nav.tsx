@@ -7,13 +7,20 @@ import { logoutAction } from '@/app/actions/auth'
 
 const items = [{ href: '/coordinator', label: 'Dashboard', icon: LayoutDashboard, exact: true }]
 
-export function CoordinatorNav() {
+export function CoordinatorNav({ approved = true }: { approved?: boolean }) {
   const pathname = usePathname()
 
   return (
     <nav className="flex flex-col h-full">
       <div className="flex-1 px-3 py-4 space-y-0.5">
-        {items.map(({ href, label, icon: Icon, exact }) => {
+        {/* An unapproved coordinator has nowhere to navigate to yet — showing a
+            Dashboard link that only leads to a waiting screen is a false promise. */}
+        {!approved && (
+          <p className="px-3 py-2 text-xs text-muted">
+            Your console opens once an admin approves your school.
+          </p>
+        )}
+        {(approved ? items : []).map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href)
           return (
             <Link

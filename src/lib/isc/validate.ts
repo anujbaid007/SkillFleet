@@ -57,16 +57,30 @@ function validateField(spec: FieldSpec, raw: unknown): string | null {
   return null
 }
 
+/**
+ * The first field with a problem, and what to say about it.
+ *
+ * Returns the field key as well as the message so the form can send the
+ * student straight to the offending input rather than making them hunt down
+ * a seven-field form for the one thing they missed.
+ */
+export function firstInvalidField(
+  track: IscTrackId,
+  submission: Record<string, unknown>
+): { key: string; message: string } | null {
+  for (const spec of TRACK_FIELDS[track]) {
+    const message = validateField(spec, submission?.[spec.key])
+    if (message) return { key: spec.key, message }
+  }
+  return null
+}
+
 /** Returns the first problem found, or null when the submission is complete. */
 export function validateSubmission(
   track: IscTrackId,
   submission: Record<string, unknown>
 ): string | null {
-  for (const spec of TRACK_FIELDS[track]) {
-    const error = validateField(spec, submission?.[spec.key])
-    if (error) return error
-  }
-  return null
+  return firstInvalidField(track, submission)?.message ?? null
 }
 
 /**

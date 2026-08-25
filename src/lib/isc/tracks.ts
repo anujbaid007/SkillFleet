@@ -129,6 +129,8 @@ export interface FieldSpec {
   help?: string
   /** Only for kind: 'select'. */
   options?: string[]
+  /** Shown in the empty field. Defaults to a bare https:// for URL fields. */
+  placeholder?: string
 }
 
 /** One source of truth: the form renders from this and the validator reads it. */
@@ -139,12 +141,14 @@ const BASE_TRACK_FIELDS: Record<IscTrackId, FieldSpec[]> = {
       label: 'Link to your app or prototype',
       kind: 'url',
       help: 'Must be publicly viewable — check it in a private window.',
+      placeholder: 'https://your-app.example.com',
     },
     {
       key: 'demo_video_url',
-      label: 'Link to your demo video',
+      label: 'Link to your demo video (YouTube or Google Drive link)',
       kind: 'url',
-      help: 'One minute maximum.',
+      help: 'One minute maximum. Make sure anyone with the link can view it.',
+      placeholder: 'https://youtu.be/… or https://drive.google.com/…',
     },
     {
       key: 'explanation',
@@ -169,17 +173,19 @@ const BASE_TRACK_FIELDS: Record<IscTrackId, FieldSpec[]> = {
     },
     {
       key: 'pitch_video_url',
-      label: 'Link to your pitch video',
+      label: 'Link to your pitch video (YouTube or Google Drive link)',
       kind: 'url',
-      help: 'One minute maximum.',
+      help: 'One minute maximum. Make sure anyone with the link can view it.',
+      placeholder: 'https://youtu.be/… or https://drive.google.com/…',
     },
   ],
   content_creator: [
     {
       key: 'video_url',
-      label: 'Link to your video',
+      label: 'Link to your video (YouTube or Google Drive link)',
       kind: 'url',
-      help: 'One minute maximum, and it must be publicly viewable.',
+      help: 'One minute maximum. Make sure anyone with the link can view it.',
+      placeholder: 'https://youtu.be/… or https://drive.google.com/…',
     },
     { key: 'title', label: 'Title', kind: 'text', max: 120 },
     {

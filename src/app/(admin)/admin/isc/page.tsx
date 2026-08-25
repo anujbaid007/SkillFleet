@@ -2,14 +2,17 @@ import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
-import { ISC_TRACKS, type IscTrackId } from '@/lib/isc/tracks'
+import { ISC_TRACKS, LANGUAGE_OPTIONS, type IscTrackId } from '@/lib/isc/tracks'
 import { IscEntryRow, type AdminIscEntry } from '@/components/admin/isc-entry-row'
+import { IscStatsPanel, type IscStats } from '@/components/admin/isc-stats'
+import { IscFilters } from '@/components/admin/isc-filters'
 
 interface RawEntry {
   id: string
   track: string
   status: string
   submitted_at: string | null
+  updated_at: string
   submission: Record<string, unknown>
   created_by: string
   school_id: string
@@ -18,63 +21,103 @@ interface RawEntry {
 export default async function AdminIscPage({
   searchParams,
 }: {
-  searchParams: Promise<{ track?: string; status?: string }>
+  searchParams: Promise<{
+    track?: string
+    status?: string
+    school?: string
+    language?: string
+    q?: string
+  }>
 }) {
-  const { track: trackFilter, status: statusFilter } = await searchParams
+  const params = await searchParams
   const supabase = await createClient()
 
-  let query = supabase
+  // Everything is fetched, then filtered in memory. The screening queue is a
+  // few thousand rows at most and the school/leader names needed for search
+  // live in other tables — one pass is simpler than paginating a join.
+  const { data: raw } = (await supabase
     .from('isc_entries')
-    .select('id, track, status, submitted_at, submission, created_by, school_id')
-    .order('created_at', { ascending: false })
+    .select('id, track, status, submitted_at, updated_at, submission, created_by, school_id')
+    .order('updated_at', { ascending: false })) as unknown as { data: RawEntry[] | null }
 
-  if (trackFilter) query = query.eq('track', trackFilter)
-  if (statusFilter) query = query.eq('status', statusFilter)
+  const all = raw ?? []
 
-  const { data: raw } = (await query) as unknown as { data: RawEntry[] | null }
-  const rows = raw ?? []
-
-  const leaderIds = [...new Set(rows.map((r) => r.created_by))]
-  const schoolIds = [...new Set(rows.map((r) => r.school_id))]
+  const leaderIds = [...new Set(all.map((r) => r.created_by))]
+  const schoolIds = [...new Set(all.map((r) => r.school_id))]
 
   const { data: leaders } = leaderIds.length
     ? await supabase.from('user_profiles').select('id, full_name').in('id', leaderIds)
     : { data: [] }
   const { data: schools } = schoolIds.length
-    ? await supabase.from('schools').select('id, name').in('id', schoolIds)
+    ? await supabase.from('schools').select('id, name, state').in('id', schoolIds)
     : { data: [] }
-  const { data: memberCounts } = rows.length
+  const { data: members } = all.length
     ? await supabase
         .from('isc_entry_members')
-        .select('entry_id')
+        .select('entry_id, user_id')
         .in(
           'entry_id',
-          rows.map((r) => r.id)
+          all.map((r) => r.id)
         )
     : { data: [] }
 
   const leaderById = new Map((leaders ?? []).map((l) => [l.id, l.full_name]))
-  const schoolById = new Map((schools ?? []).map((s) => [s.id, s.name]))
+  const schoolById = new Map((schools ?? []).map((s) => [s.id, s]))
+
   const sizeByEntry = new Map<string, number>()
-  for (const m of memberCounts ?? []) {
+  const studentIds = new Set<string>()
+  for (const m of members ?? []) {
     sizeByEntry.set(m.entry_id, (sizeByEntry.get(m.entry_id) ?? 0) + 1)
+    if (m.user_id) studentIds.add(m.user_id)
   }
 
-  const entries: AdminIscEntry[] = rows.map((r) => ({
+  const enriched: AdminIscEntry[] = all.map((r) => ({
     entryId: r.id,
     track: r.track as IscTrackId,
-    schoolName: schoolById.get(r.school_id) ?? 'Unknown school',
+    schoolName: schoolById.get(r.school_id)?.name ?? 'Unknown school',
+    schoolState: schoolById.get(r.school_id)?.state ?? '',
     leaderName: leaderById.get(r.created_by) ?? 'Unknown student',
     teamSize: sizeByEntry.get(r.id) ?? 1,
     status: r.status,
     submittedAt: r.submitted_at,
+    updatedAt: r.updated_at,
+    language: (r.submission?.language as string) ?? null,
     submission: r.submission ?? {},
   }))
 
-  const linkClass = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs font-semibold ${
-      active ? 'bg-primary text-white' : 'border border-black/10 text-muted hover:text-foreground'
-    }`
+  // Stats describe the whole cycle, not the current filter — an admin needs the
+  // denominator to stay put while they slice the list.
+  const stats: IscStats = {
+    total: enriched.length,
+    submitted: enriched.filter((e) => e.status === 'submitted').length,
+    draft: enriched.filter((e) => e.status === 'draft').length,
+    schools: new Set(all.map((r) => r.school_id)).size,
+    students: studentIds.size,
+    byTrack: ISC_TRACKS.reduce<IscStats['byTrack']>((acc, t) => {
+      const rows = enriched.filter((e) => e.track === t.id)
+      acc[t.id] = {
+        submitted: rows.filter((e) => e.status === 'submitted').length,
+        draft: rows.filter((e) => e.status === 'draft').length,
+      }
+      return acc
+    }, {}),
+    byLanguage: enriched.reduce<Record<string, number>>((acc, e) => {
+      if (e.language) acc[e.language] = (acc[e.language] ?? 0) + 1
+      return acc
+    }, {}),
+  }
+
+  const q = (params.q ?? '').trim().toLowerCase()
+  const rows = enriched.filter((e) => {
+    if (params.track && e.track !== params.track) return false
+    if (params.status && e.status !== params.status) return false
+    if (params.school && e.schoolName !== params.school) return false
+    if (params.language && e.language !== params.language) return false
+    if (q && !`${e.leaderName} ${e.schoolName}`.toLowerCase().includes(q)) return false
+    return true
+  })
+
+  const schoolNames = [...new Set(enriched.map((e) => e.schoolName))].sort()
 
   return (
     <div className="space-y-6">
@@ -82,33 +125,30 @@ export default async function AdminIscPage({
         eyebrow="ISC 2026"
         icon={Trophy}
         title="Entries"
-        subtitle="Everything students have submitted for school screening. Read-only."
+        subtitle="Everything students have entered for school screening. Read-only."
       />
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <a href="/admin/isc" className={linkClass(!trackFilter && !statusFilter)}>
-          All
-        </a>
-        {ISC_TRACKS.map((t) => (
-          <a
-            key={t.id}
-            href={`/admin/isc?track=${t.id}`}
-            className={linkClass(trackFilter === t.id)}
-          >
-            {t.name}
-          </a>
-        ))}
-        <a href="/admin/isc?status=submitted" className={linkClass(statusFilter === 'submitted')}>
-          Submitted only
-        </a>
-      </div>
+      <Reveal delay={0.03}>
+        <IscStatsPanel stats={stats} />
+      </Reveal>
 
-      {entries.length === 0 ? (
-        <div className="clay-card p-12 text-center text-muted">No entries yet.</div>
+      <IscFilters
+        schools={schoolNames}
+        languages={LANGUAGE_OPTIONS}
+        showing={rows.length}
+        total={enriched.length}
+      />
+
+      {rows.length === 0 ? (
+        <div className="clay-card p-12 text-center text-muted">
+          {enriched.length === 0
+            ? 'No entries yet.'
+            : 'No entries match these filters — try clearing one.'}
+        </div>
       ) : (
         <Reveal delay={0.05}>
           <div className="clay-card divide-y divide-black/[0.06]">
-            {entries.map((e) => (
+            {rows.map((e) => (
               <IscEntryRow key={e.entryId} entry={e} />
             ))}
           </div>

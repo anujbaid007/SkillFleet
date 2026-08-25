@@ -17,6 +17,7 @@ import {
   School,
   LogOut,
   Trophy,
+  UserCheck,
 } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
 
@@ -28,6 +29,7 @@ const adminNavItems = [
   { href: '/admin/vendors', label: 'Vendors', icon: Store },
   { href: '/admin/schools', label: 'Schools', icon: School },
   { href: '/admin/isc', label: 'ISC', icon: Trophy },
+  { href: '/admin/coordinators', label: 'Coordinators', icon: UserCheck },
   { href: '/admin/requests', label: 'Requests', icon: Megaphone },
   { href: '/admin/questionnaire', label: 'Questionnaire', icon: HelpCircle },
   { href: '/admin/assessments', label: 'Assessments', icon: ClipboardList },
