@@ -300,3 +300,33 @@ export async function hasIscConsent(): Promise<boolean> {
   const { data } = await supabase.rpc('isc_has_consent')
   return data === true
 }
+
+export type ConsentState = { error?: string } | undefined
+
+const CONSENT_ERR: Record<string, string> = {
+  not_student: 'Only student accounts can enter ISC.',
+  guardian_name_required: 'Please give your parent or guardian’s name.',
+}
+
+export async function giveConsentAction(
+  _prev: ConsentState,
+  formData: FormData
+): Promise<ConsentState> {
+  const guardianName = ((formData.get('guardian_name') as string) ?? '').trim()
+  const next = ((formData.get('next') as string) ?? '/isc').trim()
+  if (!guardianName) return { error: CONSENT_ERR.guardian_name_required }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('isc_give_consent', {
+    p_guardian_name: guardianName,
+  })
+  if (error) return { error: iscError(undefined) }
+
+  const r = data as { ok: boolean; error?: string }
+  if (!r?.ok) return { error: CONSENT_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+
+  revalidatePath('/isc')
+  // Only ever an internal path: `next` comes from our own links, but refuse
+  // anything that could send a student off-site.
+  redirect(next.startsWith('/isc') ? next : '/isc')
+}
