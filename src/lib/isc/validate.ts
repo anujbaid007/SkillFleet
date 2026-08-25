@@ -1,5 +1,6 @@
 import { CLASS_OPTIONS } from '@/lib/profile/details'
 import { TRACK_FIELDS, type FieldSpec, type IscTrackId } from '@/lib/isc/tracks'
+import { istDaysBetween } from '@/lib/isc/dates'
 
 /** ISC is open to Classes 5-12. Younger students see the page but cannot enter. */
 const FIRST_ELIGIBLE = CLASS_OPTIONS.indexOf('Class 5')
@@ -93,4 +94,24 @@ export function isTrackLocked(deadlineIso: string, now: Date): boolean {
   const deadline = new Date(deadlineIso)
   if (Number.isNaN(deadline.getTime())) return true
   return now.getTime() > deadline.getTime()
+}
+
+/**
+ * How long a track is still open, in plain words.
+ *
+ * The sibling of isTrackLocked: same deadline, read as time remaining rather
+ * than as a yes or no. Counted in Indian calendar days, so "1 day left" means
+ * "until the end of tomorrow" to a student in India, which is what they will
+ * take it to mean.
+ */
+export function countdownLabel(deadlineIso: string, now: Date): string {
+  if (!deadlineIso) return 'Deadline not set'
+  const deadline = new Date(deadlineIso)
+  if (Number.isNaN(deadline.getTime())) return 'Deadline not set'
+  if (now.getTime() > deadline.getTime()) return 'Closed'
+
+  const days = istDaysBetween(now, deadline)
+  if (days <= 0) return 'Closes today'
+  if (days === 1) return '1 day left'
+  return `${days} days left`
 }

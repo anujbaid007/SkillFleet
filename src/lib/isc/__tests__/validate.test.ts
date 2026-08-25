@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { ISC_TRACKS, TRACK_FIELDS, trackBySlug, trackById } from '../tracks'
-import { isEligibleClass, validateUrl, validateSubmission, isTrackLocked } from '../validate'
+import {
+  isEligibleClass,
+  validateUrl,
+  validateSubmission,
+  isTrackLocked,
+  countdownLabel,
+} from '../validate'
 
 describe('tracks', () => {
   it('exposes exactly the three enterable tracks', () => {
@@ -121,5 +127,27 @@ describe('isTrackLocked', () => {
 
   it('treats a missing deadline as locked rather than open', () => {
     expect(isTrackLocked('', new Date('2026-10-01T00:00:00Z'))).toBe(true)
+  })
+})
+
+describe('countdownLabel', () => {
+  const now = new Date('2026-09-01T09:00:00Z') // 14:30 IST on 1 Sep
+
+  it('counts whole days left', () => {
+    expect(countdownLabel('2026-09-08T18:29:59Z', now)).toBe('7 days left')
+  })
+
+  it('reads naturally on the last day and the one before it', () => {
+    expect(countdownLabel('2026-09-02T18:29:59Z', now)).toBe('1 day left')
+    expect(countdownLabel('2026-09-01T18:29:59Z', now)).toBe('Closes today')
+  })
+
+  it('says so once the deadline has passed', () => {
+    expect(countdownLabel('2026-08-30T18:29:59Z', now)).toBe('Closed')
+  })
+
+  it('does not invent a countdown when there is no deadline', () => {
+    expect(countdownLabel('', now)).toBe('Deadline not set')
+    expect(countdownLabel('whenever', now)).toBe('Deadline not set')
   })
 })
