@@ -1288,6 +1288,30 @@ export type Database = {
         }
         Relationships: []
       }
+      isc_entry_revisions: {
+        Row: {
+          id: string
+          entry_id: string
+          edited_by: string | null
+          changed: Json
+          edited_at: string
+        }
+        Insert: {
+          id?: string
+          entry_id: string
+          edited_by?: string | null
+          changed: Json
+          edited_at?: string
+        }
+        Update: {
+          id?: string
+          entry_id?: string
+          edited_by?: string | null
+          changed?: Json
+          edited_at?: string
+        }
+        Relationships: []
+      }
       isc_entries: {
         Row: {
           id: string
@@ -1570,6 +1594,7 @@ export type Database = {
       isc_give_consent: { Args: { p_guardian_name: string }; Returns: Json }
       isc_get_my_entries: { Args: Record<string, never>; Returns: Json }
       isc_get_entry: { Args: { p_entry_id: string }; Returns: Json }
+      isc_get_entry_revisions: { Args: { p_entry_id: string }; Returns: Json }
       apply_as_coordinator: {
         Args: { p_school_id: string; p_board: string; p_student_count_range: string }
         Returns: string
