@@ -1,18 +1,15 @@
 import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { trackBySlug } from '@/lib/isc/tracks'
 import { isEligibleClass, isTrackLocked } from '@/lib/isc/validate'
-import { ensureIscEntry, getIscEntry, getTrackDeadline } from '@/app/actions/isc'
+import { getMyIscEntries, getIscEntry, getTrackDeadline, hasIscConsent } from '@/app/actions/isc'
 import { EntryForm } from '@/components/isc/entry-form'
 import { TeamPanel } from '@/components/isc/team-panel'
+import { TrackHero } from '@/components/isc/track-hero'
+import { TrackFacts } from '@/components/isc/track-facts'
+import { EnterTrackButton } from '@/components/isc/enter-track-button'
 
-export default async function IscTrackPage({
-  params,
-}: {
-  params: Promise<{ track: string }>
-}) {
+export default async function IscTrackPage({ params }: { params: Promise<{ track: string }> }) {
   const { track: slug } = await params
   const track = trackBySlug(slug)
   if (!track) notFound()
@@ -30,49 +27,76 @@ export default async function IscTrackPage({
     .single()
   if (!isEligibleClass(profile?.school_class)) redirect('/isc')
 
-  // Create the draft on first visit so the form always has an entry to bind to.
-  const ensured = await ensureIscEntry(slug)
-  if ('error' in ensured) {
-    return <div className="clay-card p-6 text-sm text-red-600 max-w-xl">{ensured.error}</div>
-  }
-
-  const entry = await getIscEntry(ensured.entryId)
-  if (!entry) redirect('/isc')
+  // Read-only: browsing a track must not create anything. The draft is made
+  // only when the student presses "Enter this track".
+  const mine = await getMyIscEntries()
+  const existing = mine.find((e) => e.track === track.id)
+  const entry = existing ? await getIscEntry(existing.entryId) : null
 
   const deadline = await getTrackDeadline(track.id)
   const locked = isTrackLocked(deadline ?? '', new Date())
+  const deadlineLabel = deadline
+    ? new Date(deadline).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : null
+  const daysLeft = deadline
+    ? Math.ceil((new Date(deadline).getTime() - Date.now()) / 86_400_000)
+    : null
+
+  const consentGiven = await hasIscConsent()
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/isc"
-        className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        All tracks
-      </Link>
-
-      <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">{track.name}</h1>
-        <p className="text-muted mt-1 max-w-2xl">{track.brief}</p>
-      </div>
-
-      <TeamPanel
-        entryId={entry.entryId}
-        slug={track.slug}
-        members={entry.members}
+      <TrackHero
+        name={track.name}
+        brief={track.brief}
+        icon={track.icon}
+        gradient={track.gradient}
+        tint={track.tint}
         maxTeamSize={track.maxTeamSize}
-        canEdit={entry.isLeader && !locked}
+        deadlineLabel={deadlineLabel}
+        daysLeft={daysLeft}
       />
 
-      <EntryForm
-        entryId={entry.entryId}
-        track={entry.track}
-        submission={entry.submission}
-        status={entry.status}
-        locked={locked}
-        canEdit={entry.isLeader}
-      />
+      <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
+
+      {!entry ? (
+        <div className="clay-card p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+          <div>
+            <p className="font-display font-bold text-foreground">
+              {locked ? 'Entries have closed' : 'Ready when you are'}
+            </p>
+            <p className="text-sm text-muted mt-1">
+              {locked
+                ? 'The screening deadline for this track has passed.'
+                : 'Nothing is submitted until you say so — you can save a draft and come back.'}
+            </p>
+          </div>
+          {!locked && <EnterTrackButton slug={track.slug} needsConsent={!consentGiven} />}
+        </div>
+      ) : (
+        <>
+          <TeamPanel
+            entryId={entry.entryId}
+            slug={track.slug}
+            members={entry.members}
+            maxTeamSize={track.maxTeamSize}
+            canEdit={entry.isLeader && !locked}
+          />
+
+          <EntryForm
+            entryId={entry.entryId}
+            track={entry.track}
+            submission={entry.submission}
+            status={entry.status}
+            locked={locked}
+            canEdit={entry.isLeader}
+          />
+        </>
+      )}
     </div>
   )
 }

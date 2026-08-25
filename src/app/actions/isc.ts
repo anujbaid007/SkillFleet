@@ -1,5 +1,6 @@
 'use server'
 
+import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { TRACK_FIELDS, trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
@@ -259,4 +260,43 @@ export async function removeMemberAction(_prev: TeamState, formData: FormData): 
 
   revalidatePath(`/isc/${slug}`)
   return { ok: 'Removed.' }
+}
+
+export type StartState = { error?: string } | undefined
+
+/**
+ * The "Enter this track" click. Unlike ensureIscEntry this IS a mutation, so
+ * it may revalidate and redirect — the track page must never create a draft
+ * during render, or merely browsing the four tracks would leave phantom
+ * entries in the admin list and on the coordinator roster.
+ *
+ * Takes (prev, formData) like every other action in this file: passed straight
+ * to useActionState, its redirect is handled by Next rather than thrown inside
+ * a client closure.
+ */
+export async function startEntryAction(
+  _prev: StartState,
+  formData: FormData
+): Promise<StartState> {
+  const slug = ((formData.get('slug') as string) ?? '').trim()
+  const track = trackBySlug(slug)
+  if (!track) return { error: 'Unknown track.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('isc_start_entry', { p_track: track.id })
+  if (error) return { error: iscError(undefined) }
+
+  const result = data as { ok: boolean; error?: string }
+  if (!result?.ok) return { error: iscError(result?.error) }
+
+  revalidatePath('/isc')
+  revalidatePath(`/isc/${slug}`)
+  redirect(`/isc/${slug}`)
+}
+
+/** Has this student already given consent for the season? */
+export async function hasIscConsent(): Promise<boolean> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('isc_has_consent')
+  return data === true
 }
