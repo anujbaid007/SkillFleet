@@ -184,7 +184,6 @@ export async function entryFormAction(
 
   const { data, error } = await supabase.rpc('isc_submit_entry', {
     p_entry_id: entryId,
-    p_consent: true,
   })
   if (error) return { error: iscError(undefined) }
 

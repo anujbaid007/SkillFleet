@@ -1264,6 +1264,30 @@ export type Database = {
           },
         ]
       }
+      isc_consent: {
+        Row: {
+          id: string
+          student_id: string
+          season: string
+          guardian_name: string
+          given_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          season?: string
+          guardian_name: string
+          given_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          season?: string
+          guardian_name?: string
+          given_at?: string
+        }
+        Relationships: []
+      }
       isc_entries: {
         Row: {
           id: string
@@ -1541,7 +1565,9 @@ export type Database = {
       isc_remove_member: { Args: { p_entry_id: string; p_member_id: string }; Returns: Json }
       isc_start_entry: { Args: { p_track: string }; Returns: Json }
       isc_save_entry: { Args: { p_entry_id: string; p_submission: Json }; Returns: Json }
-      isc_submit_entry: { Args: { p_entry_id: string; p_consent: boolean }; Returns: Json }
+      isc_submit_entry: { Args: { p_entry_id: string }; Returns: Json }
+      isc_has_consent: { Args: Record<string, never>; Returns: boolean }
+      isc_give_consent: { Args: { p_guardian_name: string }; Returns: Json }
       isc_get_my_entries: { Args: Record<string, never>; Returns: Json }
       isc_get_entry: { Args: { p_entry_id: string }; Returns: Json }
       apply_as_coordinator: {
