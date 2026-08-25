@@ -162,13 +162,10 @@ export async function entryFormAction(
   const submission = readSubmission(track.id, formData)
   const supabase = await createClient()
 
-  if (intent === 'submit') {
-    // Field rules live in TypeScript; the RPC owns authorisation and consent.
-    const invalid = validateSubmission(track.id, submission)
-    if (invalid) return { error: invalid }
-    if (formData.get('consent') !== 'on') return { error: iscError('consent_required') }
-  }
-
+  // Save FIRST, even for a submit that may fail validation. The form fields are
+  // uncontrolled and re-bind to the stored submission on re-render, so
+  // validating before saving would wipe everything the student typed the moment
+  // they missed one field — six paragraphs lost for a forgotten language.
   const { data: saved, error: saveError } = await supabase.rpc('isc_save_entry', {
     p_entry_id: entryId,
     p_submission: submission,
@@ -181,6 +178,14 @@ export async function entryFormAction(
     revalidatePath(`/isc/${track.slug}`)
     revalidatePath('/isc')
     return { ok: 'Draft saved.' }
+  }
+
+  // Field rules live in TypeScript; the RPC owns authorisation and consent.
+  const invalid = validateSubmission(track.id, submission)
+  if (invalid) {
+    // Revalidate so the re-render shows the work we just saved.
+    revalidatePath(`/isc/${track.slug}`)
+    return { error: invalid }
   }
 
   const { data, error } = await supabase.rpc('isc_submit_entry', {

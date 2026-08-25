@@ -6,6 +6,12 @@
 screens, and real entry submission for the three enterable tracks — plus a read-only
 admin list of entries.
 
+> **Amended 2026-08-24** by `docs/superpowers/plans/2026-08-24-isc-polish-and-consent.md`:
+> parental consent is now one confirmation per student per season rather than a
+> tick on every entry form; `/isc/[track]` is a detail page with an explicit
+> "Enter this track" step rather than going straight to the form; and every
+> track additionally asks for the entry's language (English or Hindi).
+
 ---
 
 ## Goal

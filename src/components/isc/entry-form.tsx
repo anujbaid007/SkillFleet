@@ -53,6 +53,21 @@ export function EntryForm({
                 disabled={readOnly}
                 className={`${INPUT} resize-y disabled:opacity-70`}
               />
+            ) : spec.kind === 'select' ? (
+              <select
+                id={spec.key}
+                name={spec.key}
+                defaultValue={value}
+                disabled={readOnly}
+                className={`${INPUT} disabled:opacity-70`}
+              >
+                <option value="">Choose one</option>
+                {(spec.options ?? []).map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
             ) : (
               <input
                 id={spec.key}
@@ -71,13 +86,9 @@ export function EntryForm({
       })}
 
       {!readOnly && (
-        <label className="flex items-start gap-3 text-sm text-foreground">
-          <input type="checkbox" name="consent" className="mt-1" />
-          <span>
-            My parent or guardian agrees to my taking part, and to Skill Fleet showing this entry
-            for the championship. The work stays mine.
-          </span>
-        </label>
+        <p className="text-xs text-muted">
+          Your parent or guardian already agreed to you entering ISC 2026.
+        </p>
       )}
 
       {state?.error && (
