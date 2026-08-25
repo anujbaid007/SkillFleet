@@ -3,7 +3,8 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { TRACK_FIELDS, trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
+import { trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
+import { readSubmission } from '@/lib/isc/submission'
 import { firstInvalidField } from '@/lib/isc/validate'
 
 const ERR: Record<string, string> = {
@@ -141,15 +142,6 @@ export type EntryFormState =
       field?: string
     }
   | undefined
-
-/** Reads the posted fields for a track into a plain submission object. */
-function readSubmission(track: IscTrackId, formData: FormData): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const spec of TRACK_FIELDS[track]) {
-    out[spec.key] = ((formData.get(spec.key) as string) ?? '').trim()
-  }
-  return out
-}
 
 /**
  * One action for both buttons, dispatched on `intent`. Two separate
