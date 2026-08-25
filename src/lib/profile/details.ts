@@ -8,17 +8,28 @@ export interface StudentDetailsFields {
   school_state: string | null
   school_district: string | null
   city: string | null
-  parent_mobile: string | null
+  /** Not part of the gate — see isStudentDetailsComplete. Callers that select
+      it may pass it; callers that do not need not. */
+  parent_mobile?: string | null
 }
 
+/**
+ * Whether a student has given everything the platform gates on.
+ *
+ * parent_mobile is deliberately absent. The signup form already captures the
+ * parent's phone onto the family record, and `/onboarding/details` — the only
+ * screen a new student can reach — never asks for this column. The one screen
+ * that does set it, /account, sits behind the very gate this function drives,
+ * so requiring it trapped every new signup in a redirect loop with no way out.
+ * The number is not lost: it lives on `families.parent_phone`.
+ */
 export function isStudentDetailsComplete(p: StudentDetailsFields): boolean {
   return Boolean(
     p.school_class?.trim() &&
       p.school_name?.trim() &&
       p.school_state?.trim() &&
       p.school_district?.trim() &&
-      p.city?.trim() &&
-      p.parent_mobile?.trim()
+      p.city?.trim()
   )
 }
 
