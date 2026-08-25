@@ -66,6 +66,8 @@ describe('validateSubmission', () => {
     app_url: 'https://myapp.example.com',
     demo_video_url: 'https://youtu.be/abc',
     explanation: 'x'.repeat(150),
+    // Every track now also asks which language the entry is in.
+    language: 'English',
   }
 
   it('accepts a complete AI for Impact submission', () => {
@@ -100,6 +102,7 @@ describe('validateSubmission', () => {
         video_url: 'https://youtu.be/abc',
         title: 'My entry',
         theme_note: 'y'.repeat(80),
+        language: 'Hindi',
       })
     ).toBeNull()
   })

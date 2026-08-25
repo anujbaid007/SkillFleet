@@ -1,4 +1,12 @@
+import { Cpu, Rocket, Video, Puzzle, type LucideIcon } from 'lucide-react'
+
 export type IscTrackId = 'ai_for_impact' | 'entrepreneurship' | 'content_creator'
+
+/** The inaugural cycle. Consent, deadlines and rankings are all season-scoped. */
+export const ISC_SEASON = '2026'
+
+/** Entries are accepted in either language, on every track. */
+export const LANGUAGE_OPTIONS = ['English', 'Hindi']
 
 export interface IscTrack {
   id: IscTrackId
@@ -8,6 +16,19 @@ export interface IscTrack {
   brief: string
   /** The leader occupies one of these places. */
   maxTeamSize: number
+  /** Visual identity, mirroring OFFERING_TYPE_META so ISC reads like the rest
+      of the platform rather than a bolt-on. */
+  icon: LucideIcon
+  /** two-stop gradient for a solid icon badge */
+  gradient: string
+  /** soft card wash */
+  tint: string
+  /** solid text/accent colour class */
+  accent: string
+  /** What a national winner receives, from the Skill Fleet deck. */
+  prize: string
+  /** What the student actually needs to have ready before entering. */
+  prepare: string[]
 }
 
 export const ISC_TRACKS: IscTrack[] = [
@@ -19,6 +40,17 @@ export const ISC_TRACKS: IscTrack[] = [
     brief:
       'Build a working app or digital tool that tackles a social problem you care about, then show us how it works.',
     maxTeamSize: 3,
+    icon: Cpu,
+    gradient: 'from-primary to-primary-light',
+    tint: 'from-primary/[0.08]',
+    accent: 'text-primary',
+    prize:
+      'All three national winners get enterprise-grade deployment and scalability support for their app, plus social-media visibility.',
+    prepare: [
+      'A working app or prototype, live on a link anyone can open',
+      'A demo video of one minute or less',
+      'A short written explanation of the problem and how you solved it',
+    ],
   },
   {
     id: 'entrepreneurship',
@@ -28,6 +60,16 @@ export const ISC_TRACKS: IscTrack[] = [
     brief:
       'Develop an original startup idea: the problem it solves, who it is for, and how you would actually bring it to market.',
     maxTeamSize: 3,
+    icon: Rocket,
+    gradient: 'from-accent-teal to-primary',
+    tint: 'from-accent-teal/[0.08]',
+    accent: 'text-accent-teal',
+    prize: 'The national winner receives funding of up to ₹1 lakh to take the idea forward.',
+    prepare: [
+      'Your idea written out: problem, solution, who it is for, and why it works',
+      'How it would make money',
+      'A pitch video of one minute or less',
+    ],
   },
   {
     id: 'content_creator',
@@ -37,17 +79,37 @@ export const ISC_TRACKS: IscTrack[] = [
     brief:
       'Create an original one-minute video answering this year’s theme. Your work, your voice.',
     maxTeamSize: 3,
+    icon: Video,
+    gradient: 'from-accent-pink to-accent-purple',
+    tint: 'from-accent-pink/[0.08]',
+    accent: 'text-accent-pink',
+    prize:
+      'The top three national winners become brand ambassadors and feature in digital campaigns for participating brands.',
+    prepare: [
+      'An original video of one minute or less, on a link anyone can open',
+      'A title for it',
+      'A short note on how it answers the theme',
+    ],
   },
 ]
 
 /**
  * Shown on /isc as a fourth card, but not enterable here: Brainweave is
- * expected to design and host the game itself.
+ * expected to design and host the game itself. It still gets full visual
+ * identity so the fourth card does not look like a broken version of the
+ * other three.
  */
 export const PUZZLE_MASTER = {
   name: 'Puzzle Master',
   tagline: 'Logic, speed and nerve — played live.',
   note: 'Coming soon',
+  icon: Puzzle,
+  gradient: 'from-accent-yellow to-accent-pink',
+  tint: 'from-accent-yellow/[0.08]',
+  accent: 'text-accent-yellow',
+  divisions: 'Two divisions: Classes 5–8 and Classes 9–12',
+  prize:
+    'A shared ₹2 lakh pool across both divisions — ₹1 lakh in gifts or devices and ₹1 lakh in scholarships.',
 }
 
 export function trackBySlug(slug: string): IscTrack | null {
@@ -61,14 +123,16 @@ export function trackById(id: string): IscTrack | null {
 export interface FieldSpec {
   key: string
   label: string
-  kind: 'url' | 'text' | 'textarea'
+  kind: 'url' | 'text' | 'textarea' | 'select'
   min?: number
   max?: number
   help?: string
+  /** Only for kind: 'select'. */
+  options?: string[]
 }
 
 /** One source of truth: the form renders from this and the validator reads it. */
-export const TRACK_FIELDS: Record<IscTrackId, FieldSpec[]> = {
+const BASE_TRACK_FIELDS: Record<IscTrackId, FieldSpec[]> = {
   ai_for_impact: [
     {
       key: 'app_url',
@@ -127,3 +191,25 @@ export const TRACK_FIELDS: Record<IscTrackId, FieldSpec[]> = {
     },
   ],
 }
+
+/**
+ * Every track asks the same language question, so it is declared once rather
+ * than repeated three times. The deck requires entries in English or Hindi
+ * across all four tracks.
+ */
+const LANGUAGE_FIELD: FieldSpec = {
+  key: 'language',
+  label: 'Language of your entry',
+  kind: 'select',
+  options: LANGUAGE_OPTIONS,
+  help: 'Entries are accepted in English or Hindi.',
+}
+
+/**
+ * Composed rather than mutated: pushing into the base object at module load
+ * would append a duplicate language field every time the module re-evaluates
+ * under dev hot-reload.
+ */
+export const TRACK_FIELDS: Record<IscTrackId, FieldSpec[]> = Object.fromEntries(
+  Object.entries(BASE_TRACK_FIELDS).map(([track, specs]) => [track, [...specs, LANGUAGE_FIELD]])
+) as Record<IscTrackId, FieldSpec[]>

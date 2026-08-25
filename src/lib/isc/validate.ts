@@ -39,6 +39,14 @@ function validateField(spec: FieldSpec, raw: unknown): string | null {
     return urlError ? `${spec.label}: ${urlError}` : null
   }
 
+  if (spec.kind === 'select') {
+    if (!value) return `${spec.label}: please choose one.`
+    if (spec.options && !spec.options.includes(value)) {
+      return `${spec.label}: choose ${spec.options.join(' or ')}.`
+    }
+    return null
+  }
+
   if (!value) return `${spec.label}: this is required.`
   if (spec.min && value.length < spec.min) {
     return `${spec.label}: please write at least ${spec.min} characters.`
