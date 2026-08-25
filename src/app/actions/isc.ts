@@ -210,6 +210,21 @@ export async function getTrackDeadline(track: IscTrackId): Promise<string | null
   return data?.screening_deadline ?? null
 }
 
+/**
+ * Every track's deadline in one round trip. getTrackDeadline answers for one
+ * track; the coordinator dashboard shows all of them side by side and should
+ * not make three queries to do it.
+ */
+export async function getIscDeadlines(): Promise<Record<string, string>> {
+  const supabase = await createClient()
+  const { data } = await supabase.from('isc_config').select('track, screening_deadline')
+  const out: Record<string, string> = {}
+  for (const row of (data ?? []) as { track: string; screening_deadline: string }[]) {
+    out[row.track] = row.screening_deadline
+  }
+  return out
+}
+
 export type TeamState = { error?: string; ok?: string } | undefined
 
 const TEAM_ERR: Record<string, string> = {

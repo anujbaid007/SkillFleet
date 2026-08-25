@@ -4,6 +4,9 @@ import { Clock, AlertTriangle, Users } from 'lucide-react'
 import { getMyCoordinatorSchool, getSchoolRoster } from '@/app/actions/coordinator'
 import { SchoolRoster } from '@/components/coordinator/school-roster'
 import { PageHeader } from '@/components/ui/page-header'
+import { createClient } from '@/lib/supabase/server'
+import { getIscDeadlines } from '@/app/actions/isc'
+import { CoordinatorStats } from '@/components/coordinator/coordinator-stats'
 
 export default async function CoordinatorDashboardPage() {
   const application = await getMyCoordinatorSchool()
@@ -48,6 +51,16 @@ export default async function CoordinatorDashboardPage() {
   }
 
   const students = await getSchoolRoster()
+  const deadlines = await getIscDeadlines()
+
+  // Straight through RLS: isc_entries_read already grants an approved
+  // coordinator their own school's entries, so this needs no RPC. The
+  // school_id filter is belt and braces — the policy scopes it either way.
+  const supabase = await createClient()
+  const { data: entries } = await supabase
+    .from('isc_entries')
+    .select('track, status')
+    .eq('school_id', application.schoolId)
 
   return (
     <div className="space-y-6">
@@ -56,6 +69,12 @@ export default async function CoordinatorDashboardPage() {
         icon={Users}
         title={application.schoolName}
         subtitle={`${students.length} student${students.length === 1 ? '' : 's'} from your school on SkillFleet.`}
+      />
+      <CoordinatorStats
+        students={students}
+        entries={(entries ?? []) as { track: string; status: string }[]}
+        deadlines={deadlines}
+        now={new Date()}
       />
       <SchoolRoster students={students} />
     </div>
