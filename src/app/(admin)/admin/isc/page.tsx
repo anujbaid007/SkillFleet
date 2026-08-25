@@ -7,6 +7,8 @@ import { IscEntryRow, type AdminIscEntry } from '@/components/admin/isc-entry-ro
 import { IscStatsPanel, type IscStats } from '@/components/admin/isc-stats'
 import { IscFilters } from '@/components/admin/isc-filters'
 import { parseRevisions, type EntryRevision } from '@/lib/isc/revisions'
+import { IscInsights } from '@/components/admin/isc-insights'
+import type { AnalyticsEntry } from '@/lib/isc/analytics'
 
 interface RawEntry {
   id: string
@@ -43,15 +45,10 @@ export default async function AdminIscPage({
 
   const all = raw ?? []
 
-  const leaderIds = [...new Set(all.map((r) => r.created_by))]
   const schoolIds = [...new Set(all.map((r) => r.school_id))]
 
-  const { data: leaders } = leaderIds.length
-    ? await supabase.from('user_profiles').select('id, full_name').in('id', leaderIds)
-    : { data: [] }
-  const { data: schools } = schoolIds.length
-    ? await supabase.from('schools').select('id, name, state').in('id', schoolIds)
-    : { data: [] }
+  // Members first: the class distribution counts every participant, so the
+  // profile lookup below has to cover teammates and not only leaders.
   const { data: members } = all.length
     ? await supabase
         .from('isc_entry_members')
@@ -62,7 +59,28 @@ export default async function AdminIscPage({
         )
     : { data: [] }
 
+  const participantIds = [
+    ...new Set([
+      ...all.map((r) => r.created_by),
+      ...(members ?? []).map((m) => m.user_id).filter((id): id is string => Boolean(id)),
+    ]),
+  ]
+
+  const { data: leaders } = participantIds.length
+    ? await supabase
+        .from('user_profiles')
+        .select('id, full_name, school_class')
+        .in('id', participantIds)
+    : { data: [] }
+  const { data: schools } = schoolIds.length
+    ? await supabase.from('schools').select('id, name, state, district, board').in('id', schoolIds)
+    : { data: [] }
+
   const leaderById = new Map((leaders ?? []).map((l) => [l.id, l.full_name]))
+
+  const classByStudent = new Map<string, string | null>(
+    (leaders ?? []).map((l) => [l.id, l.school_class ?? null])
+  )
 
   // One query for the whole page. The admin list already loads every entry, and
   // the screening set is a few thousand rows at most; a query per row would be
@@ -108,10 +126,14 @@ export default async function AdminIscPage({
   const schoolById = new Map((schools ?? []).map((s) => [s.id, s]))
 
   const sizeByEntry = new Map<string, number>()
+  const studentsByEntry = new Map<string, string[]>()
   const studentIds = new Set<string>()
   for (const m of members ?? []) {
     sizeByEntry.set(m.entry_id, (sizeByEntry.get(m.entry_id) ?? 0) + 1)
-    if (m.user_id) studentIds.add(m.user_id)
+    if (m.user_id) {
+      studentIds.add(m.user_id)
+      studentsByEntry.set(m.entry_id, [...(studentsByEntry.get(m.entry_id) ?? []), m.user_id])
+    }
   }
 
   const enriched: AdminIscEntry[] = all.map((r) => ({
@@ -119,6 +141,7 @@ export default async function AdminIscPage({
     track: r.track as IscTrackId,
     schoolName: schoolById.get(r.school_id)?.name ?? 'Unknown school',
     schoolState: schoolById.get(r.school_id)?.state ?? '',
+    schoolDistrict: schoolById.get(r.school_id)?.district ?? '',
     leaderName: leaderById.get(r.created_by) ?? 'Unknown student',
     teamSize: sizeByEntry.get(r.id) ?? 1,
     status: r.status,
@@ -128,6 +151,23 @@ export default async function AdminIscPage({
     editCount: (revisionsByEntry.get(r.id) ?? []).length,
     revisions: revisionsByEntry.get(r.id) ?? [],
     submission: r.submission ?? {},
+  }))
+
+  // The same entries, flattened for the aggregations. Kept separate from
+  // AdminIscEntry because the panels need school geography and the roster of
+  // students, while a list row needs neither.
+  const analytics: AnalyticsEntry[] = all.map((r) => ({
+    entryId: r.id,
+    track: r.track as IscTrackId,
+    status: r.status,
+    schoolId: r.school_id,
+    schoolName: schoolById.get(r.school_id)?.name ?? 'Unknown school',
+    state: schoolById.get(r.school_id)?.state ?? '',
+    district: schoolById.get(r.school_id)?.district ?? '',
+    board: schoolById.get(r.school_id)?.board ?? '',
+    submittedAt: r.submitted_at,
+    updatedAt: r.updated_at,
+    studentIds: studentsByEntry.get(r.id) ?? [],
   }))
 
   // Stats describe the whole cycle, not the current filter — an admin needs the
@@ -175,6 +215,10 @@ export default async function AdminIscPage({
 
       <Reveal delay={0.03}>
         <IscStatsPanel stats={stats} />
+      </Reveal>
+
+      <Reveal delay={0.04}>
+        <IscInsights entries={analytics} classByStudent={classByStudent} now={new Date()} />
       </Reveal>
 
       <IscFilters

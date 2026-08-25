@@ -11,6 +11,7 @@ export interface AdminIscEntry {
   track: IscTrackId
   schoolName: string
   schoolState: string
+  schoolDistrict: string
   leaderName: string
   teamSize: number
   status: string
