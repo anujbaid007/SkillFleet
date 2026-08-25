@@ -2,10 +2,12 @@ import { redirect } from 'next/navigation'
 import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
+import { Reveal } from '@/components/ui/reveal'
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { isEligibleClass } from '@/lib/isc/validate'
 import { getMyIscEntries } from '@/app/actions/isc'
 import { TrackCard, type TrackCardState } from '@/components/isc/track-card'
+import { HowItWorks } from '@/components/isc/how-it-works'
 
 export default async function IscPage() {
   const supabase = await createClient()
@@ -30,20 +32,35 @@ export default async function IscPage() {
         eyebrow="International Skill Championship"
         icon={Trophy}
         title="ISC 2026"
-        subtitle="Four championships. Enter as many as you like — school screening is free."
+        subtitle="Four championships, open to Classes 5 to 12. Enter as many as you like — school screening is free."
       />
 
       {!eligible && (
-        <div className="clay-card p-6 text-sm text-muted">
-          ISC 2026 is open to <span className="font-semibold text-foreground">Classes 5 to 12</span>.
-          {profile?.school_class
-            ? ` Your profile says ${profile.school_class}, so you can't enter this cycle.`
-            : ' Add your class to your profile to check whether you can enter.'}
-        </div>
+        <Reveal delay={0.05}>
+          <div className="clay-card p-6 flex items-start gap-4">
+            <span className="w-11 h-11 rounded-2xl bg-black/[0.05] flex items-center justify-center shrink-0">
+              <Trophy className="w-5 h-5 text-muted" />
+            </span>
+            <div>
+              <p className="font-display font-bold text-foreground">Not open to your class yet</p>
+              <p className="text-sm text-muted mt-1">
+                ISC 2026 is for{' '}
+                <span className="font-semibold text-foreground">Classes 5 to 12</span>.
+                {profile?.school_class
+                  ? ` Your profile says ${profile.school_class}, so you can’t enter this cycle — but you can still read what each championship involves.`
+                  : ' Add your class to your profile to check whether you can enter.'}
+              </p>
+            </div>
+          </div>
+        </Reveal>
       )}
 
+      <Reveal delay={0.08}>
+        <HowItWorks />
+      </Reveal>
+
       <div className="grid gap-4 sm:grid-cols-2">
-        {ISC_TRACKS.map((track) => {
+        {ISC_TRACKS.map((track, i) => {
           const entry = byTrack.get(track.id)
           const state: TrackCardState = !eligible
             ? 'not_started'
@@ -53,23 +70,34 @@ export default async function IscPage() {
                 ? 'draft'
                 : 'not_started'
           return (
-            <TrackCard
-              key={track.id}
-              name={track.name}
-              tagline={track.tagline}
-              state={state}
-              href={eligible ? `/isc/${track.slug}` : undefined}
-              teamNote={`On your own or a team of up to ${track.maxTeamSize}`}
-            />
+            <Reveal key={track.id} delay={0.1 + i * 0.05} className="h-full">
+              <TrackCard
+                name={track.name}
+                tagline={track.tagline}
+                state={state}
+                href={eligible ? `/isc/${track.slug}` : undefined}
+                teamNote={`On your own or a team of up to ${track.maxTeamSize}`}
+                icon={track.icon}
+                gradient={track.gradient}
+                tint={track.tint}
+                accent={track.accent}
+              />
+            </Reveal>
           )
         })}
 
-        <TrackCard
-          name={PUZZLE_MASTER.name}
-          tagline={PUZZLE_MASTER.tagline}
-          state="coming_soon"
-          teamNote="Individual only"
-        />
+        <Reveal delay={0.25} className="h-full">
+          <TrackCard
+            name={PUZZLE_MASTER.name}
+            tagline={PUZZLE_MASTER.tagline}
+            state="coming_soon"
+            teamNote="Individual only"
+            icon={PUZZLE_MASTER.icon}
+            gradient={PUZZLE_MASTER.gradient}
+            tint={PUZZLE_MASTER.tint}
+            accent={PUZZLE_MASTER.accent}
+          />
+        </Reveal>
       </div>
     </div>
   )
