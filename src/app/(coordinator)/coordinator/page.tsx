@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { createClient } from '@/lib/supabase/server'
 import { getIscDeadlines } from '@/app/actions/isc'
 import { CoordinatorStats } from '@/components/coordinator/coordinator-stats'
+import { NeedsNudge } from '@/components/coordinator/needs-nudge'
 
 export default async function CoordinatorDashboardPage() {
   const application = await getMyCoordinatorSchool()
@@ -76,6 +77,7 @@ export default async function CoordinatorDashboardPage() {
         deadlines={deadlines}
         now={new Date()}
       />
+      <NeedsNudge students={students} />
       <SchoolRoster students={students} />
     </div>
   )
