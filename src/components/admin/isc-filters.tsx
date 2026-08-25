@@ -14,11 +14,15 @@ const SELECT =
 export function IscFilters({
   schools,
   languages,
+  states,
+  districts,
   showing,
   total,
 }: {
   schools: string[]
   languages: string[]
+  states: string[]
+  districts: string[]
   showing: number
   total: number
 }) {
@@ -29,11 +33,16 @@ export function IscFilters({
     const next = new URLSearchParams(params.toString())
     if (value) next.set(key, value)
     else next.delete(key)
+    // A district only means something inside its state. Changing the state must
+    // drop it, or the list goes empty for a reason nothing on screen explains.
+    if (key === 'state') next.delete('district')
     const qs = next.toString()
     router.push(qs ? `/admin/isc?${qs}` : '/admin/isc')
   }
 
-  const active = ['track', 'status', 'school', 'language', 'q'].filter((k) => params.get(k))
+  const active = ['track', 'status', 'state', 'district', 'school', 'language', 'q'].filter((k) =>
+    params.get(k)
+  )
 
   return (
     <div className="clay-card p-4 space-y-3">
@@ -82,6 +91,35 @@ export function IscFilters({
           <option value="">Any status</option>
           <option value="submitted">Submitted</option>
           <option value="draft">Draft</option>
+        </select>
+
+        <select
+          value={params.get('state') ?? ''}
+          onChange={(e) => set('state', e.target.value)}
+          aria-label="Filter by state"
+          className={SELECT}
+        >
+          <option value="">All states</option>
+          {states.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={params.get('district') ?? ''}
+          onChange={(e) => set('district', e.target.value)}
+          aria-label="Filter by district"
+          disabled={!params.get('state')}
+          className={`${SELECT} disabled:opacity-50`}
+        >
+          <option value="">{params.get('state') ? 'All districts' : 'Pick a state first'}</option>
+          {districts.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
         </select>
 
         <select

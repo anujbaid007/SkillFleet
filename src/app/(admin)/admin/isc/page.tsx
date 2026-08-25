@@ -29,6 +29,8 @@ export default async function AdminIscPage({
     status?: string
     school?: string
     language?: string
+    state?: string
+    district?: string
     q?: string
   }>
 }) {
@@ -196,6 +198,8 @@ export default async function AdminIscPage({
   const rows = enriched.filter((e) => {
     if (params.track && e.track !== params.track) return false
     if (params.status && e.status !== params.status) return false
+    if (params.state && e.schoolState !== params.state) return false
+    if (params.district && e.schoolDistrict !== params.district) return false
     if (params.school && e.schoolName !== params.school) return false
     if (params.language && e.language !== params.language) return false
     if (q && !`${e.leaderName} ${e.schoolName}`.toLowerCase().includes(q)) return false
@@ -203,6 +207,17 @@ export default async function AdminIscPage({
   })
 
   const schoolNames = [...new Set(enriched.map((e) => e.schoolName))].sort()
+  const states = [...new Set(enriched.map((e) => e.schoolState).filter(Boolean))].sort()
+  // Scoped to the chosen state: an unscoped list would be every district in the
+  // country, and picking one from another state would silently show nothing.
+  const districts = [
+    ...new Set(
+      enriched
+        .filter((e) => !params.state || e.schoolState === params.state)
+        .map((e) => e.schoolDistrict)
+        .filter(Boolean)
+    ),
+  ].sort()
 
   return (
     <div className="space-y-6">
@@ -224,6 +239,8 @@ export default async function AdminIscPage({
       <IscFilters
         schools={schoolNames}
         languages={LANGUAGE_OPTIONS}
+        states={states}
+        districts={districts}
         showing={rows.length}
         total={enriched.length}
       />
