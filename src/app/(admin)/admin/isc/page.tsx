@@ -8,6 +8,7 @@ import { IscStatsPanel, type IscStats } from '@/components/admin/isc-stats'
 import { IscFilters } from '@/components/admin/isc-filters'
 import { parseRevisions, type EntryRevision } from '@/lib/isc/revisions'
 import { IscInsights } from '@/components/admin/isc-insights'
+import { IscExport } from '@/components/admin/isc-export'
 import type { AnalyticsEntry } from '@/lib/isc/analytics'
 
 interface RawEntry {
@@ -244,6 +245,24 @@ export default async function AdminIscPage({
         showing={rows.length}
         total={enriched.length}
       />
+
+      <div className="flex items-center justify-end">
+        <IscExport
+          rows={rows.map((e) => ({
+            schoolName: e.schoolName,
+            schoolState: e.schoolState,
+            schoolDistrict: e.schoolDistrict,
+            leaderName: e.leaderName,
+            track: e.track,
+            teamSize: e.teamSize,
+            status: e.status,
+            language: e.language,
+            submittedAt: e.submittedAt,
+            updatedAt: e.updatedAt,
+          }))}
+          filename={`isc-2026-entries-${new Date().toISOString().slice(0, 10)}.csv`}
+        />
+      </div>
 
       {rows.length === 0 ? (
         <div className="clay-card p-12 text-center text-muted">
