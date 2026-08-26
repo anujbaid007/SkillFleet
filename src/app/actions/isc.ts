@@ -18,6 +18,7 @@ const ERR: Record<string, string> = {
   empty_submission: 'Fill in your entry before submitting.',
   wrong_school: 'Everyone on the team must be at your school.',
   wrong_group: 'A teammate is in a different group. Remove them before this can be submitted.',
+  entry_submitted: 'This entry has already been submitted, so it can no longer be changed.',
 }
 
 // NOT exported: a 'use server' module may only export async functions, so a
@@ -284,6 +285,7 @@ const TEAM_ERR: Record<string, string> = {
   has_own_entry:
     'They have already started their own entry for this championship. They need to open it and press Leave this championship before they can join your team.',
   already_invited: 'You have already invited that email.',
+  entry_submitted: 'This entry has been submitted, so the team can no longer be changed.',
 }
 
 export async function addMemberAction(_prev: TeamState, formData: FormData): Promise<TeamState> {
@@ -370,6 +372,8 @@ export type RespondState = { error?: string; ok?: string } | undefined
 
 const RESPOND_ERR: Record<string, string> = {
   already_resolved: 'This invite has already been responded to.',
+  entry_submitted:
+    'That team has already submitted their entry, so you can no longer join it. You can decline the invite to clear it.',
   wrong_school: "You're no longer eligible for this team — you must be at the same school.",
   wrong_group:
     "You're no longer eligible for this team — you must be in the same group as the rest of the team (Classes 5–8 or 9–12).",

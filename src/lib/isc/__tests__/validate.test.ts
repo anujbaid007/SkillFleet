@@ -107,7 +107,7 @@ describe('validateSubmission', () => {
       validateSubmission('content_creator', {
         video_url: 'https://youtu.be/abc',
         title: 'My entry',
-        theme_note: 'y'.repeat(80),
+        theme_note: 'y'.repeat(150),
         language: 'Hindi',
       })
     ).toBeNull()
@@ -149,5 +149,36 @@ describe('countdownLabel', () => {
   it('does not invent a countdown when there is no deadline', () => {
     expect(countdownLabel('', now)).toBe('Deadline not set')
     expect(countdownLabel('whenever', now)).toBe('Deadline not set')
+  })
+})
+
+describe('long-answer character limits', () => {
+  // Sir asked for one consistent range on every written answer. Short fields
+  // are deliberately exempt: a title or a one-line "who is it for" would have
+  // to be padded with filler to clear a 100-character floor.
+  const SHORT_FIELDS = new Set(['title', 'target_audience'])
+
+  it('holds every long-answer field to 100–1000 characters', () => {
+    for (const track of ISC_TRACKS) {
+      for (const spec of TRACK_FIELDS[track.id]) {
+        if (spec.kind !== 'textarea' || SHORT_FIELDS.has(spec.key)) continue
+        // Reported as a pair so a failure names the offending field.
+        expect([`${track.id}.${spec.key}`, spec.min, spec.max]).toEqual([
+          `${track.id}.${spec.key}`,
+          100,
+          1000,
+        ])
+      }
+    }
+  })
+
+  it('leaves the short fields alone', () => {
+    const title = TRACK_FIELDS.content_creator.find((f) => f.key === 'title')
+    expect(title?.min).toBeUndefined()
+    expect(title?.max).toBe(120)
+
+    const audience = TRACK_FIELDS.entrepreneurship.find((f) => f.key === 'target_audience')
+    expect(audience?.min).toBe(20)
+    expect(audience?.max).toBe(500)
   })
 })

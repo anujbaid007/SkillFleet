@@ -35,7 +35,7 @@ describe('language', () => {
       validateSubmission('content_creator', {
         video_url: 'https://youtu.be/abc',
         title: 'My entry',
-        theme_note: 'y'.repeat(80),
+        theme_note: 'y'.repeat(150),
       })
     ).toMatch(/language/i)
   })

@@ -127,7 +127,8 @@ export default async function IscTrackPage({
             slug={track.slug}
             members={entry ? entry.members : previewMembers}
             maxTeamSize={track.maxTeamSize}
-            canEdit={entry ? entry.isLeader && !locked : true}
+            canEdit={entry ? entry.isLeader && !locked && entry.status !== 'submitted' : true}
+            submitted={entry?.status === 'submitted'}
           />
 
           <EntryForm

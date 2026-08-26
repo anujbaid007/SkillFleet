@@ -1,9 +1,10 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useActionState, useEffect, useState } from 'react'
+import { AlertTriangle, CheckCircle2, Lock } from 'lucide-react'
 import { entryFormAction, type EntryFormState } from '@/app/actions/isc'
 import { TRACK_FIELDS, type IscTrackId } from '@/lib/isc/tracks'
+import { ConfirmSubmitDialog } from '@/components/isc/confirm-submit-dialog'
 
 const INPUT =
   'w-full px-4 py-2.5 rounded-xl border-2 border-black/[0.06] bg-white text-foreground placeholder:text-muted/60 focus:outline-none focus:border-primary transition-colors'
@@ -38,8 +39,19 @@ export function EntryForm({
     entryFormAction,
     undefined
   )
+  const [confirming, setConfirming] = useState(false)
 
-  const readOnly = locked || !canEdit
+  const submitted = status === 'submitted'
+  // Submitting is final, so a submitted entry is as read-only as a closed
+  // track. The RPCs enforce this; this only keeps the UI honest about it.
+  const readOnly = locked || submitted || !canEdit
+
+  // Close the dialog once the action comes back, however it went — leaving it
+  // open over a submitted entry would invite a second click at a form that
+  // will now refuse it.
+  useEffect(() => {
+    if (state) setConfirming(false)
+  }, [state])
 
   // Send the student straight to the field that needs fixing. On a seven-field
   // form, an error message at the bottom is easy to miss and gives no clue
@@ -55,7 +67,7 @@ export function EntryForm({
   }, [state])
 
   return (
-    <form action={action} className="clay-card p-6 space-y-5">
+    <form id="isc-entry-form" action={action} className="clay-card p-6 space-y-5">
       <input type="hidden" name="entry_id" value={entryId} />
       <input type="hidden" name="track" value={track} />
 
@@ -63,12 +75,12 @@ export function EntryForm({
         A saved draft is not an entry. Without saying so plainly, a student can
         fill everything in, save, close the tab, and never actually compete.
       */}
-      {status === 'submitted' ? (
+      {submitted ? (
         <div className="rounded-xl bg-green-50 px-4 py-3 flex items-start gap-2.5">
           <CheckCircle2 className="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
           <p className="text-sm text-green-800">
-            <span className="font-semibold">Your entry is in.</span> You can keep changing it until
-            the deadline — press <span className="font-semibold">Save changes</span> after any edit.
+            <span className="font-semibold">Your entry is in, and it is now final.</span> Submitted
+            entries cannot be edited — this is exactly what the judges will see.
           </p>
         </div>
       ) : (
@@ -162,10 +174,13 @@ export function EntryForm({
       )}
 
       {readOnly ? (
-        <p className="text-sm text-muted">
-          {locked
-            ? 'Entries for this track have closed, so this can no longer be edited.'
-            : 'Only your team leader can edit this entry.'}
+        <p className="text-sm text-muted inline-flex items-center gap-1.5">
+          {submitted && <Lock className="w-3.5 h-3.5 shrink-0" />}
+          {submitted
+            ? 'This entry has been submitted and can no longer be changed.'
+            : locked
+              ? 'Entries for this track have closed, so this can no longer be edited.'
+              : 'Only your team leader can edit this entry.'}
         </p>
       ) : (
         <div className="flex items-center gap-3 flex-wrap">
@@ -178,17 +193,28 @@ export function EntryForm({
           >
             Save draft
           </button>
+          {/*
+            Not a submit button: submitting is irreversible, so the click only
+            opens the confirmation. The button that actually submits lives in
+            the dialog and targets this form by id.
+          */}
           <button
-            type="submit"
-            name="intent"
-            value="submit"
+            type="button"
+            onClick={() => setConfirming(true)}
             disabled={pending}
             className="clay-button bg-cta text-white px-6 h-11 text-sm font-semibold disabled:opacity-60"
           >
-            {pending ? 'Working…' : status === 'submitted' ? 'Save changes' : 'Submit entry'}
+            {pending ? 'Working…' : 'Submit entry'}
           </button>
         </div>
       )}
+
+      <ConfirmSubmitDialog
+        open={confirming}
+        onCancel={() => setConfirming(false)}
+        formId="isc-entry-form"
+        pending={pending}
+      />
     </form>
   )
 }

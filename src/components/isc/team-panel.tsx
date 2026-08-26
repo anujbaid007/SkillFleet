@@ -21,12 +21,15 @@ export function TeamPanel({
   members,
   maxTeamSize,
   canEdit,
+  submitted = false,
 }: {
   entryId: string
   slug: string
   members: IscMember[]
   maxTeamSize: number
   canEdit: boolean
+  /** A submitted entry's team is frozen along with its answers. */
+  submitted?: boolean
 }) {
   const [addState, addAction, adding] = useActionState<TeamState, FormData>(
     addMemberAction,
@@ -169,6 +172,12 @@ export function TeamPanel({
       )}
 
       {canEdit && full && <p className="text-xs text-muted">Your team is full.</p>}
+
+      {submitted && (
+        <p className="text-xs text-muted">
+          This entry has been submitted, so the team is now final too.
+        </p>
+      )}
 
       {(addState?.error ?? removeState?.error) && (
         <p className="text-sm text-red-600">{addState?.error ?? removeState?.error}</p>
