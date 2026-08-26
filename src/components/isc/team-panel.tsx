@@ -83,7 +83,7 @@ export function TeamPanel({
             className="flex items-center justify-between gap-3 rounded-xl bg-black/[0.02] px-3 py-2"
           >
             <span className="min-w-0 flex items-center gap-2 text-sm">
-              {m.userId ? (
+              {m.userId && m.acceptedAt ? (
                 <Check className="w-4 h-4 text-green-600 shrink-0" />
               ) : (
                 <Clock className="w-4 h-4 text-accent-yellow shrink-0" />
@@ -94,6 +94,9 @@ export function TeamPanel({
                 {m.isLeader && <span className="text-muted"> · team leader</span>}
                 {!m.userId && (
                   <span className="text-accent-yellow"> · not registered yet — invite sent</span>
+                )}
+                {m.userId && !m.acceptedAt && (
+                  <span className="text-accent-yellow"> · invited — waiting for them to accept</span>
                 )}
               </span>
             </span>

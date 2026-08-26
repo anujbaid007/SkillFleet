@@ -6,9 +6,10 @@ import { Reveal } from '@/components/ui/reveal'
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { isEligibleClass } from '@/lib/isc/validate'
 import { iscGroupForClass, iscGroupLabel } from '@/lib/isc/groups'
-import { getMyIscEntries } from '@/app/actions/isc'
+import { getMyIscEntries, getMyPendingInvites } from '@/app/actions/isc'
 import { TrackCard, type TrackCardState } from '@/components/isc/track-card'
 import { HowItWorks } from '@/components/isc/how-it-works'
+import { PendingInvites } from '@/components/isc/pending-invites'
 
 export default async function IscPage() {
   const supabase = await createClient()
@@ -25,7 +26,10 @@ export default async function IscPage() {
 
   const eligible = isEligibleClass(profile?.school_class)
   const entries = eligible ? await getMyIscEntries() : []
-  const byTrack = new Map(entries.map((e) => [e.track, e]))
+  // A pending invite is not one of "my championships" yet — it must not make
+  // a track card read as draft/submitted before the student has agreed to join.
+  const byTrack = new Map(entries.filter((e) => e.isAccepted).map((e) => [e.track, e]))
+  const invites = eligible ? await getMyPendingInvites() : []
   const group = eligible ? iscGroupForClass(profile?.school_class) : null
 
   return (
@@ -37,8 +41,10 @@ export default async function IscPage() {
         subtitle="Four championships, open to Classes 5 to 12. Enter as many as you like — school screening is free."
       />
 
+      <PendingInvites invites={invites} />
+
       {group && (
-        <p className="text-sm text-muted -mt-2">
+        <p className="text-sm text-muted">
           You&apos;re in {iscGroupLabel(group)}. You can team up with classmates from those classes
           at your school.
         </p>

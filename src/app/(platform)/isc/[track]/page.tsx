@@ -31,6 +31,12 @@ export default async function IscTrackPage({ params }: { params: Promise<{ track
   // only when the student presses "Enter this track".
   const mine = await getMyIscEntries()
   const existing = mine.find((e) => e.track === track.id)
+  // A pending invite has a row here but isn't joined yet — send them back to
+  // /isc to respond on the banner rather than showing a half-formed team page,
+  // and critically, rather than falling through to "Ready when you are", which
+  // would try to create a second entry for a track they already have a
+  // (pending) row on and loop back to this exact redirect.
+  if (existing && !existing.isAccepted) redirect('/isc')
   const entry = existing ? await getIscEntry(existing.entryId) : null
 
   const deadline = await getTrackDeadline(track.id)
