@@ -1594,6 +1594,7 @@ export type Database = {
       isc_give_consent: { Args: { p_guardian_name: string }; Returns: Json }
       isc_get_my_entries: { Args: Record<string, never>; Returns: Json }
       isc_get_my_invites: { Args: Record<string, never>; Returns: Json }
+      isc_leave_entry: { Args: { p_entry_id: string }; Returns: Json }
       isc_respond_to_invite: {
         Args: { p_member_id: string; p_accept: boolean }
         Returns: Json

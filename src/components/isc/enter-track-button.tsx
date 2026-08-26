@@ -1,40 +1,27 @@
-'use client'
-
-import { useActionState } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import { startEntryAction, type StartState } from '@/app/actions/isc'
 
+/**
+ * Opens the entry form. Deliberately a plain link, not a mutation: clicking
+ * through to read the questions must not create anything, because a student's
+ * own entry blocks anyone from inviting them to a team for that track. The
+ * entry is created by the first real action — saving, or adding a teammate.
+ *
+ * Consent is a one-time step for the season, so it is asked before the form
+ * rather than on every save.
+ */
 export function EnterTrackButton({ slug, needsConsent }: { slug: string; needsConsent: boolean }) {
-  const [state, action, pending] = useActionState<StartState, FormData>(startEntryAction, undefined)
-
-  // Consent is a one-time step for the season, so it is asked before the first
-  // entry rather than on every form. Sending them there first means the draft
-  // is only created once they have actually agreed.
-  if (needsConsent) {
-    return (
-      <Link
-        href={`/isc/consent?next=${encodeURIComponent(`/isc/${slug}`)}`}
-        className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold inline-flex items-center gap-2"
-      >
-        Enter this track
-        <ArrowRight className="w-4 h-4" />
-      </Link>
-    )
-  }
+  const href = needsConsent
+    ? `/isc/consent?next=${encodeURIComponent(`/isc/${slug}?start=1`)}`
+    : `/isc/${slug}?start=1`
 
   return (
-    <form action={action}>
-      <input type="hidden" name="slug" value={slug} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-60"
-      >
-        {pending ? 'Opening…' : 'Enter this track'}
-        <ArrowRight className="w-4 h-4" />
-      </button>
-      {state?.error && <p className="text-sm text-red-600 mt-2">{state.error}</p>}
-    </form>
+    <Link
+      href={href}
+      className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold inline-flex items-center gap-2"
+    >
+      Start your entry
+      <ArrowRight className="w-4 h-4" />
+    </Link>
   )
 }

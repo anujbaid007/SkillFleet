@@ -81,27 +81,31 @@ export async function getMyPendingInvites(): Promise<PendingInvite[]> {
 }
 
 /**
- * Creates this student's draft for a track if they have none, and returns its
- * id either way.
+ * The entry id for this student's draft on a track, creating it if they have
+ * none yet.
  *
- * Deliberately NOT a mutating action: the track page calls this during render,
- * and Next.js forbids revalidatePath() there. The RPC is idempotent, so there
- * is nothing to revalidate — a first visit creates the draft, later visits
- * return the same one.
+ * Entries are created lazily — merely opening a track's form must not write
+ * anything, or a student who clicks through to read the questions is left
+ * with a permanent empty draft that blocks anyone from inviting them to a
+ * team for that track. The first real action (saving, or adding a teammate)
+ * is what brings the entry into existence, via this helper.
+ *
+ * NOT exported: a 'use server' module may only export async functions that
+ * are safe to call from a client, and this is an internal step of the two
+ * actions below. isc_start_entry is idempotent, so calling it twice is safe.
  */
-export async function ensureIscEntry(
-  slug: string
+async function resolveEntryId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  trackId: IscTrackId,
+  existing: string | undefined
 ): Promise<{ entryId: string } | { error: string }> {
-  const track = trackBySlug(slug)
-  if (!track) return { error: 'Unknown track.' }
+  if (existing) return { entryId: existing }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('isc_start_entry', { p_track: track.id })
+  const { data, error } = await supabase.rpc('isc_start_entry', { p_track: trackId })
   if (error) return { error: iscError(undefined) }
 
   const result = data as { ok: boolean; error?: string; entry_id?: string }
   if (!result?.ok || !result.entry_id) return { error: iscError(result?.error) }
-
   return { entryId: result.entry_id }
 }
 
@@ -186,14 +190,20 @@ export async function entryFormAction(
   _prev: EntryFormState,
   formData: FormData
 ): Promise<EntryFormState> {
-  const entryId = (formData.get('entry_id') as string)?.trim()
+  const postedEntryId = (formData.get('entry_id') as string)?.trim()
   const trackId = (formData.get('track') as string)?.trim()
   const intent = (formData.get('intent') as string)?.trim()
   const track = trackById(trackId)
-  if (!entryId || !track) return { error: 'Missing entry.' }
+  if (!track) return { error: 'Missing entry.' }
 
   const submission = readSubmission(track.id, formData)
   const supabase = await createClient()
+
+  // First save on a track the student has not entered yet is what creates the
+  // entry — opening the form did not.
+  const resolved = await resolveEntryId(supabase, track.id, postedEntryId)
+  if ('error' in resolved) return { error: resolved.error }
+  const entryId = resolved.entryId
 
   // Save FIRST, even for a submit that may fail validation. The form fields are
   // uncontrolled and re-bind to the stored submission on re-render, so
@@ -268,25 +278,57 @@ const TEAM_ERR: Record<string, string> = {
   wrong_school: 'Teammates must be students at your school.',
   wrong_group:
     'That student is in a different group. Teammates must be from the same group as you — Classes 5–8 or 9–12.',
-  already_in_track: 'They are already in another entry for this track.',
+  already_in_track: 'They are already on another team for this championship.',
+  // Distinct from already_in_track on purpose: this one the student can undo
+  // themselves, so the message has to say how.
+  has_own_entry:
+    'They have already started their own entry for this championship. They need to open it and press Leave this championship before they can join your team.',
   already_invited: 'You have already invited that email.',
 }
 
 export async function addMemberAction(_prev: TeamState, formData: FormData): Promise<TeamState> {
-  const entryId = (formData.get('entry_id') as string)?.trim()
+  const postedEntryId = (formData.get('entry_id') as string)?.trim()
   const slug = (formData.get('slug') as string)?.trim()
   const email = ((formData.get('email') as string) ?? '').trim()
-  if (!entryId || !email) return { error: 'Enter an email address.' }
+  if (!email) return { error: 'Enter an email address.' }
+
+  const track = trackBySlug(slug)
+  if (!track) return { error: 'Missing entry.' }
 
   const supabase = await createClient()
+
+  // Adding the first teammate also counts as starting the entry.
+  const resolved = await resolveEntryId(supabase, track.id, postedEntryId)
+  if ('error' in resolved) return { error: resolved.error }
+  const entryId = resolved.entryId
+  const justCreated = !postedEntryId
+
   const { data, error } = await supabase.rpc('isc_add_member', {
     p_entry_id: entryId,
     p_email: email,
   })
-  if (error) return { error: iscError(undefined) }
+
+  /**
+   * If this call is what brought the entry into being and the add then failed
+   * — a typo'd address, a classmate in the other group — undo the creation.
+   * Otherwise a mistyped email would leave behind exactly the empty entry this
+   * whole change exists to stop: one that silently blocks anyone from
+   * inviting this student to a team for the track.
+   */
+  const undoIfJustCreated = async () => {
+    if (justCreated) await supabase.rpc('isc_leave_entry', { p_entry_id: entryId })
+  }
+
+  if (error) {
+    await undoIfJustCreated()
+    return { error: iscError(undefined) }
+  }
 
   const r = data as { ok: boolean; error?: string; state?: string; name?: string }
-  if (!r?.ok) return { error: TEAM_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+  if (!r?.ok) {
+    await undoIfJustCreated()
+    return { error: TEAM_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+  }
 
   revalidatePath(`/isc/${slug}`)
 
@@ -358,36 +400,40 @@ export async function respondToInviteAction(
   return { ok: r.action === 'accepted' ? 'You joined the team.' : 'Invite declined.' }
 }
 
-export type StartState = { error?: string } | undefined
+export type LeaveState = { error?: string } | undefined
+
+const LEAVE_ERR: Record<string, string> = {
+  not_leader: 'Only the person who started this entry can leave it.',
+  already_submitted: 'This entry has been submitted, so it can no longer be withdrawn.',
+  has_teammates: 'Remove your teammates first — an entry with a team cannot be deleted.',
+}
 
 /**
- * The "Enter this track" click. Unlike ensureIscEntry this IS a mutation, so
- * it may revalidate and redirect — the track page must never create a draft
- * during render, or merely browsing the four tracks would leave phantom
- * entries in the admin list and on the coordinator roster.
+ * Abandon a solo draft you started and never used.
  *
- * Takes (prev, formData) like every other action in this file: passed straight
- * to useActionState, its redirect is handled by Next rather than thrown inside
- * a client closure.
+ * The escape hatch for the trap this replaces: starting an entry used to be
+ * irreversible, and because a student's own entry blocks anyone from adding
+ * them to a team for that track, one curious click locked them out of teaming
+ * up for the season.
  */
-export async function startEntryAction(
-  _prev: StartState,
+export async function leaveEntryAction(
+  _prev: LeaveState,
   formData: FormData
-): Promise<StartState> {
+): Promise<LeaveState> {
+  const entryId = (formData.get('entry_id') as string)?.trim()
   const slug = ((formData.get('slug') as string) ?? '').trim()
-  const track = trackBySlug(slug)
-  if (!track) return { error: 'Unknown track.' }
+  if (!entryId) return { error: 'Missing entry.' }
 
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('isc_start_entry', { p_track: track.id })
+  const { data, error } = await supabase.rpc('isc_leave_entry', { p_entry_id: entryId })
   if (error) return { error: iscError(undefined) }
 
-  const result = data as { ok: boolean; error?: string }
-  if (!result?.ok) return { error: iscError(result?.error) }
+  const r = data as { ok: boolean; error?: string }
+  if (!r?.ok) return { error: LEAVE_ERR[r?.error ?? ''] ?? iscError(r?.error) }
 
   revalidatePath('/isc')
-  revalidatePath(`/isc/${slug}`)
-  redirect(`/isc/${slug}`)
+  if (slug) revalidatePath(`/isc/${slug}`)
+  redirect('/isc')
 }
 
 /** Has this student already given consent for the season? */

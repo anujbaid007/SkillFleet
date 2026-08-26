@@ -8,9 +8,18 @@ import { TeamPanel } from '@/components/isc/team-panel'
 import { TrackHero } from '@/components/isc/track-hero'
 import { TrackFacts } from '@/components/isc/track-facts'
 import { EnterTrackButton } from '@/components/isc/enter-track-button'
+import { LeaveEntryButton } from '@/components/isc/leave-entry-button'
+import type { IscMember } from '@/app/actions/isc'
 
-export default async function IscTrackPage({ params }: { params: Promise<{ track: string }> }) {
+export default async function IscTrackPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ track: string }>
+  searchParams: Promise<{ start?: string }>
+}) {
   const { track: slug } = await params
+  const { start } = await searchParams
   const track = trackBySlug(slug)
   if (!track) notFound()
 
@@ -22,13 +31,13 @@ export default async function IscTrackPage({ params }: { params: Promise<{ track
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('school_class')
+    .select('school_class, full_name')
     .eq('id', user.id)
     .single()
   if (!isEligibleClass(profile?.school_class)) redirect('/isc')
 
-  // Read-only: browsing a track must not create anything. The draft is made
-  // only when the student presses "Enter this track".
+  // Read-only: neither browsing a track nor opening its form creates anything.
+  // The entry is written by the first real action — see resolveEntryId.
   const mine = await getMyIscEntries()
   const existing = mine.find((e) => e.track === track.id)
   // A pending invite has a row here but isn't joined yet — send them back to
@@ -54,6 +63,34 @@ export default async function IscTrackPage({ params }: { params: Promise<{ track
 
   const consentGiven = await hasIscConsent()
 
+  // The form is open either because an entry exists, or because the student
+  // just asked to start one (?start=1) and nothing has been written yet.
+  const opening = !entry && start === '1' && consentGiven && !locked
+
+  // Before the entry exists there is no members row to read, so stand in the
+  // one member it will certainly have: the student looking at the page. Shaped
+  // exactly like a real accepted leader so TeamPanel needs no special case.
+  const previewMembers: IscMember[] = [
+    {
+      memberId: 'preview-leader',
+      userId: user.id,
+      name: profile?.full_name ?? null,
+      schoolClass: profile?.school_class ?? null,
+      invitedEmail: null,
+      inviteToken: null,
+      isLeader: true,
+      acceptedAt: new Date().toISOString(),
+    },
+  ]
+
+  // Withdrawing is only offered while it is genuinely still just theirs.
+  const canLeave =
+    entry !== null &&
+    entry.isLeader &&
+    entry.status === 'draft' &&
+    entry.members.length === 1 &&
+    !locked
+
   return (
     <div className="space-y-6">
       <TrackHero
@@ -69,7 +106,7 @@ export default async function IscTrackPage({ params }: { params: Promise<{ track
 
       <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
 
-      {!entry ? (
+      {!entry && !opening ? (
         <div className="clay-card p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
           <div>
             <p className="font-display font-bold text-foreground">
@@ -78,7 +115,7 @@ export default async function IscTrackPage({ params }: { params: Promise<{ track
             <p className="text-sm text-muted mt-1">
               {locked
                 ? 'The screening deadline for this track has passed.'
-                : 'Nothing is submitted until you say so — you can save a draft and come back.'}
+                : 'Opening the form does not enter you — nothing is saved until you press Save draft.'}
             </p>
           </div>
           {!locked && <EnterTrackButton slug={track.slug} needsConsent={!consentGiven} />}
@@ -86,21 +123,23 @@ export default async function IscTrackPage({ params }: { params: Promise<{ track
       ) : (
         <>
           <TeamPanel
-            entryId={entry.entryId}
+            entryId={entry?.entryId ?? ''}
             slug={track.slug}
-            members={entry.members}
+            members={entry ? entry.members : previewMembers}
             maxTeamSize={track.maxTeamSize}
-            canEdit={entry.isLeader && !locked}
+            canEdit={entry ? entry.isLeader && !locked : true}
           />
 
           <EntryForm
-            entryId={entry.entryId}
-            track={entry.track}
-            submission={entry.submission}
-            status={entry.status}
+            entryId={entry?.entryId ?? ''}
+            track={entry?.track ?? track.id}
+            submission={entry?.submission ?? {}}
+            status={entry?.status ?? 'draft'}
             locked={locked}
-            canEdit={entry.isLeader}
+            canEdit={entry ? entry.isLeader : true}
           />
+
+          {canLeave && entry && <LeaveEntryButton entryId={entry.entryId} slug={track.slug} />}
         </>
       )}
     </div>
