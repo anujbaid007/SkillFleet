@@ -32,6 +32,8 @@ export interface MyEntry {
   track: string
   status: string
   isLeader: boolean
+  /** False while a sent invite is still awaiting this student's response. */
+  isAccepted: boolean
 }
 
 export async function getMyIscEntries(): Promise<MyEntry[]> {
@@ -42,12 +44,39 @@ export async function getMyIscEntries(): Promise<MyEntry[]> {
     track: string
     status: string
     is_leader: boolean
+    is_accepted: boolean
   }[]
   return rows.map((r) => ({
     entryId: r.entry_id,
     track: r.track,
     status: r.status,
     isLeader: r.is_leader,
+    isAccepted: r.is_accepted,
+  }))
+}
+
+export interface PendingInvite {
+  memberId: string
+  entryId: string
+  track: IscTrackId
+  leaderName: string | null
+}
+
+/** Invites this student has not yet responded to — what the /isc banner renders. */
+export async function getMyPendingInvites(): Promise<PendingInvite[]> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('isc_get_my_invites')
+  const rows = (data ?? []) as {
+    member_id: string
+    entry_id: string
+    track: string
+    leader_name: string | null
+  }[]
+  return rows.map((r) => ({
+    memberId: r.member_id,
+    entryId: r.entry_id,
+    track: r.track as IscTrackId,
+    leaderName: r.leader_name,
   }))
 }
 
@@ -84,6 +113,8 @@ export interface IscMember {
   invitedEmail: string | null
   inviteToken: string | null
   isLeader: boolean
+  /** Null while userId is set but the invitee has not yet responded. */
+  acceptedAt: string | null
 }
 
 export interface IscEntryDetail {
@@ -113,6 +144,7 @@ export async function getIscEntry(entryId: string): Promise<IscEntryDetail | nul
       invited_email: string | null
       invite_token: string | null
       is_leader: boolean
+      accepted_at: string | null
     }[]
   } | null
 
@@ -131,6 +163,7 @@ export async function getIscEntry(entryId: string): Promise<IscEntryDetail | nul
       invitedEmail: m.invited_email,
       inviteToken: m.invite_token,
       isLeader: m.is_leader,
+      acceptedAt: m.accepted_at,
     })),
   }
 }
@@ -257,8 +290,10 @@ export async function addMemberAction(_prev: TeamState, formData: FormData): Pro
 
   revalidatePath(`/isc/${slug}`)
 
-  if (r.state === 'linked') {
-    return { ok: `${r.name ?? 'Your classmate'} has been added to the team.` }
+  if (r.state === 'awaiting_accept') {
+    return {
+      ok: `${r.name ?? 'Your classmate'} has been invited — waiting for them to accept.`,
+    }
   }
 
   // Not a failure, but it must not read like a success either: nobody is on
@@ -287,6 +322,40 @@ export async function removeMemberAction(_prev: TeamState, formData: FormData): 
 
   revalidatePath(`/isc/${slug}`)
   return { ok: 'Removed.' }
+}
+
+export type RespondState = { error?: string; ok?: string } | undefined
+
+const RESPOND_ERR: Record<string, string> = {
+  already_resolved: 'This invite has already been responded to.',
+  wrong_school: "You're no longer eligible for this team — you must be at the same school.",
+  wrong_group:
+    "You're no longer eligible for this team — you must be in the same group as the rest of the team (Classes 5–8 or 9–12).",
+}
+
+export async function respondToInviteAction(
+  _prev: RespondState,
+  formData: FormData
+): Promise<RespondState> {
+  const memberId = (formData.get('member_id') as string)?.trim()
+  const accept = (formData.get('intent') as string)?.trim() === 'accept'
+  if (!memberId) return { error: 'Missing invite.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('isc_respond_to_invite', {
+    p_member_id: memberId,
+    p_accept: accept,
+  })
+  if (error) return { error: iscError(undefined) }
+
+  const r = data as { ok: boolean; error?: string; action?: string; track?: string }
+  if (!r?.ok) return { error: RESPOND_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+
+  revalidatePath('/isc')
+  const track = r.track ? trackById(r.track) : null
+  if (track) revalidatePath(`/isc/${track.slug}`)
+
+  return { ok: r.action === 'accepted' ? 'You joined the team.' : 'Invite declined.' }
 }
 
 export type StartState = { error?: string } | undefined
