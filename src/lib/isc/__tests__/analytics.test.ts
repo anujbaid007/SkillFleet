@@ -3,6 +3,7 @@ import {
   topSchools,
   byState,
   byBoard,
+  byGroup,
   classDistribution,
   submissionTimeline,
   staleDrafts,
@@ -22,6 +23,7 @@ function entry(over: Partial<AnalyticsEntry> = {}): AnalyticsEntry {
     submittedAt: '2026-09-01T09:00:00Z',
     updatedAt: '2026-09-01T09:00:00Z',
     studentIds: ['u1'],
+    leaderClass: 'Class 9',
     ...over,
   }
 }
@@ -202,5 +204,30 @@ describe('staleDrafts', () => {
       7
     )
     expect(rows).toHaveLength(1)
+  })
+})
+
+describe('byGroup', () => {
+  it("counts entries, submissions and students per group, from the leader's class", () => {
+    const rows = byGroup([
+      entry({ entryId: 'a', leaderClass: 'Class 9', studentIds: ['u1', 'u2'] }),
+      entry({ entryId: 'b', leaderClass: 'Class 7', status: 'draft', studentIds: ['u3'] }),
+    ])
+    expect(rows).toEqual([
+      { group: 'group1', label: 'Group 1 (Classes 5–8)', entries: 1, submitted: 0, students: 1 },
+      { group: 'group2', label: 'Group 2 (Classes 9–12)', entries: 1, submitted: 1, students: 2 },
+    ])
+  })
+
+  it('omits an entry whose leader has no derivable group rather than guessing', () => {
+    expect(byGroup([entry({ leaderClass: null })])).toEqual([])
+  })
+
+  it('counts a student once per group even if they appear on two entries in it', () => {
+    const rows = byGroup([
+      entry({ entryId: 'a', leaderClass: 'Class 9', studentIds: ['u1'] }),
+      entry({ entryId: 'b', leaderClass: 'Class 10', studentIds: ['u1'] }),
+    ])
+    expect(rows[0].students).toBe(1)
   })
 })

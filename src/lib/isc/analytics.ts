@@ -1,5 +1,6 @@
 import { CLASS_OPTIONS } from '@/lib/profile/details'
 import { istDay, istDaysBetween } from '@/lib/isc/dates'
+import { iscGroupForClass, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 import type { IscTrackId } from '@/lib/isc/tracks'
 
 /**
@@ -22,6 +23,8 @@ export interface AnalyticsEntry {
   updatedAt: string
   /** Everyone on the entry with an account — the leader plus linked teammates. */
   studentIds: string[]
+  /** The team leader's class, for deriving which ISC group the entry is in. */
+  leaderClass: string | null
 }
 
 /** A labelled count. Used by every single-dimension panel. */
@@ -49,6 +52,14 @@ export interface StateRow {
 export interface TimelinePoint {
   day: string
   count: number
+}
+
+export interface GroupRow {
+  group: IscGroup
+  label: string
+  entries: number
+  submitted: number
+  students: number
 }
 
 const isSubmitted = (e: AnalyticsEntry) => e.status === 'submitted'
@@ -180,4 +191,42 @@ export function staleDrafts(entries: AnalyticsEntry[], now: Date, days = 7): Ana
   return entries
     .filter((e) => e.status === 'draft' && istDaysBetween(new Date(e.updatedAt), now) >= days)
     .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+}
+
+/**
+ * Entries, submissions and participating students per group, derived from each
+ * entry's leader. An entry whose leader has no derivable group (should not
+ * happen — entering ISC already requires an eligible class) is skipped rather
+ * than guessed at.
+ */
+export function byGroup(entries: AnalyticsEntry[]): GroupRow[] {
+  const acc = new Map<IscGroup, GroupRow & { studentSet: Set<string> }>()
+
+  for (const e of entries) {
+    const group = iscGroupForClass(e.leaderClass)
+    if (!group) continue
+    let row = acc.get(group)
+    if (!row) {
+      row = {
+        group,
+        label: iscGroupLabel(group),
+        entries: 0,
+        submitted: 0,
+        students: 0,
+        studentSet: new Set<string>(),
+      }
+      acc.set(group, row)
+    }
+    row.entries += 1
+    if (isSubmitted(e)) row.submitted += 1
+    for (const id of e.studentIds) row.studentSet.add(id)
+  }
+
+  // Fixed group order, so the panel does not reshuffle as counts change.
+  return (['group1', 'group2'] as IscGroup[])
+    .filter((g) => acc.has(g))
+    .map((g) => {
+      const { studentSet, ...row } = acc.get(g) as GroupRow & { studentSet: Set<string> }
+      return { ...row, students: studentSet.size }
+    })
 }
