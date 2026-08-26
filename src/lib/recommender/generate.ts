@@ -48,7 +48,14 @@ export async function loadContext(
     supabase.from('student_parameter_scores').select('parameter_id, baseline_score, accrued_score').eq('student_id', studentId),
     supabase.from('age_bands').select('id, label, min_age, max_age, display_order').order('display_order'),
     supabase.from('parameter_targets').select('parameter_id, age_band_id, target_min, target_max'),
-    supabase.from('offerings').select('id, title, type, min_age, max_age, price_paise').eq('status', 'live'),
+    // Only activities that can actually still be booked: live, approved and
+    // not already past their date.
+    supabase
+      .from('offerings')
+      .select('id, title, type, min_age, max_age, price_paise, scheduled_at')
+      .eq('status', 'live')
+      .eq('review_status', 'approved')
+      .or(`scheduled_at.is.null,scheduled_at.gte.${new Date().toISOString()}`),
     supabase.from('offering_parameter_contributions').select('offering_id, parameter_id, points'),
     supabase.from('bookings').select('offering_id').eq('student_id', studentId).eq('payment_status', 'paid').neq('status', 'cancelled'),
   ])
@@ -68,6 +75,7 @@ export async function loadContext(
   const gaps = detectGaps(scored, bandTargets)
   const below = belowTargetGaps(gaps)
 
+  // Anything the child already holds a paid booking for is out of the running.
   const contribRows = (contribs ?? []) as { offering_id: string; parameter_id: string; points: number }[]
   const contribByOffering = new Map<string, Record<string, number>>()
   for (const c of contribRows) {
@@ -94,7 +102,7 @@ export async function loadContext(
   return { gaps, below, candidates, age, bookedIds }
 }
 
-/** Single-shot gap-based recommendations (the /recommendations page). */
+/** Single-shot gap-based recommendations, used by the assistant. */
 export async function runRecommender(
   supabase: SupabaseClient,
   studentId: string,
@@ -110,19 +118,24 @@ export interface PlanResult extends NarrativeResult {
   priceTotalPaise: number
 }
 
-/** Balanced multi-activity year plan ("Plan my year"). */
+/**
+ * Balanced multi-activity year plan ("Plan my year"). `seed` varies which of
+ * several equally-good activities get picked, so rebuilding gives a fresh plan.
+ */
 export async function runPlanner(
   supabase: SupabaseClient,
   studentId: string,
   firstName: string,
   dob: string | null,
-  size: number
+  size: number,
+  seed?: number
 ): Promise<PlanResult> {
   const ctx = await loadContext(supabase, studentId, dob)
   const plan = buildBalancedPlan(ctx.gaps, ctx.candidates, {
     age: ctx.age,
     bookedOfferingIds: ctx.bookedIds,
     size,
+    seed,
   })
   const priceTotalPaise = plan.reduce((sum, c) => sum + c.pricePaise, 0)
   const narrative = await generatePlanNarrative(firstName, ctx.below, plan, size)

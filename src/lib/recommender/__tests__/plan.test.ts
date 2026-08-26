@@ -59,4 +59,49 @@ describe('buildBalancedPlan', () => {
     const b = buildBalancedPlan(gaps, offerings, { age: 12, size: 3 })
     expect(a.map((x) => x.offeringId)).toEqual(b.map((x) => x.offeringId))
   })
+
+  describe('seeded variety (so "Rebuild" gives a fresh plan)', () => {
+    // Four interchangeable Fitness activities — identical points, so every
+    // choice is equally good and only tie-breaking decides the winner.
+    const ties: CandidateOffering[] = ['a', 'b', 'c', 'd'].map((id) => ({
+      id,
+      title: `Fitness ${id}`,
+      type: 'workshop',
+      minAge: null,
+      maxAge: null,
+      pricePaise: 1000,
+      contributions: { fit: 50 },
+    }))
+
+    it('gives the same plan for the same seed', () => {
+      const a = buildBalancedPlan(gaps, ties, { age: 12, size: 1, seed: 42 })
+      const b = buildBalancedPlan(gaps, ties, { age: 12, size: 1, seed: 42 })
+      expect(a.map((x) => x.offeringId)).toEqual(b.map((x) => x.offeringId))
+    })
+
+    it('picks different equally-good activities across seeds', () => {
+      const picks = new Set(
+        [1, 2, 3, 4, 5, 6, 7, 8].map(
+          (seed) => buildBalancedPlan(gaps, ties, { age: 12, size: 1, seed })[0]?.offeringId
+        )
+      )
+      expect(picks.size).toBeGreaterThan(1)
+    })
+
+    it('never sacrifices quality — a clear winner still wins under any seed', () => {
+      const withWinner: CandidateOffering[] = [
+        ...ties,
+        { id: 'best', title: 'Best', type: 'workshop', minAge: null, maxAge: null, pricePaise: 1000, contributions: { fit: 90 } },
+      ]
+      for (const seed of [1, 7, 99, 12345]) {
+        expect(buildBalancedPlan(gaps, withWinner, { age: 12, size: 1, seed })[0].offeringId).toBe('best')
+      }
+    })
+
+    it('still respects size and no-repeat rules when seeded', () => {
+      const plan = buildBalancedPlan(gaps, ties, { age: 12, size: 3, seed: 7 })
+      expect(plan).toHaveLength(3)
+      expect(new Set(plan.map((p) => p.offeringId)).size).toBe(3)
+    })
+  })
 })
