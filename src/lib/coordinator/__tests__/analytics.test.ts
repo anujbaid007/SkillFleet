@@ -3,6 +3,7 @@ import {
   rosterSummary,
   entryCounts,
   classParticipation,
+  groupParticipation,
   needsNudge,
   type RosterEntryStatus,
 } from '../analytics'
@@ -139,5 +140,33 @@ describe('needsNudge', () => {
       student({ studentId: 'b', fullName: 'Aman' }),
     ])
     expect(notEntered.map((s) => s.fullName)).toEqual(['Aman', 'Zara'])
+  })
+})
+
+describe('groupParticipation', () => {
+  it('buckets eligible students into their group, counting entered vs total', () => {
+    const rows = groupParticipation([
+      student({ studentId: 'a', schoolClass: 'Class 9', iscStatus: { ai_for_impact: 'draft' } }),
+      student({ studentId: 'b', schoolClass: 'Class 10' }),
+      student({
+        studentId: 'c',
+        schoolClass: 'Class 6',
+        iscStatus: { content_creator: 'submitted' },
+      }),
+    ])
+    expect(rows).toEqual([
+      { group: 'group1', label: 'Group 1 (Classes 5–8)', students: 1, entered: 1 },
+      { group: 'group2', label: 'Group 2 (Classes 9–12)', students: 2, entered: 1 },
+    ])
+  })
+
+  it('excludes students too young to enter, same as classParticipation', () => {
+    expect(groupParticipation([student({ schoolClass: 'Class 3' })])).toEqual([])
+  })
+
+  it('omits a group with no eligible students in it rather than showing a zero row', () => {
+    expect(groupParticipation([student({ schoolClass: 'Class 9' })])).toEqual([
+      { group: 'group2', label: 'Group 2 (Classes 9–12)', students: 1, entered: 0 },
+    ])
   })
 })

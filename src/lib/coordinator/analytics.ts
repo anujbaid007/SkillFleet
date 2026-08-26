@@ -1,6 +1,7 @@
 import { CLASS_OPTIONS } from '@/lib/profile/details'
 import { isEligibleClass } from '@/lib/isc/validate'
 import { ISC_TRACKS, type IscTrackId } from '@/lib/isc/tracks'
+import { iscGroupForClass, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 
 /**
  * One student on the roster, as far as these counts are concerned.
@@ -38,6 +39,13 @@ export interface EntryCounts {
 
 export interface ClassParticipation {
   schoolClass: string
+  students: number
+  entered: number
+}
+
+export interface GroupParticipation {
+  group: IscGroup
+  label: string
   students: number
   entered: number
 }
@@ -121,6 +129,29 @@ export function classParticipation(students: RosterEntryStatus[]): ClassParticip
 
   // CLASS_OPTIONS order, so this reads the same way as every class dropdown.
   return CLASS_OPTIONS.filter((c) => acc.has(c)).map((c) => acc.get(c) as ClassParticipation)
+}
+
+/**
+ * The same eligible-student set classParticipation() counts, bucketed one level
+ * coarser — by group instead of by individual class.
+ */
+export function groupParticipation(students: RosterEntryStatus[]): GroupParticipation[] {
+  const acc = new Map<IscGroup, GroupParticipation>()
+
+  for (const s of students) {
+    if (!eligible(s)) continue
+    const group = iscGroupForClass(s.schoolClass)
+    if (!group) continue
+    const row = acc.get(group) ?? { group, label: iscGroupLabel(group), students: 0, entered: 0 }
+    row.students += 1
+    if (hasEntered(s)) row.entered += 1
+    acc.set(group, row)
+  }
+
+  // Fixed group order, so the panel does not reshuffle as counts change.
+  return (['group1', 'group2'] as IscGroup[])
+    .filter((g) => acc.has(g))
+    .map((g) => acc.get(g) as GroupParticipation)
 }
 
 /**
