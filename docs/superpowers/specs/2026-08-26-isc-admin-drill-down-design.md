@@ -3,8 +3,9 @@
 **Status:** approved design, not yet planned or built
 **Date:** 2026-08-26
 **Scope:** replaces `/admin/isc`'s flat entry list + static panels with a breadcrumb
-drill-down (National → State → School), a per-scope funnel, a student roster and
-profile at the school level, and two national/state outreach worklists.
+drill-down (National → State → District → School), a per-scope funnel, a student
+roster and profile at the school level, and outreach worklists at every level above
+school.
 
 ---
 
@@ -32,7 +33,6 @@ Explicitly deferred, so the build stays focused:
   work, unrelated to analytics.
 - **Judging, scoring, or any write path.** This page stays strictly read-only, matching
   the existing admin entry list.
-- **District as its own drill level** — see the Navigation section for why.
 
 ## Source of truth
 
@@ -51,39 +51,44 @@ population, not just students who have entered ISC.
 ## Navigation: nested routes, not query-string scope
 
 ```
-/admin/isc                                    National
-/admin/isc/state/[state]                      One state
-/admin/isc/state/[state]/school/[schoolId]    One school
+/admin/isc                                                          National
+/admin/isc/state/[state]                                            One state
+/admin/isc/state/[state]/district/[district]                        One district
+/admin/isc/state/[state]/district/[district]/school/[schoolId]      One school
 ```
 
-Real Next.js routes rather than a `?state=&school=` query string, so **scope** (which
-URL you're on) stays a distinct concept from **filters** (track/status/group/language/
-search — still query-string, unchanged, and still apply at every scope level). Mixing
-the two into one query-string namespace was the shortest path back to today's
-confusion. Nested routes also make a drilled-down view a real, bookmarkable,
-shareable link — "look at Maharashtra" becomes a URL, not a sequence of clicks someone
-has to redo.
+Real Next.js routes rather than a `?state=&district=&school=` query string, so
+**scope** (which URL you're on) stays a distinct concept from **filters**
+(track/status/group/language/search — still query-string, unchanged, and still apply
+at every scope level). Mixing the two into one query-string namespace was the shortest
+path back to today's confusion. Nested routes also make a drilled-down view a real,
+bookmarkable, shareable link — "look at Pune" becomes a URL, not a sequence of clicks
+someone has to redo.
 
-**District is a filter within a state, not its own route level.** The existing filter
-bar already has a district dropdown that scopes to the selected state
-(`page.tsx:219-226`); promoting it to a fourth route level would add a layer to every
-breadcrumb and comparison chart for a dimension that, unlike state and school, has no
-independent identity elsewhere in the app (schools carry a `district` column but there
-is no `districts` table, no district-level coordinator, nothing else keyed on it). If
-this turns out to matter once real usage shows admins routinely narrowing by district
-before picking a school, it is a small addition — one more filter option, not a new
-kind of screen.
+**District is its own drill level, not a filter.** The initial design treated it as a
+filter inside the state level, on the reasoning that a state has few enough schools to
+browse directly. That does not hold going forward: the school roster is expected to
+grow substantially as more schools onboard, and a state's school count will get too
+large to browse as one flat comparison chart — exactly the situation a district level
+exists to solve, the same way state exists to avoid one 12,000-school national chart.
+Since districts have no independent record elsewhere in the schema (schools carry a
+`district` text column, not a foreign key to a `districts` table), the district
+"page" is not backed by a district id — it is `[state]/district/[districtName]`,
+scoped by exact string match on `schools.district`, same as the state segment is
+already scoped by exact match on `schools.state`.
 
-**Shared shell**, reused at all three levels:
+**Shared shell**, reused at all four levels:
 
-- A breadcrumb (`National / Maharashtra / DAV Public School`), each segment a link up
+- A breadcrumb (`National / Maharashtra / Pune / DAV Public School`), each segment a
+  link up
 - A "Current Focus" line naming the exact scope, so it is never ambiguous which numbers
   are on screen
 - The funnel tiles (see below)
-- A comparison chart of the level below — state bars nationally, school bars within a
-  state — reusing `byState`/`topSchools` from `analytics.ts` almost unchanged; each bar
-  is a link that drills one level down
-- The existing filter bar, now narrowing *within* the current scope
+- A comparison chart of the level below — state bars nationally, district bars within
+  a state, school bars within a district — each bar a link that drills one level down
+- The existing filter bar, now narrowing *within* the current scope (no `district`
+  filter option anymore — narrowing by district is now a click into that district's
+  page, not a dropdown)
 
 At the school level, the comparison chart and "drill deeper" affordance are replaced by
 the student roster (below), since there is nowhere further down to go.
@@ -92,12 +97,12 @@ the student roster (below), since there is nowhere further down to go.
 
 ## The funnel: eligible → started → submitted
 
-Computed **per scope** (recomputed, not filtered, at national/state/school — each
-level re-runs the same aggregation over just its own students):
+Computed **per scope** (recomputed, not filtered, at national/state/district/school —
+each level re-runs the same aggregation over just its own students):
 
 - **Eligible** — students in scope with an eligible `school_class`, from
-  `user_profiles` scoped by `school_id` (school level) or by every school's `state`
-  (state level)
+  `user_profiles` scoped by `school_id` (school level), by `state` + `district`
+  (district level), or by `state` alone (state level)
 - **Started** — of those, the ones appearing anywhere in `isc_entry_members`, as
   leader or teammate, on any entry regardless of status
 - **Submitted** — of those, the ones on at least one entry with `status = 'submitted'`
@@ -112,8 +117,8 @@ breakdown underneath, which is entry-level and will not sum to the headline (a s
 can start more than one track); the panel carries a one-line note saying so, so it does
 not read as broken math.
 
-The comparison chart (state bars / school bars) is driven by **submitted** count by
-default, matching how `topSchools` already ranks today.
+The comparison chart (state bars / district bars / school bars) is driven by
+**submitted** count by default, matching how `topSchools` already ranks today.
 
 ---
 
@@ -162,8 +167,13 @@ build: nothing here blocks adding it.
 
 ## Outreach lists: cold schools + coordinator coverage
 
-Rendered at **National and State levels only** — at school level there is exactly one
-school on screen, so a "cold schools" list of one adds nothing.
+Rendered at **National, State, and District levels** — at school level there is
+exactly one school on screen, so a "cold schools" list of one adds nothing. Adding the
+district level here follows the same growth reasoning as the navigation change: once a
+state has enough schools to need a district breakdown, a district-scoped outreach
+worklist becomes exactly the size a coordinator-recruitment volunteer working one
+district would actually want, rather than making them wade through the whole state's
+list.
 
 **Cold schools** — schools with at least one eligible student account but **zero ISC
 starts** (no entries at all, draft or submitted). Deliberately excludes schools with no
@@ -193,9 +203,11 @@ Everything is a pure aggregation function over already-fetched arrays, matching 
 functions themselves, all inputs assembled once per page load.
 
 **Extended in `src/lib/isc/analytics.ts`** (kept, since `byState`/`topSchools` are
-reused as-is for the comparison charts):
-- No changes needed to existing exports; the new files below consume the same
-  `AnalyticsEntry[]` shape plus one new input.
+reused as-is for two of the three comparison charts):
+- One new export, `byDistrict(entries: AnalyticsEntry[]): DistrictRow[]` — the district
+  equivalent of `byState`, grouping on `e.district` instead of `e.state`, for the
+  state-level comparison chart. Everything else is unchanged; the new files below
+  consume the same `AnalyticsEntry[]` shape plus one new input.
 
 **New — `src/lib/isc/funnel.ts`**
 - `type EligibleStudent = { id: string; schoolId: string; state: string }`
@@ -224,12 +236,13 @@ plain input arrays in, a plain result out, no mocking required.
 ## Screens and files
 
 ```
-src/app/(admin)/admin/isc/page.tsx                                   National (rebuilt)
-src/app/(admin)/admin/isc/state/[state]/page.tsx                     State (new)
-src/app/(admin)/admin/isc/state/[state]/school/[schoolId]/page.tsx   School (new)
+src/app/(admin)/admin/isc/page.tsx                                              National (rebuilt)
+src/app/(admin)/admin/isc/state/[state]/page.tsx                                State (new)
+src/app/(admin)/admin/isc/state/[state]/district/[district]/page.tsx            District (new)
+src/app/(admin)/admin/isc/state/[state]/district/[district]/school/[schoolId]/page.tsx   School (new)
 
 src/components/admin/isc-dashboard-shell.tsx     Breadcrumb + Current Focus + funnel tiles
-src/components/admin/isc-comparison-chart.tsx     State/school bar chart, bars link down
+src/components/admin/isc-comparison-chart.tsx     State/district/school bar chart, bars link down
 src/components/admin/isc-funnel-panel.tsx         Eligible/Started/Submitted + rates + by-track
 src/components/admin/isc-roster.tsx               School-level student list with status chips
 src/components/admin/isc-student-profile.tsx      Per-track breakdown, team roster, submissions
@@ -249,10 +262,10 @@ timeline rather than the national one — the exact "filters don't change the nu
 complaint this design fixes applies here too, and the fix is the same: scope the input,
 not the panel.
 
-Each of the three page files fetches the same base data (entries, members, schools,
+Each of the four page files fetches the same base data (entries, members, schools,
 eligible students) scoped progressively narrower by an added `.eq('state', ...)` /
-`.eq('school_id', ...)`, then hands it to the shared shell and panels — no route-specific
-aggregation logic, only route-specific fetch scoping.
+`.eq('district', ...)` / `.eq('school_id', ...)`, then hands it to the shared shell and
+panels — no route-specific aggregation logic, only route-specific fetch scoping.
 
 ---
 
@@ -270,26 +283,26 @@ aggregation logic, only route-specific fetch scoping.
   zero accounts is excluded; coordinator coverage buckets sum to the total school count
 
 **Manual, in the browser** — drill from `/admin/isc` into a state with real data, then
-into one of its schools; confirm the funnel numbers actually change per scope (the bug
-this design fixes); open a student with a pending invite and confirm the chip and
-profile agree; open a student with zero ISC activity and confirm the empty state reads
-correctly; export both outreach lists and confirm the CSVs match what's on screen.
+a district within it, then one of its schools; confirm the funnel numbers actually
+change at every step (the bug this design fixes); open a student with a pending invite
+and confirm the chip and profile agree; open a student with zero ISC activity and
+confirm the empty state reads correctly; export the outreach lists at all three levels
+and confirm the CSVs match what's on screen.
 
 ---
 
 ## Size
 
-Large — roughly nine tasks: the three aggregation files (funnel/roster/outreach) with
-their unit tests, the shared dashboard shell, the comparison chart, the roster and
-profile components, the outreach panel, and finally the three page files wiring
-everything together with progressively scoped fetches. Sequenced so the national page
-is rebuilt on the new shell first (immediately testable against real data), then state
-and school pages are added as thin wrappers around the same shell once it is proven.
+Large — roughly ten tasks: the three aggregation files (funnel/roster/outreach,
+including the new `byDistrict`) with their unit tests, the shared dashboard shell, the
+comparison chart, the roster and profile components, the outreach panel, and finally
+the four page files wiring everything together with progressively scoped fetches.
+Sequenced so the national page is rebuilt on the new shell first (immediately testable
+against real data), then state, district, and school pages are added as thin wrappers
+around the same shell once it is proven.
 
 ## Open items
 
-- **District as a filter, not a route level** — noted above; revisit only if real
-  usage shows it is needed as its own drill step.
 - **Team/invite health rollups above the school level** (e.g. "12 stuck invites
   nationally") are not part of this build; the school-level roster already exposes the
   underlying data if this is wanted later.
