@@ -46,12 +46,6 @@ export function EntryForm({
   // track. The RPCs enforce this; this only keeps the UI honest about it.
   const readOnly = locked || submitted || !canEdit
 
-  // Close the dialog once the action comes back, however it went — leaving it
-  // open over a submitted entry would invite a second click at a form that
-  // will now refuse it.
-  useEffect(() => {
-    if (state) setConfirming(false)
-  }, [state])
 
   // Send the student straight to the field that needs fixing. On a seven-field
   // form, an error message at the bottom is easy to miss and gives no clue
@@ -209,9 +203,17 @@ export function EntryForm({
         </div>
       )}
 
+      {/*
+        onConfirm only closes the dialog — the submission itself is the confirm
+        button's own native form submit. Closing here rather than in an effect
+        watching the action's result keeps this a plain event handler; setting
+        state from an effect would cascade an extra render every time the
+        action returned.
+      */}
       <ConfirmSubmitDialog
         open={confirming}
         onCancel={() => setConfirming(false)}
+        onConfirm={() => setConfirming(false)}
         formId="isc-entry-form"
         pending={pending}
       />

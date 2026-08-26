@@ -15,11 +15,14 @@ import { AlertTriangle } from 'lucide-react'
 export function ConfirmSubmitDialog({
   open,
   onCancel,
+  onConfirm,
   formId,
   pending,
 }: {
   open: boolean
   onCancel: () => void
+  /** Closes the dialog. The submit itself is the button's native form submit. */
+  onConfirm: () => void
   formId: string
   pending: boolean
 }) {
@@ -99,6 +102,7 @@ export function ConfirmSubmitDialog({
                 form={formId}
                 name="intent"
                 value="submit"
+                onClick={onConfirm}
                 disabled={pending}
                 className="clay-button bg-cta text-white px-5 h-10 text-sm font-semibold disabled:opacity-60"
               >
