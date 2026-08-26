@@ -5,8 +5,8 @@ export function mapBookingResult(status: string): BookingResult {
   switch (status) {
     case 'ok':
       return { success: 'Booking created. Complete payment to confirm the seat.' }
-    case 'not_parent':
-      return { error: 'Only parent accounts can book offerings for a student.' }
+    case 'no_family':
+      return { error: 'Your account is not set up for booking yet.' }
     case 'not_linked':
       return { error: 'This student is not linked to your account.' }
     case 'offering_not_found':
