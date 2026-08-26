@@ -12,6 +12,7 @@ export interface AdminIscEntry {
   schoolName: string
   schoolState: string
   schoolDistrict: string
+  leaderClass: string | null
   leaderName: string
   teamSize: number
   status: string

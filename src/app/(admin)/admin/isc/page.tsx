@@ -10,6 +10,7 @@ import { parseRevisions, type EntryRevision } from '@/lib/isc/revisions'
 import { IscInsights } from '@/components/admin/isc-insights'
 import { IscExport } from '@/components/admin/isc-export'
 import type { AnalyticsEntry } from '@/lib/isc/analytics'
+import { iscGroupForClass } from '@/lib/isc/groups'
 
 interface RawEntry {
   id: string
@@ -32,6 +33,7 @@ export default async function AdminIscPage({
     language?: string
     state?: string
     district?: string
+    group?: string
     q?: string
   }>
 }) {
@@ -145,6 +147,7 @@ export default async function AdminIscPage({
     schoolName: schoolById.get(r.school_id)?.name ?? 'Unknown school',
     schoolState: schoolById.get(r.school_id)?.state ?? '',
     schoolDistrict: schoolById.get(r.school_id)?.district ?? '',
+    leaderClass: classByStudent.get(r.created_by) ?? null,
     leaderName: leaderById.get(r.created_by) ?? 'Unknown student',
     teamSize: sizeByEntry.get(r.id) ?? 1,
     status: r.status,
@@ -171,6 +174,7 @@ export default async function AdminIscPage({
     submittedAt: r.submitted_at,
     updatedAt: r.updated_at,
     studentIds: studentsByEntry.get(r.id) ?? [],
+    leaderClass: classByStudent.get(r.created_by) ?? null,
   }))
 
   // Stats describe the whole cycle, not the current filter — an admin needs the
@@ -201,6 +205,7 @@ export default async function AdminIscPage({
     if (params.status && e.status !== params.status) return false
     if (params.state && e.schoolState !== params.state) return false
     if (params.district && e.schoolDistrict !== params.district) return false
+    if (params.group && iscGroupForClass(e.leaderClass) !== params.group) return false
     if (params.school && e.schoolName !== params.school) return false
     if (params.language && e.language !== params.language) return false
     if (q && !`${e.leaderName} ${e.schoolName}`.toLowerCase().includes(q)) return false

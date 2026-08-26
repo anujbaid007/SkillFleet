@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { ISC_TRACKS } from '@/lib/isc/tracks'
+import { ISC_GROUPS, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 
 const SELECT =
   'h-9 px-3 rounded-xl border-2 border-black/[0.06] bg-white text-xs font-semibold text-foreground focus:outline-none focus:border-primary'
@@ -44,9 +45,16 @@ export function IscFilters({
     router.push(qs ? `/admin/isc?${qs}` : '/admin/isc', { scroll: false })
   }
 
-  const active = ['track', 'status', 'state', 'district', 'school', 'language', 'q'].filter((k) =>
-    params.get(k)
-  )
+  const active = [
+    'track',
+    'status',
+    'group',
+    'state',
+    'district',
+    'school',
+    'language',
+    'q',
+  ].filter((k) => params.get(k))
 
   return (
     <div className="clay-card p-4 space-y-3">
@@ -95,6 +103,20 @@ export function IscFilters({
           <option value="">Any status</option>
           <option value="submitted">Submitted</option>
           <option value="draft">Draft</option>
+        </select>
+
+        <select
+          value={params.get('group') ?? ''}
+          onChange={(e) => set('group', e.target.value)}
+          aria-label="Filter by group"
+          className={SELECT}
+        >
+          <option value="">Any group</option>
+          {(Object.keys(ISC_GROUPS) as IscGroup[]).map((g) => (
+            <option key={g} value={g}>
+              {iscGroupLabel(g)}
+            </option>
+          ))}
         </select>
 
         <select

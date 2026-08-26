@@ -5,6 +5,7 @@ import {
   topSchools,
   byState,
   byBoard,
+  byGroup,
   classDistribution,
   submissionTimeline,
   staleDrafts,
@@ -78,6 +79,7 @@ export function IscInsights({
   const schools = topSchools(entries, 10)
   const states = byState(entries)
   const boards = byBoard(entries)
+  const groups = byGroup(entries)
   const classes = classDistribution(entries, classByStudent)
   const timeline = submissionTimeline(entries)
   const stale = staleDrafts(entries, now, 7)
@@ -152,7 +154,7 @@ export function IscInsights({
         </Panel>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-4">
         <Panel title="By class" sub="Students taking part, not entries">
           {classes.length === 0 ? (
             <Empty>No students have entered yet.</Empty>
@@ -166,6 +168,24 @@ export function IscInsights({
             <Empty>No entries yet.</Empty>
           ) : (
             <BarList rows={boards} accent="bg-accent-teal" />
+          )}
+        </Panel>
+
+        <Panel title="By group" sub="Group 1: Classes 5–8 · Group 2: Classes 9–12">
+          {groups.length === 0 ? (
+            <Empty>No entries yet.</Empty>
+          ) : (
+            <div className="space-y-2">
+              {groups.map((g) => (
+                <div key={g.group} className="rounded-xl bg-black/[0.02] p-3">
+                  <p className="text-xs font-semibold text-foreground">{g.label}</p>
+                  <p className="text-xs text-muted mt-1">
+                    {g.entries} {g.entries === 1 ? 'entry' : 'entries'} · {g.submitted} submitted ·{' '}
+                    {g.students} {g.students === 1 ? 'student' : 'students'}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </Panel>
 
