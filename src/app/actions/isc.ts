@@ -17,6 +17,7 @@ const ERR: Record<string, string> = {
   consent_required: 'A parent or guardian must give consent before you submit.',
   empty_submission: 'Fill in your entry before submitting.',
   wrong_school: 'Everyone on the team must be at your school.',
+  wrong_group: 'A teammate is in a different group. Remove them before this can be submitted.',
 }
 
 // NOT exported: a 'use server' module may only export async functions, so a
@@ -232,6 +233,8 @@ const TEAM_ERR: Record<string, string> = {
   team_full: 'A team can have at most three people, you included.',
   self_add: 'You are already on this team.',
   wrong_school: 'Teammates must be students at your school.',
+  wrong_group:
+    'That student is in a different group. Teammates must be from the same group as you — Classes 5–8 or 9–12.',
   already_in_track: 'They are already in another entry for this track.',
   already_invited: 'You have already invited that email.',
 }

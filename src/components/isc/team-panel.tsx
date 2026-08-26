@@ -1,13 +1,14 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { Check, Clock, Copy, X } from 'lucide-react'
+import { AlertTriangle, Check, Clock, Copy, X } from 'lucide-react'
 import {
   addMemberAction,
   removeMemberAction,
   type TeamState,
   type IscMember,
 } from '@/app/actions/isc'
+import { iscGroupForClass, iscGroupLabel } from '@/lib/isc/groups'
 
 function inviteUrl(token: string) {
   const base = typeof window === 'undefined' ? '' : window.location.origin
@@ -39,6 +40,15 @@ export function TeamPanel({
 
   const full = members.length >= maxTeamSize
 
+  // The leader anchors the team's group. A pending invited-by-email member has
+  // no school_class yet — their group is unknown until isc_claim_invites
+  // resolves it, so they are never flagged here.
+  const leader = members.find((m) => m.isLeader)
+  const leaderGroup = iscGroupForClass(leader?.schoolClass)
+  const mismatched = members.filter(
+    (m) => !m.isLeader && m.userId && iscGroupForClass(m.schoolClass) !== leaderGroup
+  )
+
   return (
     <div className="clay-card p-6 space-y-4">
       <div>
@@ -46,7 +56,25 @@ export function TeamPanel({
         <p className="text-xs text-muted mt-1">
           You can enter on your own, or with up to {maxTeamSize - 1} classmates from your school.
         </p>
+        {leaderGroup && (
+          <p className="text-xs text-muted mt-1">
+            This team is {iscGroupLabel(leaderGroup)} — teammates must be from those classes too.
+          </p>
+        )}
       </div>
+
+      {mismatched.length > 0 && (
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800">
+            <span className="font-semibold">
+              {mismatched.map((m) => m.name ?? 'A teammate').join(', ')}
+            </span>{' '}
+            {mismatched.length === 1 ? 'is' : 'are'} in a different group. Teams can only include
+            classmates from the same group — remove them before this entry can be submitted.
+          </p>
+        </div>
+      )}
 
       <ul className="space-y-2">
         {members.map((m) => (

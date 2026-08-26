@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { isEligibleClass } from '@/lib/isc/validate'
+import { iscGroupForClass, iscGroupLabel } from '@/lib/isc/groups'
 import { getMyIscEntries } from '@/app/actions/isc'
 import { TrackCard, type TrackCardState } from '@/components/isc/track-card'
 import { HowItWorks } from '@/components/isc/how-it-works'
@@ -25,6 +26,7 @@ export default async function IscPage() {
   const eligible = isEligibleClass(profile?.school_class)
   const entries = eligible ? await getMyIscEntries() : []
   const byTrack = new Map(entries.map((e) => [e.track, e]))
+  const group = eligible ? iscGroupForClass(profile?.school_class) : null
 
   return (
     <div className="space-y-6">
@@ -34,6 +36,13 @@ export default async function IscPage() {
         title="ISC 2026"
         subtitle="Four championships, open to Classes 5 to 12. Enter as many as you like — school screening is free."
       />
+
+      {group && (
+        <p className="text-sm text-muted -mt-2">
+          You&apos;re in {iscGroupLabel(group)}. You can team up with classmates from those classes
+          at your school.
+        </p>
+      )}
 
       {!eligible && (
         <Reveal delay={0.05}>
