@@ -4,6 +4,7 @@ import {
   rosterSummary,
   entryCounts,
   classParticipation,
+  groupParticipation,
   type RosterEntryStatus,
 } from '@/lib/coordinator/analytics'
 
@@ -48,6 +49,7 @@ export function CoordinatorStats({
   const summary = rosterSummary(students)
   const counts = entryCounts(entries)
   const classes = classParticipation(students)
+  const groups = groupParticipation(students)
   const pct = summary.eligible ? Math.round((summary.entered / summary.eligible) * 100) : 0
 
   return (
@@ -79,7 +81,7 @@ export function CoordinatorStats({
         />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-3">
         <div className="clay-card p-5">
           <h2 className="font-display font-bold text-foreground text-sm">By championship</h2>
           <p className="text-xs text-muted mt-0.5">
@@ -136,6 +138,33 @@ export function CoordinatorStats({
                     <div
                       className="h-full rounded-full bg-primary"
                       style={{ width: `${(c.entered / Math.max(1, c.students)) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="clay-card p-5">
+          <h2 className="font-display font-bold text-foreground text-sm">By group</h2>
+          <p className="text-xs text-muted mt-0.5">Group 1: Classes 5–8 · Group 2: Classes 9–12</p>
+          {groups.length === 0 ? (
+            <p className="text-xs text-muted mt-3">No eligible students yet.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {groups.map((g) => (
+                <li key={g.group}>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-foreground font-medium">{g.label}</span>
+                    <span className="text-muted">
+                      {g.entered} of {g.students} entered
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-black/[0.05] mt-1 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-accent-teal"
+                      style={{ width: `${(g.entered / Math.max(1, g.students)) * 100}%` }}
                     />
                   </div>
                 </li>

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { CLASS_OPTIONS } from '@/lib/profile/details'
 import { ISC_TRACKS } from '@/lib/isc/tracks'
+import { ISC_GROUPS, iscGroupForClass, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 import type { RosterStudent } from '@/app/actions/coordinator'
 
 const SHORT: Record<string, string> = {
@@ -51,6 +52,7 @@ function AttemptChips({ status }: { status: Record<string, string> }) {
 export function SchoolRoster({ students }: { students: RosterStudent[] }) {
   const [query, setQuery] = useState('')
   const [classFilter, setClassFilter] = useState('')
+  const [groupFilter, setGroupFilter] = useState<IscGroup | ''>('')
   const [onlyEntered, setOnlyEntered] = useState(false)
 
   const visible = useMemo(() => {
@@ -58,10 +60,11 @@ export function SchoolRoster({ students }: { students: RosterStudent[] }) {
     return students.filter((s) => {
       if (q && !(s.fullName ?? '').toLowerCase().includes(q)) return false
       if (classFilter && s.schoolClass !== classFilter) return false
+      if (groupFilter && iscGroupForClass(s.schoolClass) !== groupFilter) return false
       if (onlyEntered && Object.keys(s.iscStatus ?? {}).length === 0) return false
       return true
     })
-  }, [students, query, classFilter, onlyEntered])
+  }, [students, query, classFilter, groupFilter, onlyEntered])
 
   if (students.length === 0) {
     return (
@@ -72,7 +75,7 @@ export function SchoolRoster({ students }: { students: RosterStudent[] }) {
   }
 
   const classesPresent = CLASS_OPTIONS.filter((c) => students.some((s) => s.schoolClass === c))
-  const filtering = Boolean(query.trim() || classFilter || onlyEntered)
+  const filtering = Boolean(query.trim() || classFilter || groupFilter || onlyEntered)
 
   const byClass = new Map<string, RosterStudent[]>()
   for (const s of visible) {
@@ -117,6 +120,20 @@ export function SchoolRoster({ students }: { students: RosterStudent[] }) {
             ))}
           </select>
 
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value as IscGroup | '')}
+            aria-label="Filter by group"
+            className={control}
+          >
+            <option value="">All groups</option>
+            {(Object.keys(ISC_GROUPS) as IscGroup[]).map((g) => (
+              <option key={g} value={g}>
+                {iscGroupLabel(g)}
+              </option>
+            ))}
+          </select>
+
           <label className="inline-flex items-center gap-2 text-xs font-semibold text-foreground">
             <input
               type="checkbox"
@@ -139,6 +156,7 @@ export function SchoolRoster({ students }: { students: RosterStudent[] }) {
               onClick={() => {
                 setQuery('')
                 setClassFilter('')
+                setGroupFilter('')
                 setOnlyEntered(false)
               }}
               className="text-xs font-semibold text-muted hover:text-foreground inline-flex items-center gap-1"
