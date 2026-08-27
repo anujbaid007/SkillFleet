@@ -36,7 +36,7 @@ export default async function AdminIscSchoolPage({
   const roster = buildSchoolRoster(data.rosterStudents, data.entries, data.rosterMembers)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <IscBreadcrumb
         segments={[
           { label: 'All India', href: '/admin/isc' },

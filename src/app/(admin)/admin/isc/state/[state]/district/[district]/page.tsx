@@ -57,7 +57,7 @@ export default async function AdminIscDistrictPage({
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <IscBreadcrumb
         segments={[
           { label: 'All India', href: '/admin/isc' },
@@ -74,7 +74,7 @@ export default async function AdminIscDistrictPage({
       />
 
       <Reveal delay={0.03}>
-        <IscFunnelPanel funnel={funnel} />
+        <IscFunnelPanel funnel={funnel} schoolCount={data.schools.length} />
       </Reveal>
 
       <IscFilters

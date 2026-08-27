@@ -65,17 +65,17 @@ export function IscOutreach({
   }
 
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-2">
       {/*
         Side by side on purpose: cold schools cluster under "nobody has
         applied", and seeing the two lists together says that without needing
         a correlation stat to prove it.
       */}
-      <div className="clay-card p-5">
+      <div className="clay-card p-6 sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display font-bold text-foreground text-sm">Schools yet to start</h2>
-            <p className="text-xs text-muted mt-0.5">
+            <h2 className="font-display font-bold text-foreground text-base">Schools yet to start</h2>
+            <p className="text-xs text-muted mt-1">
               Students signed up, nothing entered — biggest first
             </p>
           </div>
@@ -96,12 +96,12 @@ export function IscOutreach({
           </p>
         ) : (
           <>
-            <ul className="mt-3 divide-y divide-black/[0.06] max-h-80 overflow-y-auto">
+            <ul className="mt-5 divide-y divide-black/[0.05] max-h-96 overflow-y-auto">
               {coldSchools.map((s) => (
                 <li key={s.schoolId}>
                   <Link
                     href={schoolHref(s)}
-                    className="py-2 flex items-start justify-between gap-3 text-xs group"
+                    className="py-3 flex items-start justify-between gap-3 text-xs group"
                   >
                     <span className="min-w-0">
                       <span className="block text-foreground font-medium truncate group-hover:underline">
@@ -129,15 +129,15 @@ export function IscOutreach({
         )}
       </div>
 
-      <div className="clay-card p-5">
-        <h2 className="font-display font-bold text-foreground text-sm">Coordinator coverage</h2>
-        <p className="text-xs text-muted mt-0.5">
+      <div className="clay-card p-6 sm:p-7">
+        <h2 className="font-display font-bold text-foreground text-base">Coordinator coverage</h2>
+        <p className="text-xs text-muted mt-1">
           {totalSchools} {totalSchools === 1 ? 'school' : 'schools'} in this view
         </p>
         {coordinatorCoverage.length === 0 ? (
           <p className="text-xs text-muted mt-3">No schools here yet.</p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-5 space-y-3.5">
             {coordinatorCoverage.map((r) => {
               const pct = totalSchools ? (r.count / totalSchools) * 100 : 0
               return (
@@ -148,7 +148,7 @@ export function IscOutreach({
                     </span>
                     <span className="text-muted tabular-nums">{r.count}</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-black/[0.05] mt-1 overflow-hidden">
+                  <div className="h-2 rounded-full bg-black/[0.05] mt-2 overflow-hidden">
                     <div
                       className={`h-full rounded-full ${
                         r.label === 'approved'

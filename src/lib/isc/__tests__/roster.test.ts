@@ -91,6 +91,22 @@ describe('buildSchoolRoster', () => {
     expect(rows[0].status).toMatchObject({ kind: 'solo', entryStatus: 'submitted' })
   })
 
+  it('lists every track a student touches, invited ones included, in track order', () => {
+    const rows = buildSchoolRoster(
+      [student('s1')],
+      [entry('e1', 'content_creator', 'draft'), entry('e2', 'ai_for_impact', 'draft')],
+      [
+        { entryId: 'e1', userId: 's1', displayName: 'Student', isLeader: true, acceptedAt: ACCEPTED },
+        { entryId: 'e2', userId: 's1', displayName: 'Student', isLeader: false, acceptedAt: null },
+      ]
+    )
+    expect(rows[0].tracks).toEqual(['ai_for_impact', 'content_creator'])
+  })
+
+  it('gives a student with no ISC footprint an empty track list', () => {
+    expect(buildSchoolRoster([student('s1')], [], [])[0].tracks).toEqual([])
+  })
+
   it('prefers a submitted entry over a draft when a student has accepted both', () => {
     const rows = buildSchoolRoster(
       [student('s1')],

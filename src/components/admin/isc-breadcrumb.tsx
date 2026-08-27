@@ -21,9 +21,9 @@ export function IscBreadcrumb({
   current: string
 }) {
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm flex-wrap">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm flex-wrap">
       {segments.map((s) => (
-        <span key={s.href} className="flex items-center gap-1.5">
+        <span key={s.href} className="flex items-center gap-2">
           <Link href={s.href} className="text-muted hover:text-foreground font-medium">
             {s.label}
           </Link>

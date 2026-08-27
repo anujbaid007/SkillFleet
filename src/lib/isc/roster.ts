@@ -38,6 +38,13 @@ export interface RosterRow {
   studentId: string
   name: string
   schoolClass: string | null
+  /**
+   * Every track this student touches in any role, including ones they have
+   * only been invited to. Filtering by track has to find an invitee too —
+   * "who is involved with Content Creator here" means everyone attached to
+   * it, not only the ones who have already said yes.
+   */
+  tracks: IscTrackId[]
   status: RosterStatus
 }
 
@@ -107,6 +114,14 @@ export function buildSchoolRoster(
     const accepted = own.filter((m) => acceptance(m) === 'accepted')
     const pending = own.filter((m) => acceptance(m) === 'awaiting_accept')
 
+    const tracks = [
+      ...new Set(
+        own
+          .map((m) => entryById.get(m.entryId)?.track)
+          .filter((t): t is IscTrackId => Boolean(t))
+      ),
+    ].sort((a, b) => (TRACK_ORDER.get(a) ?? 0) - (TRACK_ORDER.get(b) ?? 0))
+
     if (accepted.length > 0) {
       const best = accepted
         .map((m) => entryById.get(m.entryId))
@@ -131,7 +146,7 @@ export function buildSchoolRoster(
             ? { kind: 'solo', entryStatus: best.status }
             : { kind: 'team', size: teamSize, maxSize, entryStatus: best.status }
 
-        return { studentId: s.id, name: s.name, schoolClass: s.schoolClass, status }
+        return { studentId: s.id, name: s.name, schoolClass: s.schoolClass, tracks, status }
       }
     }
 
@@ -140,6 +155,7 @@ export function buildSchoolRoster(
         studentId: s.id,
         name: s.name,
         schoolClass: s.schoolClass,
+        tracks,
         status: { kind: 'invited' },
       }
     }
@@ -148,6 +164,7 @@ export function buildSchoolRoster(
       studentId: s.id,
       name: s.name,
       schoolClass: s.schoolClass,
+      tracks,
       status: { kind: 'not_started' },
     }
   })

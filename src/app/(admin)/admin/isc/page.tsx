@@ -49,7 +49,7 @@ export default async function AdminIscPage({
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         eyebrow="ISC 2026"
         icon={Trophy}
@@ -58,7 +58,7 @@ export default async function AdminIscPage({
       />
 
       <Reveal delay={0.03}>
-        <IscFunnelPanel funnel={funnel} />
+        <IscFunnelPanel funnel={funnel} schoolCount={data.schools.length} />
       </Reveal>
 
       <IscFilters

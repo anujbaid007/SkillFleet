@@ -31,30 +31,33 @@ export function IscComparisonChart({
   const max = Math.max(1, ...rows.map((r) => r.count))
 
   return (
-    <div className="clay-card p-5">
-      <h2 className="font-display font-bold text-foreground text-sm">{title}</h2>
-      <p className="text-xs text-muted mt-0.5">{sub}</p>
+    <div className="clay-card p-6 sm:p-7">
+      <h2 className="font-display font-bold text-foreground text-base">{title}</h2>
+      <p className="text-xs text-muted mt-1">{sub}</p>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-muted mt-3">{empty}</p>
+        <p className="text-xs text-muted mt-5">{empty}</p>
       ) : (
-        <ul className="mt-3 space-y-2 max-h-96 overflow-y-auto">
+        <ul className="mt-5 space-y-3.5 max-h-[28rem] overflow-y-auto">
           {rows.map((r) => (
             <li key={r.href}>
-              <Link href={r.href} className="block group rounded-lg -mx-1 px-1 py-0.5 hover:bg-black/[0.02]">
+              <Link
+                href={r.href}
+                className="block group rounded-xl -mx-2 px-2 py-1.5 hover:bg-black/[0.02] transition-colors"
+              >
                 <span className="flex items-center justify-between gap-3 text-xs">
-                  <span className="text-foreground font-medium truncate group-hover:underline">
+                  <span className="text-foreground font-semibold truncate group-hover:underline">
                     {r.label}
                   </span>
-                  <span className="flex items-center gap-1.5 shrink-0">
+                  <span className="flex items-center gap-2 shrink-0">
                     <span className="text-muted">{r.sub}</span>
-                    <span className="text-green-700 font-semibold tabular-nums">{r.count}</span>
+                    <span className="text-green-700 font-bold tabular-nums text-sm">{r.count}</span>
                     <ChevronRight className="w-3.5 h-3.5 text-muted" aria-hidden="true" />
                   </span>
                 </span>
-                <span className="block h-1.5 rounded-full bg-black/[0.05] mt-1 overflow-hidden">
+                <span className="block h-2 rounded-full bg-black/[0.05] mt-2 overflow-hidden">
                   <span
-                    className="block h-full rounded-full bg-primary"
+                    className="block h-full rounded-full bg-gradient-to-r from-primary to-primary-light"
                     style={{ width: `${(r.count / max) * 100}%` }}
                   />
                 </span>
