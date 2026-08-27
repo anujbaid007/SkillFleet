@@ -1,9 +1,22 @@
 'use client'
 
+import Link from 'next/link'
 import { Download } from 'lucide-react'
 import { toCsv } from '@/lib/isc/csv'
 import type { ColdSchoolRow } from '@/lib/isc/outreach'
 import type { CountRow } from '@/lib/isc/analytics'
+
+/**
+ * A cold school is still a school worth opening — its roster names the exact
+ * students who have not started, which is what an outreach call needs. The
+ * comparison chart above cannot link there, because a school with no entries
+ * never appears in it.
+ */
+function schoolHref(s: ColdSchoolRow) {
+  return `/admin/isc/state/${encodeURIComponent(s.state)}/district/${encodeURIComponent(
+    s.district
+  )}/school/${s.schoolId}`
+}
 
 /** Plain words for a database enum nobody outside the schema should have to read. */
 const COORDINATOR_LABEL: Record<string, string> = {
@@ -85,19 +98,24 @@ export function IscOutreach({
           <>
             <ul className="mt-3 divide-y divide-black/[0.06] max-h-80 overflow-y-auto">
               {coldSchools.map((s) => (
-                <li key={s.schoolId} className="py-2 flex items-start justify-between gap-3 text-xs">
-                  <span className="min-w-0">
-                    <span className="block text-foreground font-medium truncate">
-                      {s.schoolName}
+                <li key={s.schoolId}>
+                  <Link
+                    href={schoolHref(s)}
+                    className="py-2 flex items-start justify-between gap-3 text-xs group"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-foreground font-medium truncate group-hover:underline">
+                        {s.schoolName}
+                      </span>
+                      <span className="block text-muted">
+                        {s.district}, {s.state} ·{' '}
+                        {COORDINATOR_LABEL[s.coordinatorStatus] ?? s.coordinatorStatus}
+                      </span>
                     </span>
-                    <span className="block text-muted">
-                      {s.district}, {s.state} ·{' '}
-                      {COORDINATOR_LABEL[s.coordinatorStatus] ?? s.coordinatorStatus}
+                    <span className="text-foreground font-semibold tabular-nums shrink-0">
+                      {s.eligibleCount}
                     </span>
-                  </span>
-                  <span className="text-foreground font-semibold tabular-nums shrink-0">
-                    {s.eligibleCount}
-                  </span>
+                  </Link>
                 </li>
               ))}
             </ul>
