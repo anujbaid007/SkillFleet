@@ -47,7 +47,7 @@ export default async function AdminIscStatePage({
   const funnel = computeFunnel(data.eligible, entries, funnelMembers)
   const districts = byDistrict(entries)
   const cold = coldSchools(data.schools, entries, data.eligibleBySchool, COLD_SCHOOLS_LIMIT)
-  const coverage = coordinatorCoverage(data.schools)
+  const coverage = coordinatorCoverage(data.coordinatorSchools)
   const slug = state.toLowerCase().replace(/\s+/g, '-')
 
   const leaderNameByEntry = new Map(

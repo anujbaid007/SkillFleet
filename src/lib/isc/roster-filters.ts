@@ -20,8 +20,8 @@ export type RosterStatusFilter =
   | 'draft'
 
 export const ROSTER_STATUS_OPTIONS: { value: RosterStatusFilter; label: string }[] = [
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'draft', label: 'Still a draft' },
+  { value: 'submitted', label: 'Has a submission' },
+  { value: 'draft', label: 'Has an open draft' },
   { value: 'solo', label: 'Competing solo' },
   { value: 'team', label: 'In a team' },
   { value: 'invited', label: 'Invited, no reply' },
@@ -47,13 +47,20 @@ function matchesStatus(row: RosterRow, status: string): boolean {
       return s.kind === 'solo'
     case 'team':
       return s.kind === 'team'
-    // Submitted and draft only describe a row that has an entry behind it. A
-    // student who has merely been invited has no entry of their own, so they
-    // are neither, and must not fall into "still a draft" by default.
+    /*
+      Deliberately "has at least one", not "their headline status is".
+
+      A student can hold a submitted entry on one track and drafts on two
+      others. Testing the row's collapsed status meant such a student read as
+      submitted only, so filtering for drafts returned nobody while drafts
+      plainly existed — and "who still has a draft open" is exactly the list
+      someone filters for when deciding who to chase. The two are therefore
+      not mutually exclusive: a student with both appears under both.
+    */
     case 'submitted':
-      return (s.kind === 'solo' || s.kind === 'team') && s.entryStatus === 'submitted'
+      return row.hasSubmitted
     case 'draft':
-      return (s.kind === 'solo' || s.kind === 'team') && s.entryStatus !== 'submitted'
+      return row.hasDraft
     default:
       return true
   }

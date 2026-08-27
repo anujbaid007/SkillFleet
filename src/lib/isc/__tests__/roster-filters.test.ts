@@ -8,6 +8,8 @@ function row(over: Partial<RosterRow> = {}): RosterRow {
     name: 'Student One',
     schoolClass: 'Class 9',
     tracks: ['ai_for_impact'],
+    hasDraft: false,
+    hasSubmitted: true,
     status: { kind: 'solo', entryStatus: 'submitted' },
     ...over,
   }
@@ -45,11 +47,28 @@ describe('filterRoster', () => {
 
   it('filters by each competing status', () => {
     const rows = [
-      row({ studentId: 'notstarted', status: { kind: 'not_started' } }),
-      row({ studentId: 'invited', status: { kind: 'invited' } }),
-      row({ studentId: 'solo', status: { kind: 'solo', entryStatus: 'draft' } }),
+      row({
+        studentId: 'notstarted',
+        hasDraft: false,
+        hasSubmitted: false,
+        status: { kind: 'not_started' },
+      }),
+      row({
+        studentId: 'invited',
+        hasDraft: false,
+        hasSubmitted: false,
+        status: { kind: 'invited' },
+      }),
+      row({
+        studentId: 'solo',
+        hasDraft: true,
+        hasSubmitted: false,
+        status: { kind: 'solo', entryStatus: 'draft' },
+      }),
       row({
         studentId: 'team',
+        hasDraft: false,
+        hasSubmitted: true,
         status: { kind: 'team', size: 2, maxSize: 3, entryStatus: 'submitted' },
       }),
     ]
@@ -62,10 +81,36 @@ describe('filterRoster', () => {
     expect(ids('draft')).toEqual(['solo'])
   })
 
+  it('finds a student who has drafts alongside a submission', () => {
+    // The bug this guards: the row collapses to its best entry, so a student
+    // with one submission and two drafts read as submitted only, and
+    // filtering for drafts returned nobody while drafts plainly existed.
+    const rows = [
+      row({
+        studentId: 'mixed',
+        hasDraft: true,
+        hasSubmitted: true,
+        status: { kind: 'solo', entryStatus: 'submitted' },
+      }),
+    ]
+    expect(filterRoster(rows, { status: 'draft' }).map((r) => r.studentId)).toEqual(['mixed'])
+    expect(filterRoster(rows, { status: 'submitted' }).map((r) => r.studentId)).toEqual(['mixed'])
+  })
+
   it('never counts a not-started or invited student as a draft', () => {
     const rows = [
-      row({ studentId: 'notstarted', status: { kind: 'not_started' } }),
-      row({ studentId: 'invited', status: { kind: 'invited' } }),
+      row({
+        studentId: 'notstarted',
+        hasDraft: false,
+        hasSubmitted: false,
+        status: { kind: 'not_started' },
+      }),
+      row({
+        studentId: 'invited',
+        hasDraft: false,
+        hasSubmitted: false,
+        status: { kind: 'invited' },
+      }),
     ]
     expect(filterRoster(rows, { status: 'draft' })).toEqual([])
   })

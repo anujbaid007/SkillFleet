@@ -103,6 +103,38 @@ describe('buildSchoolRoster', () => {
     expect(rows[0].tracks).toEqual(['ai_for_impact', 'content_creator'])
   })
 
+  it('records drafts and submissions separately when a student has both', () => {
+    // Exactly the real case that broke the draft filter: one submitted entry
+    // and two drafts. The row still reads as submitted, but both flags are
+    // true so filtering finds them either way.
+    const rows = buildSchoolRoster(
+      [student('s1')],
+      [
+        entry('e1', 'ai_for_impact', 'draft'),
+        entry('e2', 'entrepreneurship', 'draft'),
+        entry('e3', 'content_creator', 'submitted'),
+      ],
+      [
+        { entryId: 'e1', userId: 's1', displayName: 'Student', isLeader: true, acceptedAt: ACCEPTED },
+        { entryId: 'e2', userId: 's1', displayName: 'Student', isLeader: true, acceptedAt: ACCEPTED },
+        { entryId: 'e3', userId: 's1', displayName: 'Student', isLeader: true, acceptedAt: ACCEPTED },
+      ]
+    )
+    expect(rows[0].hasDraft).toBe(true)
+    expect(rows[0].hasSubmitted).toBe(true)
+    expect(rows[0].status).toMatchObject({ entryStatus: 'submitted' })
+  })
+
+  it('leaves both flags false for a student who has only a pending invite', () => {
+    const rows = buildSchoolRoster(
+      [student('s1')],
+      [entry('e1', 'content_creator', 'draft')],
+      [{ entryId: 'e1', userId: 's1', displayName: 'Student', isLeader: false, acceptedAt: null }]
+    )
+    expect(rows[0].hasDraft).toBe(false)
+    expect(rows[0].hasSubmitted).toBe(false)
+  })
+
   it('gives a student with no ISC footprint an empty track list', () => {
     expect(buildSchoolRoster([student('s1')], [], [])[0].tracks).toEqual([])
   })

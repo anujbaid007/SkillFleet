@@ -40,7 +40,7 @@ export default async function AdminIscPage({
   const funnel = computeFunnel(data.eligible, entries, funnelMembers)
   const states = byState(entries)
   const cold = coldSchools(data.schools, entries, data.eligibleBySchool, COLD_SCHOOLS_LIMIT)
-  const coverage = coordinatorCoverage(data.schools)
+  const coverage = coordinatorCoverage(data.coordinatorSchools)
 
   // The export carries the leader's name, which the loader has already
   // resolved for the roster — no second lookup for one column.

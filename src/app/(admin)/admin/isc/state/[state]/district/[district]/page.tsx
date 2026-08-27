@@ -49,7 +49,7 @@ export default async function AdminIscDistrictPage({
   const funnel = computeFunnel(data.eligible, entries, funnelMembers)
   const schools = topSchools(entries, SCHOOL_CHART_LIMIT)
   const cold = coldSchools(data.schools, entries, data.eligibleBySchool, COLD_SCHOOLS_LIMIT)
-  const coverage = coordinatorCoverage(data.schools)
+  const coverage = coordinatorCoverage(data.coordinatorSchools)
   const slug = district.toLowerCase().replace(/\s+/g, '-')
 
   const leaderNameByEntry = new Map(

@@ -23,7 +23,21 @@ export interface IscAdminData {
   /** Every eligible student in scope, named. The school-level roster is the
       only consumer — above that the list is far too long to render. */
   rosterStudents: RosterStudent[]
+  /**
+   * Schools in scope that have students on SkillFleet. This is the set the
+   * Schools tile counts and the cold-school list is drawn from, both of which
+   * are about places we have a relationship with.
+   */
   schools: SchoolWithCoordinator[]
+  /**
+   * Schools in scope that have a coordinator claim of any kind.
+   *
+   * Deliberately a different set from `schools`: a coordinator can be approved
+   * at a school where no student has signed up yet, and such a school is
+   * absent from `schools` entirely — which made coordinator coverage report
+   * one approved coordinator when there were two.
+   */
+  coordinatorSchools: SchoolWithCoordinator[]
   classByStudent: Map<string, string | null>
 }
 
@@ -133,6 +147,33 @@ export async function loadIscAdminData(
   const boardById = new Map((schoolRows ?? []).map((s) => [s.id, s.board]))
   const schoolById = new Map(schools.map((s) => [s.schoolId, s]))
 
+  /*
+    Coordinator claims are counted over their own scope, not over the schools
+    students happen to have signed up at. A claim exists whether or not anyone
+    from that school has joined — counting coverage from the student-derived
+    set silently omitted an approved coordinator whose school had no students
+    yet, and reported "1 approved" against a real 2.
+
+    Bounded by the number of claims, which is small: this queries only rows
+    that already have a coordinator attached.
+  */
+  let claimQuery = supabase
+    .from('schools')
+    .select('id, name, state, district, coordinator_status')
+    .neq('coordinator_status', 'none')
+  if (scope.state) claimQuery = claimQuery.eq('state', scope.state)
+  if (scope.district) claimQuery = claimQuery.eq('district', scope.district)
+  if (scope.schoolId) claimQuery = claimQuery.eq('id', scope.schoolId)
+  const { data: claimRows } = await claimQuery
+
+  const coordinatorSchools: SchoolWithCoordinator[] = (claimRows ?? []).map((s) => ({
+    schoolId: s.id,
+    schoolName: s.name,
+    state: s.state,
+    district: s.district,
+    coordinatorStatus: s.coordinator_status,
+  }))
+
   const { data: entryRows } = schoolIds.length
     ? await supabase
         .from('isc_entries')
@@ -224,6 +265,7 @@ export async function loadIscAdminData(
     eligibleBySchool,
     rosterStudents,
     schools,
+    coordinatorSchools,
     classByStudent,
   }
 }

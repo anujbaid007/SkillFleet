@@ -82,6 +82,14 @@ export function RankedBars({
 export interface Segment {
   status: StatusKey
   value: number
+  /**
+   * Overrides the status vocabulary's default wording.
+   *
+   * Needed wherever a bar counts people but sits near a panel counting
+   * entries: "Submitted 2" beside "2 submitted · 2 still draft" reads as a
+   * contradiction unless each says plainly what it is counting.
+   */
+  label?: string
 }
 
 /**
@@ -102,7 +110,7 @@ export function SplitBar({ segments, total }: { segments: Segment[]; total: numb
             key={s.status}
             className={STATUS_COLOR[s.status].bar}
             style={{ width: `${(s.value / safeTotal) * 100}%` }}
-            title={`${STATUS_COLOR[s.status].label}: ${s.value}`}
+            title={`${s.label ?? STATUS_COLOR[s.status].label}: ${s.value}`}
           />
         ))}
       </div>
@@ -110,7 +118,7 @@ export function SplitBar({ segments, total }: { segments: Segment[]; total: numb
         {segments.map((s) => (
           <li key={s.status} className="flex items-center gap-1.5 text-xs">
             <span className={`w-2 h-2 rounded-full ${STATUS_COLOR[s.status].bar}`} />
-            <span className="text-muted">{STATUS_COLOR[s.status].label}</span>
+            <span className="text-muted">{s.label ?? STATUS_COLOR[s.status].label}</span>
             <span className="font-bold text-foreground tabular-nums">{s.value}</span>
           </li>
         ))}

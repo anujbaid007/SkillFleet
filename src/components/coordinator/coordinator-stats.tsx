@@ -80,22 +80,36 @@ export function CoordinatorStats({
         "every eligible student" while measuring entries is simply wrong.
       */}
       <Panel
-        title="Where your school stands"
-        subtitle="Every eligible student, by how far they have got"
+        title="Where your students stand"
+        subtitle={`${summary.eligible} eligible students — counted per student, not per entry`}
         icon={Layers}
       >
         <SplitBar
           total={summary.eligible}
           segments={[
-            { status: 'submitted', value: summary.submittedStudents },
+            {
+              status: 'submitted',
+              value: summary.submittedStudents,
+              label: 'Submitted something',
+            },
             {
               status: 'draft',
-              // Started something, submitted nothing.
+              // Started something, submitted nothing. A student who has both a
+              // submission and open drafts belongs above, not here — otherwise
+              // the three buckets would double-count them.
               value: Math.max(0, summary.entered - summary.submittedStudents),
+              label: 'Only drafts so far',
             },
-            { status: 'not_started', value: summary.notEntered },
+            { status: 'not_started', value: summary.notEntered, label: 'Not started' },
           ]}
         />
+        {counts.draft > 0 && (
+          <p className="text-[11px] text-muted mt-3 pt-3 border-t border-black/[0.05]">
+            {counts.draft} draft {counts.draft === 1 ? 'entry is' : 'entries are'} still open —
+            some belong to students who have already submitted on another track, so they count as
+            submitted here.
+          </p>
+        )}
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-3">

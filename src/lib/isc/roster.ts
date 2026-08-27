@@ -45,6 +45,18 @@ export interface RosterRow {
    * it, not only the ones who have already said yes.
    */
   tracks: IscTrackId[]
+  /**
+   * Whether the student has at least one entry in each state, across every
+   * track they have accepted.
+   *
+   * `status` below collapses them to a single best entry so the row can show
+   * one chip, and that collapse loses real information: a student with two
+   * drafts and one submission reads as "submitted", so filtering for drafts
+   * skipped them and the list came back empty while drafts plainly existed.
+   * These two flags keep the whole truth for filtering.
+   */
+  hasDraft: boolean
+  hasSubmitted: boolean
   status: RosterStatus
 }
 
@@ -122,6 +134,13 @@ export function buildSchoolRoster(
       ),
     ].sort((a, b) => (TRACK_ORDER.get(a) ?? 0) - (TRACK_ORDER.get(b) ?? 0))
 
+    // Across every entry they have actually accepted, not just the best one.
+    const acceptedEntries = accepted
+      .map((m) => entryById.get(m.entryId))
+      .filter((e): e is AnalyticsEntry => Boolean(e))
+    const hasSubmitted = acceptedEntries.some((e) => e.status === 'submitted')
+    const hasDraft = acceptedEntries.some((e) => e.status !== 'submitted')
+
     if (accepted.length > 0) {
       const best = accepted
         .map((m) => entryById.get(m.entryId))
@@ -146,7 +165,15 @@ export function buildSchoolRoster(
             ? { kind: 'solo', entryStatus: best.status }
             : { kind: 'team', size: teamSize, maxSize, entryStatus: best.status }
 
-        return { studentId: s.id, name: s.name, schoolClass: s.schoolClass, tracks, status }
+        return {
+          studentId: s.id,
+          name: s.name,
+          schoolClass: s.schoolClass,
+          tracks,
+          hasDraft,
+          hasSubmitted,
+          status,
+        }
       }
     }
 
@@ -156,6 +183,8 @@ export function buildSchoolRoster(
         name: s.name,
         schoolClass: s.schoolClass,
         tracks,
+        hasDraft,
+        hasSubmitted,
         status: { kind: 'invited' },
       }
     }
@@ -165,6 +194,8 @@ export function buildSchoolRoster(
       name: s.name,
       schoolClass: s.schoolClass,
       tracks,
+      hasDraft,
+      hasSubmitted,
       status: { kind: 'not_started' },
     }
   })

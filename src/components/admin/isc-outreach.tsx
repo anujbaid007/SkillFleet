@@ -138,7 +138,7 @@ export function IscOutreach({
 
       <Panel
         title="Coordinator coverage"
-        subtitle={`${totalSchools} ${totalSchools === 1 ? 'school' : 'schools'} in this view`}
+        subtitle={`${totalSchools} ${totalSchools === 1 ? 'school' : 'schools'} with a coordinator claim`}
         icon={UserCheck}
       >
         {coordinatorCoverage.length === 0 ? (
