@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   topSchools,
   byState,
+  byDistrict,
   byBoard,
   byGroup,
   classDistribution,
@@ -229,5 +230,34 @@ describe('byGroup', () => {
       entry({ entryId: 'b', leaderClass: 'Class 10', studentIds: ['u1'] }),
     ])
     expect(rows[0].students).toBe(1)
+  })
+})
+
+describe('byDistrict', () => {
+  it('counts distinct schools, entries and submissions per district', () => {
+    const rows = byDistrict([
+      entry({ entryId: 'a', schoolId: 's1', district: 'Pune' }),
+      entry({ entryId: 'b', schoolId: 's2', district: 'Pune', status: 'draft' }),
+      entry({ entryId: 'c', schoolId: 's3', district: 'Nashik' }),
+    ])
+    expect(rows[0]).toEqual({
+      district: 'Pune',
+      state: 'Delhi',
+      schools: 2,
+      entries: 2,
+      submitted: 1,
+    })
+    expect(rows[1]).toEqual({
+      district: 'Nashik',
+      state: 'Delhi',
+      schools: 1,
+      entries: 1,
+      submitted: 1,
+    })
+  })
+
+  it('labels a missing district rather than dropping the entry', () => {
+    const rows = byDistrict([entry({ district: '' })])
+    expect(rows[0].district).toBe('Unknown')
   })
 })
