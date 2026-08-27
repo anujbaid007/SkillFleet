@@ -28,14 +28,25 @@ export interface IscAdminData {
 }
 
 /**
+ * How many student profiles one page will read before it stops.
+ *
+ * PostgREST caps every response server-side anyway, and a silently capped list
+ * would quietly understate the funnel's denominator. An explicit ceiling at
+ * least makes the limit a decision rather than an accident. Past this, the
+ * counts here need to move into a database-side aggregate rather than being
+ * computed over rows shipped to the server component.
+ */
+const PROFILE_CEILING = 10_000
+
+/**
  * Everything a drill-down page at one scope needs, in five queries: the
- * schools in scope, the eligible students in scope, the entries at those
+ * eligible students in scope, the schools they belong to, the entries at those
  * schools, the members of those entries, and the names behind those members.
  *
  * Every query is scoped by the same IscScope, so national is `{}` and each
- * level down adds one more `.eq(...)`. This is the only async, Supabase-aware
- * code in the feature — every aggregation it feeds is pure, so all of them
- * stay unit-testable without a database.
+ * level down narrows further. This is the only async, Supabase-aware code in
+ * the feature — every aggregation it feeds is pure, so all of them stay
+ * unit-testable without a database.
  *
  * No new RPCs: an admin can already read all of these tables directly under
  * existing RLS, which is how the admin ISC page has always read isc_entries
@@ -45,25 +56,6 @@ export async function loadIscAdminData(
   supabase: Awaited<ReturnType<typeof createClient>>,
   scope: IscScope
 ): Promise<IscAdminData> {
-  let schoolQuery = supabase
-    .from('schools')
-    .select('id, name, state, district, board, coordinator_status')
-  if (scope.state) schoolQuery = schoolQuery.eq('state', scope.state)
-  if (scope.district) schoolQuery = schoolQuery.eq('district', scope.district)
-  if (scope.schoolId) schoolQuery = schoolQuery.eq('id', scope.schoolId)
-  const { data: schoolRows } = await schoolQuery
-
-  const schools: SchoolWithCoordinator[] = (schoolRows ?? []).map((s) => ({
-    schoolId: s.id,
-    schoolName: s.name,
-    state: s.state,
-    district: s.district,
-    coordinatorStatus: s.coordinator_status,
-  }))
-  const schoolIds = schools.map((s) => s.schoolId)
-  const boardById = new Map((schoolRows ?? []).map((s) => [s.id, s.board]))
-  const schoolById = new Map(schools.map((s) => [s.schoolId, s]))
-
   // Scoped on the profile's own denormalised school_state/school_district
   // rather than by joining schools: those columns exist precisely so ISC can
   // slice students by geography without a join (see 0045).
@@ -74,7 +66,7 @@ export async function loadIscAdminData(
   if (scope.state) profileQuery = profileQuery.eq('school_state', scope.state)
   if (scope.district) profileQuery = profileQuery.eq('school_district', scope.district)
   if (scope.schoolId) profileQuery = profileQuery.eq('school_id', scope.schoolId)
-  const { data: profileRows } = await profileQuery
+  const { data: profileRows } = await profileQuery.range(0, PROFILE_CEILING - 1)
 
   // ISC is Classes 5-12, so anyone younger is not a missed opportunity and
   // must not sit in the funnel's denominator.
@@ -99,6 +91,47 @@ export async function loadIscAdminData(
       schoolClass: p.school_class ?? null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
+
+  /*
+    Schools are looked up by the ids our own students belong to, never by
+    querying the register by state or district.
+
+    The register is the whole CBSE list — tens of thousands of schools, almost
+    none of which anyone here has ever heard from. Reading it by geography
+    would blow past the row cap on the national page and quietly compute both
+    outreach panels from an arbitrary slice of it, and it would answer the
+    wrong question anyway: "how many schools has nobody applied to coordinate"
+    is only meaningful about schools we actually have students at. A school
+    with no accounts at all is an onboarding gap, which is a different problem
+    and not one this page can act on.
+
+    The scoped school id is added explicitly so a school page still renders its
+    own name when it has no eligible students yet, instead of 404ing.
+  */
+  const schoolIds = [
+    ...new Set(
+      [...eligibleProfiles.map((p) => p.school_id), scope.schoolId].filter(
+        (id): id is string => Boolean(id)
+      )
+    ),
+  ]
+
+  const { data: schoolRows } = schoolIds.length
+    ? await supabase
+        .from('schools')
+        .select('id, name, state, district, board, coordinator_status')
+        .in('id', schoolIds)
+    : { data: [] }
+
+  const schools: SchoolWithCoordinator[] = (schoolRows ?? []).map((s) => ({
+    schoolId: s.id,
+    schoolName: s.name,
+    state: s.state,
+    district: s.district,
+    coordinatorStatus: s.coordinator_status,
+  }))
+  const boardById = new Map((schoolRows ?? []).map((s) => [s.id, s.board]))
+  const schoolById = new Map(schools.map((s) => [s.schoolId, s]))
 
   const { data: entryRows } = schoolIds.length
     ? await supabase
