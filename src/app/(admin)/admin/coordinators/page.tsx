@@ -138,7 +138,7 @@ export default async function AdminCoordinatorsPage({
         </Link>
 
         <Link
-          href="/admin/coordinators?status=approved"
+          href="/admin/coordinators/message"
           className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
         >
           <span className="w-11 h-11 rounded-xl bg-accent-teal/10 text-accent-teal flex items-center justify-center shrink-0">
