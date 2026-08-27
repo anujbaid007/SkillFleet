@@ -1,4 +1,5 @@
-import { UserCheck } from 'lucide-react'
+import Link from 'next/link'
+import { Inbox, MessageCircle, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
@@ -73,8 +74,17 @@ export default async function AdminCoordinatorsPage({
   }, {})
   const total = (allRows ?? []).length
 
+  // Unread support messages across every conversation, for the inbox card.
+  const { data: unreadRows } = await supabase
+    .from('support_messages')
+    .select('id')
+    .eq('sender_role', 'coordinator')
+    .is('read_at', null)
+  const unreadCount = (unreadRows ?? []).length
+
   const rows: CoordinatorClaim[] = claims.map((c) => ({
     schoolId: c.id,
+    coordinatorId: c.coordinator_id,
     schoolName: c.name,
     schoolLocation: `${c.district}, ${c.state}`,
     schoolReviewStatus: c.review_status,
@@ -99,6 +109,51 @@ export default async function AdminCoordinatorsPage({
         title="Coordinators"
         subtitle="Teachers applying to coordinate their school. A coordinator's console stays closed until you approve them."
       />
+
+      {/*
+        Two doors into the same conversations: the inbox for people who have
+        already written in, and the approved list for reaching someone first.
+      */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/admin/coordinators/support"
+          className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
+        >
+          <span className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Inbox className="w-5 h-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 flex-wrap">
+              <span className="font-display font-bold text-foreground text-sm">Support Inbox</span>
+              {unreadCount > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-white">
+                  {unreadCount} unread
+                </span>
+              )}
+            </span>
+            <span className="block text-xs text-muted mt-1">
+              Every conversation a coordinator has started with you.
+            </span>
+          </span>
+        </Link>
+
+        <Link
+          href="/admin/coordinators?status=approved"
+          className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
+        >
+          <span className="w-11 h-11 rounded-xl bg-accent-teal/10 text-accent-teal flex items-center justify-center shrink-0">
+            <MessageCircle className="w-5 h-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="font-display font-bold text-foreground text-sm">
+              Message a coordinator
+            </span>
+            <span className="block text-xs text-muted mt-1">
+              Reach out to any approved coordinator first.
+            </span>
+          </span>
+        </Link>
+      </div>
 
       <div className="flex items-center gap-2 flex-wrap">
         {STATUSES.map((s) => (

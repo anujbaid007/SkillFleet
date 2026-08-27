@@ -1,7 +1,8 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { AlertTriangle, Check, Clock, X } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, Check, Clock, MessageCircle, X } from 'lucide-react'
 import {
   reviewCoordinatorClaimAction,
   type SchoolReviewState,
@@ -9,6 +10,10 @@ import {
 
 export interface CoordinatorClaim {
   schoolId: string
+  /** The coordinator's own account id — needed to link to their support
+      thread, and separate from schoolId since a rejected coordinator can
+      later claim a different school. */
+  coordinatorId: string
   schoolName: string
   schoolLocation: string
   /** The school's own review state — a claim can sit on a school that is
@@ -77,6 +82,18 @@ export function CoordinatorClaimRow({ claim }: { claim: CoordinatorClaim }) {
             <StatusIcon className="w-3 h-3" />
             {meta.label}
           </span>
+
+          {/* Only approved coordinators can be messaged — an unapproved one's
+              console is closed, so the message would sit unreadable. */}
+          {claim.coordinatorStatus === 'approved' && (
+            <Link
+              href={`/admin/coordinators/support/${claim.coordinatorId}`}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-primary hover:border-primary/30 inline-flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Message
+            </Link>
+          )}
 
           {!decided && (
             <>
