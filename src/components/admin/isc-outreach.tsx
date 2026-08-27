@@ -1,16 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { Download } from 'lucide-react'
+import { Download, PhoneOff, UserCheck } from 'lucide-react'
 import { toCsv } from '@/lib/isc/csv'
+import { Panel, PanelEmpty } from '@/components/dashboard/panel'
+import { ProgressRow } from '@/components/dashboard/charts'
 import type { ColdSchoolRow } from '@/lib/isc/outreach'
 import type { CountRow } from '@/lib/isc/analytics'
 
 /**
  * A cold school is still a school worth opening — its roster names the exact
  * students who have not started, which is what an outreach call needs. The
- * comparison chart above cannot link there, because a school with no entries
- * never appears in it.
+ * comparison chart cannot link there, because a school with no entries never
+ * appears in it.
  */
 function schoolHref(s: ColdSchoolRow) {
   return `/admin/isc/state/${encodeURIComponent(s.state)}/district/${encodeURIComponent(
@@ -24,6 +26,13 @@ const COORDINATOR_LABEL: Record<string, string> = {
   pending: 'Waiting on your review',
   approved: 'Approved',
   rejected: 'Rejected',
+}
+
+const COVERAGE_BAR: Record<string, string> = {
+  approved: 'bg-emerald-500',
+  pending: 'bg-amber-400',
+  none: 'bg-slate-300',
+  rejected: 'bg-rose-300',
 }
 
 const HEADERS = ['School', 'State', 'District', 'Eligible students', 'Coordinator']
@@ -68,104 +77,86 @@ export function IscOutreach({
     <div className="grid gap-4 lg:grid-cols-2">
       {/*
         Side by side on purpose: cold schools cluster under "nobody has
-        applied", and seeing the two lists together says that without needing
-        a correlation stat to prove it.
+        applied", and seeing the two together says that without needing a
+        correlation stat to prove it.
       */}
-      <div className="clay-card p-6 sm:p-7">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="font-display font-bold text-foreground text-base">Schools yet to start</h2>
-            <p className="text-xs text-muted mt-1">
-              Students signed up, nothing entered — biggest first
-            </p>
-          </div>
+      <Panel
+        title="Schools yet to start"
+        subtitle="Students signed up, nothing entered — biggest opportunity first"
+        icon={PhoneOff}
+        action={
           <button
             type="button"
             onClick={download}
             disabled={coldSchools.length === 0}
-            className="h-8 px-2.5 rounded-xl border-2 border-black/[0.06] bg-white text-[11px] font-semibold text-foreground hover:bg-black/[0.03] disabled:opacity-50 inline-flex items-center gap-1 shrink-0"
+            className="h-8 px-2.5 rounded-lg border border-black/10 bg-white text-[11px] font-semibold text-foreground hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
           >
             <Download className="w-3 h-3" />
             CSV
           </button>
-        </div>
-
+        }
+      >
         {coldSchools.length === 0 ? (
-          <p className="text-xs text-muted mt-3">
-            Every school with eligible students has at least one entry.
-          </p>
+          <PanelEmpty>Every school with eligible students has at least one entry.</PanelEmpty>
         ) : (
           <>
-            <ul className="mt-5 divide-y divide-black/[0.05] max-h-96 overflow-y-auto">
+            <ul className="divide-y divide-black/[0.05] max-h-96 overflow-y-auto">
               {coldSchools.map((s) => (
                 <li key={s.schoolId}>
                   <Link
                     href={schoolHref(s)}
-                    className="py-3 flex items-start justify-between gap-3 text-xs group"
+                    className="px-2 py-3 flex items-start justify-between gap-3 group hover:bg-slate-50 rounded-lg transition-colors"
                   >
                     <span className="min-w-0">
-                      <span className="block text-foreground font-medium truncate group-hover:underline">
+                      <span className="block text-[13px] text-foreground font-semibold truncate group-hover:text-primary">
                         {s.schoolName}
                       </span>
-                      <span className="block text-muted">
+                      <span className="block text-[11px] text-muted mt-0.5">
                         {s.district}, {s.state} ·{' '}
                         {COORDINATOR_LABEL[s.coordinatorStatus] ?? s.coordinatorStatus}
                       </span>
                     </span>
-                    <span className="text-foreground font-semibold tabular-nums shrink-0">
-                      {s.eligibleCount}
+                    <span className="text-right shrink-0">
+                      <span className="block text-sm font-bold text-foreground tabular-nums">
+                        {s.eligibleCount}
+                      </span>
+                      <span className="block text-[10px] text-muted">eligible</span>
                     </span>
                   </Link>
                 </li>
               ))}
             </ul>
             {coldSchoolsCapped && (
-              <p className="text-[11px] text-muted mt-2">
+              <p className="text-[11px] text-muted mt-3 pt-3 border-t border-black/[0.05]">
                 Showing the {coldSchools.length} with the most eligible students. Drill into a state
                 or district to see the rest.
               </p>
             )}
           </>
         )}
-      </div>
+      </Panel>
 
-      <div className="clay-card p-6 sm:p-7">
-        <h2 className="font-display font-bold text-foreground text-base">Coordinator coverage</h2>
-        <p className="text-xs text-muted mt-1">
-          {totalSchools} {totalSchools === 1 ? 'school' : 'schools'} in this view
-        </p>
+      <Panel
+        title="Coordinator coverage"
+        subtitle={`${totalSchools} ${totalSchools === 1 ? 'school' : 'schools'} in this view`}
+        icon={UserCheck}
+      >
         {coordinatorCoverage.length === 0 ? (
-          <p className="text-xs text-muted mt-3">No schools here yet.</p>
+          <PanelEmpty>No schools here yet.</PanelEmpty>
         ) : (
-          <ul className="mt-5 space-y-3.5">
-            {coordinatorCoverage.map((r) => {
-              const pct = totalSchools ? (r.count / totalSchools) * 100 : 0
-              return (
-                <li key={r.label}>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-foreground font-medium">
-                      {COORDINATOR_LABEL[r.label] ?? r.label}
-                    </span>
-                    <span className="text-muted tabular-nums">{r.count}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-black/[0.05] mt-2 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        r.label === 'approved'
-                          ? 'bg-green-600'
-                          : r.label === 'pending'
-                            ? 'bg-accent-yellow'
-                            : 'bg-black/20'
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </li>
-              )
-            })}
+          <ul className="space-y-3.5">
+            {coordinatorCoverage.map((r) => (
+              <ProgressRow
+                key={r.label}
+                label={COORDINATOR_LABEL[r.label] ?? r.label}
+                value={r.count}
+                of={totalSchools}
+                barClass={COVERAGE_BAR[r.label] ?? 'bg-slate-300'}
+              />
+            ))}
           </ul>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }

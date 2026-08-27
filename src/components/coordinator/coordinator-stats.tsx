@@ -1,5 +1,9 @@
+import { GraduationCap, Layers, Rocket, Trophy, Users } from 'lucide-react'
 import { ISC_TRACKS } from '@/lib/isc/tracks'
 import { countdownLabel } from '@/lib/isc/validate'
+import { StatCard } from '@/components/dashboard/stat-card'
+import { Panel, PanelEmpty } from '@/components/dashboard/panel'
+import { ProgressRow, SplitBar } from '@/components/dashboard/charts'
 import {
   rosterSummary,
   entryCounts,
@@ -7,26 +11,6 @@ import {
   groupParticipation,
   type RosterEntryStatus,
 } from '@/lib/coordinator/analytics'
-
-function Tile({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string
-  value: string | number
-  sub: string
-  accent: string
-}) {
-  return (
-    <div className="clay-card p-5">
-      <p className="text-xs font-semibold text-muted uppercase tracking-wide">{label}</p>
-      <p className={`font-display text-3xl font-bold mt-1 ${accent}`}>{value}</p>
-      <p className="text-xs text-muted mt-1">{sub}</p>
-    </div>
-  )
-}
 
 /**
  * A coordinator's console, above the roster.
@@ -54,124 +38,146 @@ export function CoordinatorStats({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Tile
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
           label="Students"
           value={summary.students}
-          sub={`${summary.eligible} in Classes 5–12`}
-          accent="text-foreground"
+          icon={Users}
+          tone="neutral"
+          sub={`${summary.eligible} eligible, in Classes 5–12`}
         />
-        <Tile
+        <StatCard
           label="Have entered"
           value={summary.entered}
-          sub={`${pct}% of eligible students`}
-          accent="text-primary"
+          icon={Rocket}
+          tone="primary"
+          progress={pct}
+          sub={`${pct}% of your eligible students`}
         />
-        <Tile
+        <StatCard
           label="Entries"
           value={counts.total}
-          sub={`${counts.submitted} entered · ${counts.draft} still draft`}
-          accent="text-accent-teal"
+          icon={Trophy}
+          tone="teal"
+          sub={`${counts.submitted} submitted · ${counts.draft} still draft`}
         />
-        <Tile
+        <StatCard
           label="Yet to start"
           value={summary.notEntered}
-          sub="Eligible, nothing begun"
-          accent="text-accent-yellow"
+          icon={GraduationCap}
+          tone="warning"
+          sub="Eligible, nothing begun on any track"
         />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <div className="clay-card p-5">
-          <h2 className="font-display font-bold text-foreground text-sm">By championship</h2>
-          <p className="text-xs text-muted mt-0.5">
-            Your school&apos;s entries, and how long is left
-          </p>
-          <div className="mt-3 space-y-3">
+      {/*
+        The school in one bar: a coordinator's whole job is moving students
+        from grey to amber to green, and three separate figures never showed
+        the shape of that.
+
+        Counted in students, never entries — the two do not sum to the same
+        thing (one student can hold three entries), and a bar that says
+        "every eligible student" while measuring entries is simply wrong.
+      */}
+      <Panel
+        title="Where your school stands"
+        subtitle="Every eligible student, by how far they have got"
+        icon={Layers}
+      >
+        <SplitBar
+          total={summary.eligible}
+          segments={[
+            { status: 'submitted', value: summary.submittedStudents },
+            {
+              status: 'draft',
+              // Started something, submitted nothing.
+              value: Math.max(0, summary.entered - summary.submittedStudents),
+            },
+            { status: 'not_started', value: summary.notEntered },
+          ]}
+        />
+      </Panel>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Panel
+          title="By championship"
+          subtitle="Your school's entries, and how long is left"
+          icon={Trophy}
+          className="h-full"
+        >
+          <div className="space-y-4">
             {ISC_TRACKS.map((t) => {
               const row = counts.byTrack[t.id]
               const total = row.submitted + row.draft
               const closing = countdownLabel(deadlines[t.id] ?? '', now)
               return (
                 <div key={t.id}>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-foreground font-medium">{t.name}</span>
-                    <span className="text-muted shrink-0">{closing}</span>
+                  <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                    <span className="text-[13px] font-semibold text-foreground">{t.name}</span>
+                    <span className="text-[11px] text-muted shrink-0">{closing}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="flex-1 h-1.5 rounded-full bg-black/[0.05] overflow-hidden">
-                      <span
-                        className={`block h-full rounded-full bg-gradient-to-r ${t.gradient}`}
-                        style={{ width: total ? `${(row.submitted / total) * 100}%` : '0%' }}
-                      />
-                    </span>
-                    <span className="text-xs text-muted shrink-0">
-                      {row.submitted} entered · {row.draft} draft
-                    </span>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${t.gradient}`}
+                      style={{ width: total ? `${(row.submitted / total) * 100}%` : '0%' }}
+                    />
                   </div>
+                  <p className="text-[11px] text-muted mt-1.5">
+                    <span className="font-bold text-emerald-600 tabular-nums">{row.submitted}</span>{' '}
+                    submitted ·{' '}
+                    <span className="font-bold text-amber-600 tabular-nums">{row.draft}</span> draft
+                  </p>
                 </div>
               )
             })}
           </div>
-        </div>
+        </Panel>
 
-        <div className="clay-card p-5">
-          <h2 className="font-display font-bold text-foreground text-sm">Class by class</h2>
-          <p className="text-xs text-muted mt-0.5">
-            Classes 5–12 only — younger students cannot enter ISC 2026
-          </p>
+        <Panel
+          title="Class by class"
+          subtitle="Classes 5–12 only — younger students cannot enter ISC 2026"
+          icon={GraduationCap}
+          className="h-full"
+        >
           {classes.length === 0 ? (
-            <p className="text-xs text-muted mt-3">
-              No students from Classes 5–12 have joined SkillFleet yet.
-            </p>
+            <PanelEmpty>No students from Classes 5–12 have joined SkillFleet yet.</PanelEmpty>
           ) : (
-            <ul className="mt-3 space-y-2">
+            <ul className="space-y-3">
               {classes.map((c) => (
-                <li key={c.schoolClass}>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-foreground font-medium">{c.schoolClass}</span>
-                    <span className="text-muted">
-                      {c.entered} of {c.students} entered
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-black/[0.05] mt-1 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${(c.entered / Math.max(1, c.students)) * 100}%` }}
-                    />
-                  </div>
-                </li>
+                <ProgressRow
+                  key={c.schoolClass}
+                  label={c.schoolClass}
+                  value={c.entered}
+                  of={c.students}
+                  barClass="bg-primary"
+                />
               ))}
             </ul>
           )}
-        </div>
+        </Panel>
 
-        <div className="clay-card p-5">
-          <h2 className="font-display font-bold text-foreground text-sm">By group</h2>
-          <p className="text-xs text-muted mt-0.5">Group 1: Classes 5–8 · Group 2: Classes 9–12</p>
+        <Panel
+          title="By group"
+          subtitle="Group 1: Classes 5–8 · Group 2: Classes 9–12"
+          icon={Layers}
+          className="h-full"
+        >
           {groups.length === 0 ? (
-            <p className="text-xs text-muted mt-3">No eligible students yet.</p>
+            <PanelEmpty>No eligible students yet.</PanelEmpty>
           ) : (
-            <ul className="mt-3 space-y-2">
+            <ul className="space-y-3">
               {groups.map((g) => (
-                <li key={g.group}>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-foreground font-medium">{g.label}</span>
-                    <span className="text-muted">
-                      {g.entered} of {g.students} entered
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-black/[0.05] mt-1 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-accent-teal"
-                      style={{ width: `${(g.entered / Math.max(1, g.students)) * 100}%` }}
-                    />
-                  </div>
-                </li>
+                <ProgressRow
+                  key={g.group}
+                  label={g.label}
+                  value={g.entered}
+                  of={g.students}
+                  barClass="bg-accent-teal"
+                />
               ))}
             </ul>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   )

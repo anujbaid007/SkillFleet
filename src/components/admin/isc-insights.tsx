@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react'
+import { AlarmClock, CalendarDays, GraduationCap, Landmark, Layers, Trophy } from 'lucide-react'
 import { formatIstDay, istDay } from '@/lib/isc/dates'
 import { trackById } from '@/lib/isc/tracks'
+import { Panel, PanelEmpty } from '@/components/dashboard/panel'
+import { RankedBars, ProgressRow } from '@/components/dashboard/charts'
 import {
   topSchools,
   byState,
@@ -10,62 +12,17 @@ import {
   submissionTimeline,
   staleDrafts,
   type AnalyticsEntry,
-  type CountRow,
 } from '@/lib/isc/analytics'
 
-function Panel({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
-  return (
-    <div className="clay-card p-5">
-      <h2 className="font-display font-bold text-foreground text-sm">{title}</h2>
-      {sub && <p className="text-xs text-muted mt-0.5">{sub}</p>}
-      <div className="mt-3">{children}</div>
-    </div>
-  )
-}
-
-function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-xs text-muted">{children}</p>
-}
+/** Right-aligned numeric column, kept in one place so the tables agree. */
+const NUM = 'text-right tabular-nums whitespace-nowrap pl-4'
 
 /**
- * Numeric columns in the two tables.
+ * The panels that answer "how is the cycle going", as opposed to the roster,
+ * which answers "what did this one student send".
  *
- * The left padding is doing real work: right-aligned headings with no gutter
- * run together into "ENTRIESSUBMITTEDSTUDENTS", and tabular-nums keeps the
- * digits in a column so the figures can be compared down the page.
- */
-const NUM_CELL = 'text-right tabular-nums whitespace-nowrap pl-4'
-
-/** A labelled count with a proportional bar, used by the class and board panels. */
-function BarList({ rows, accent }: { rows: CountRow[]; accent: string }) {
-  const max = Math.max(1, ...rows.map((r) => r.count))
-  return (
-    <ul className="space-y-2">
-      {rows.map((r) => (
-        <li key={r.label}>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-foreground font-medium">{r.label}</span>
-            <span className="text-muted tabular-nums">{r.count}</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-black/[0.05] mt-1 overflow-hidden">
-            <div
-              className={`h-full rounded-full ${accent}`}
-              style={{ width: `${(r.count / max) * 100}%` }}
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-/**
- * The six panels that answer "how is the cycle going", as opposed to the row
- * list underneath, which answers "what did this one student send".
- *
- * Every panel describes the whole cycle, not the filtered view: the filters are
- * for finding one entry, and a denominator that moved every time a filter
- * changed would make the numbers impossible to compare.
+ * Every panel reads the scope it is given — a state page shows that state's
+ * board split and timeline, not the country's.
  */
 export function IscInsights({
   entries,
@@ -83,68 +40,44 @@ export function IscInsights({
   const classes = classDistribution(entries, classByStudent)
   const timeline = submissionTimeline(entries)
   const stale = staleDrafts(entries, now, 7)
-  const peak = Math.max(1, ...timeline.map((p) => p.count))
+  const totalStudents = classes.reduce((sum, c) => sum + c.count, 0)
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title="Top schools" sub="Ranked by submitted entries">
+    <div className="grid gap-4 lg:grid-cols-12">
+      <div className="lg:col-span-7">
+        <Panel
+          title="Top schools"
+          subtitle="Ranked by submitted entries"
+          icon={Trophy}
+          padded={false}
+        >
           {schools.length === 0 ? (
-            <Empty>No entries yet.</Empty>
+            <div className="px-5 pb-5">
+              <PanelEmpty>No entries yet.</PanelEmpty>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-muted uppercase tracking-wide">
-                    <th className="text-left font-semibold pb-2">School</th>
-                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Entries</th>
-                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Submitted</th>
-                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Students</th>
+                  <tr className="text-muted uppercase tracking-wider border-y border-black/[0.05] bg-slate-50/60">
+                    <th className="text-left font-bold py-2.5 pl-5">School</th>
+                    <th className={`font-bold py-2.5 ${NUM}`}>Entries</th>
+                    <th className={`font-bold py-2.5 ${NUM}`}>Submitted</th>
+                    <th className={`font-bold py-2.5 pr-5 ${NUM}`}>Students</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black/[0.06]">
+                <tbody className="divide-y divide-black/[0.04]">
                   {schools.map((s) => (
-                    <tr key={s.schoolId}>
-                      <td className="py-2 pr-3">
-                        <span className="block text-foreground font-medium">{s.schoolName}</span>
-                        <span className="block text-muted">{s.state || 'State not recorded'}</span>
+                    <tr key={s.schoolId} className="hover:bg-slate-50/60">
+                      <td className="py-2.5 pl-5 pr-3">
+                        <span className="block text-foreground font-semibold">{s.schoolName}</span>
+                        <span className="block text-muted text-[11px]">
+                          {s.state || 'State not recorded'}
+                        </span>
                       </td>
-                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.entries}</td>
-                      <td className={`py-2 text-green-700 font-semibold ${NUM_CELL}`}>
-                        {s.submitted}
-                      </td>
-                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.students}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Panel>
-
-        <Panel title="By state" sub="Schools and entries in each state">
-          {states.length === 0 ? (
-            <Empty>No entries yet.</Empty>
-          ) : (
-            <div className="overflow-x-auto max-h-72 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-muted uppercase tracking-wide">
-                    <th className="text-left font-semibold pb-2">State</th>
-                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Schools</th>
-                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Entries</th>
-                    <th className={`font-semibold pb-2 ${NUM_CELL}`}>Submitted</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/[0.06]">
-                  {states.map((s) => (
-                    <tr key={s.state}>
-                      <td className="py-2 pr-3 text-foreground font-medium">{s.state}</td>
-                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.schools}</td>
-                      <td className={`py-2 text-muted ${NUM_CELL}`}>{s.entries}</td>
-                      <td className={`py-2 text-green-700 font-semibold ${NUM_CELL}`}>
-                        {s.submitted}
-                      </td>
+                      <td className={`py-2.5 text-muted ${NUM}`}>{s.entries}</td>
+                      <td className={`py-2.5 text-emerald-600 font-bold ${NUM}`}>{s.submitted}</td>
+                      <td className={`py-2.5 pr-5 text-muted ${NUM}`}>{s.students}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -154,97 +87,176 @@ export function IscInsights({
         </Panel>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-4">
-        <Panel title="By class" sub="Students taking part, not entries">
+      <div className="lg:col-span-5">
+        <Panel
+          title="Submissions per day"
+          subtitle="Indian Standard Time"
+          icon={CalendarDays}
+          className="h-full"
+        >
+          {timeline.length === 0 ? (
+            <PanelEmpty>Nothing has been submitted yet.</PanelEmpty>
+          ) : (
+            <div className="max-h-72 overflow-y-auto pr-1">
+              <RankedBars
+                rows={timeline.map((p) => ({
+                  key: p.day,
+                  label: formatIstDay(p.day),
+                  value: p.count,
+                }))}
+                barClass="bg-gradient-to-r from-accent-pink to-accent-purple"
+                valueClass="text-accent-pink"
+              />
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="lg:col-span-4">
+        <Panel
+          title="By class"
+          subtitle="Students taking part, not entries"
+          icon={GraduationCap}
+          className="h-full"
+        >
           {classes.length === 0 ? (
-            <Empty>No students have entered yet.</Empty>
+            <PanelEmpty>No students have entered yet.</PanelEmpty>
           ) : (
-            <BarList rows={classes} accent="bg-primary" />
+            <ul className="space-y-3">
+              {classes.map((c) => (
+                <ProgressRow
+                  key={c.label}
+                  label={c.label}
+                  value={c.count}
+                  of={totalStudents}
+                  barClass="bg-primary"
+                />
+              ))}
+            </ul>
           )}
         </Panel>
+      </div>
 
-        <Panel title="By board" sub="From each school's record">
+      <div className="lg:col-span-4">
+        <Panel
+          title="By board"
+          subtitle="From each school's record"
+          icon={Landmark}
+          className="h-full"
+        >
           {boards.length === 0 ? (
-            <Empty>No entries yet.</Empty>
+            <PanelEmpty>No entries yet.</PanelEmpty>
           ) : (
-            <BarList rows={boards} accent="bg-accent-teal" />
+            <RankedBars
+              rows={boards.map((b) => ({ key: b.label, label: b.label, value: b.count }))}
+              barClass="bg-gradient-to-r from-accent-teal to-emerald-400"
+              valueClass="text-accent-teal"
+            />
           )}
         </Panel>
+      </div>
 
-        <Panel title="By group" sub="Group 1: Classes 5–8 · Group 2: Classes 9–12">
+      <div className="lg:col-span-4">
+        <Panel
+          title="By group"
+          subtitle="Group 1: Classes 5–8 · Group 2: Classes 9–12"
+          icon={Layers}
+          className="h-full"
+        >
           {groups.length === 0 ? (
-            <Empty>No entries yet.</Empty>
+            <PanelEmpty>No entries yet.</PanelEmpty>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {groups.map((g) => (
-                <div key={g.group} className="rounded-xl bg-black/[0.02] p-3">
-                  <p className="text-xs font-semibold text-foreground">{g.label}</p>
-                  <p className="text-xs text-muted mt-1">
-                    {g.entries} {g.entries === 1 ? 'entry' : 'entries'} · {g.submitted} submitted ·{' '}
-                    {g.students} {g.students === 1 ? 'student' : 'students'}
-                  </p>
+                <div key={g.group} className="rounded-xl bg-slate-50 border border-black/[0.04] p-3.5">
+                  <p className="text-[13px] font-bold text-foreground">{g.label}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-muted">
+                    <span>
+                      <span className="font-bold text-foreground tabular-nums">{g.entries}</span>{' '}
+                      {g.entries === 1 ? 'entry' : 'entries'}
+                    </span>
+                    <span>
+                      <span className="font-bold text-emerald-600 tabular-nums">{g.submitted}</span>{' '}
+                      submitted
+                    </span>
+                    <span>
+                      <span className="font-bold text-foreground tabular-nums">{g.students}</span>{' '}
+                      {g.students === 1 ? 'student' : 'students'}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </Panel>
+      </div>
 
-        <Panel title="Submissions per day" sub="Indian Standard Time">
-          {timeline.length === 0 ? (
-            <Empty>Nothing has been submitted yet.</Empty>
+      {states.length > 1 && (
+        <div className="lg:col-span-12">
+          <Panel title="By state" subtitle="Schools and entries in each state" icon={Landmark} padded={false}>
+            <div className="overflow-x-auto max-h-80 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0">
+                  <tr className="text-muted uppercase tracking-wider border-y border-black/[0.05] bg-slate-50">
+                    <th className="text-left font-bold py-2.5 pl-5">State</th>
+                    <th className={`font-bold py-2.5 ${NUM}`}>Schools</th>
+                    <th className={`font-bold py-2.5 ${NUM}`}>Entries</th>
+                    <th className={`font-bold py-2.5 pr-5 ${NUM}`}>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/[0.04]">
+                  {states.map((s) => (
+                    <tr key={s.state} className="hover:bg-slate-50/60">
+                      <td className="py-2.5 pl-5 pr-3 text-foreground font-semibold">{s.state}</td>
+                      <td className={`py-2.5 text-muted ${NUM}`}>{s.schools}</td>
+                      <td className={`py-2.5 text-muted ${NUM}`}>{s.entries}</td>
+                      <td className={`py-2.5 pr-5 text-emerald-600 font-bold ${NUM}`}>
+                        {s.submitted}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      <div className="lg:col-span-12">
+        <Panel
+          title="Drafts going cold"
+          subtitle="Started, then untouched for a week or more — the entries most likely to be lost"
+          icon={AlarmClock}
+        >
+          {stale.length === 0 ? (
+            <PanelEmpty>No draft has been sitting untouched for a week.</PanelEmpty>
           ) : (
-            <ul className="space-y-2 max-h-56 overflow-y-auto">
-              {timeline.map((p) => (
-                <li key={p.day} className="flex items-center gap-2 text-xs">
-                  <span className="text-muted w-20 shrink-0">{formatIstDay(p.day)}</span>
-                  <span className="flex-1 h-1.5 rounded-full bg-black/[0.05] overflow-hidden">
-                    <span
-                      className="block h-full rounded-full bg-accent-pink"
-                      style={{ width: `${(p.count / peak) * 100}%` }}
-                    />
-                  </span>
-                  <span className="text-foreground font-semibold tabular-nums w-6 text-right">
-                    {p.count}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {stale.slice(0, 15).map((e) => (
+                  <li
+                    key={e.entryId}
+                    className="rounded-xl bg-amber-50/60 border border-amber-200/60 px-3.5 py-2.5"
+                  >
+                    <span className="block text-[13px] text-foreground font-semibold truncate">
+                      {e.schoolName}
+                    </span>
+                    <span className="block text-[11px] text-muted mt-0.5">
+                      {trackById(e.track)?.name ?? e.track} · last edited{' '}
+                      {formatIstDay(istDay(e.updatedAt))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {stale.length > 15 && (
+                <p className="text-[11px] text-muted mt-3">
+                  Showing the 15 oldest of {stale.length}. Filter by Draft to see them all.
+                </p>
+              )}
+            </>
           )}
         </Panel>
       </div>
-
-      <Panel
-        title="Drafts going cold"
-        sub="Started, then untouched for a week or more — the entries most likely to be lost"
-      >
-        {stale.length === 0 ? (
-          <Empty>No draft has been sitting untouched for a week.</Empty>
-        ) : (
-          <>
-            <ul className="divide-y divide-black/[0.06]">
-              {stale.slice(0, 15).map((e) => (
-                <li key={e.entryId} className="py-2 flex items-center justify-between gap-3 text-xs">
-                  <span className="min-w-0">
-                    <span className="block text-foreground font-medium truncate">
-                      {e.schoolName}
-                    </span>
-                    <span className="block text-muted">{trackById(e.track)?.name ?? e.track}</span>
-                  </span>
-                  <span className="text-muted shrink-0">
-                    Last edited {formatIstDay(istDay(e.updatedAt))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {stale.length > 15 && (
-              <p className="text-xs text-muted mt-2">
-                Showing the 15 oldest of {stale.length}. Filter the list below by Draft to see them
-                all.
-              </p>
-            )}
-          </>
-        )}
-      </Panel>
     </div>
   )
 }

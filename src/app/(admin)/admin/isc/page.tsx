@@ -61,13 +61,14 @@ export default async function AdminIscPage({
         <IscFunnelPanel funnel={funnel} schoolCount={data.schools.length} />
       </Reveal>
 
-      <IscFilters
-        languages={LANGUAGE_OPTIONS}
-        showing={entries.length}
-        total={data.entries.length}
-      />
-
-      <div className="flex items-center justify-end">
+      <div className="flex items-start gap-3 flex-wrap">
+        <div className="flex-1 min-w-[280px]">
+          <IscFilters
+            languages={LANGUAGE_OPTIONS}
+            showing={entries.length}
+            total={data.entries.length}
+          />
+        </div>
         <IscExport
           rows={entries.map((e) => ({
             schoolName: e.schoolName,

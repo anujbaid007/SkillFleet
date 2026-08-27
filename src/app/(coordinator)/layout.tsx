@@ -59,7 +59,7 @@ export default async function CoordinatorLayout({ children }: { children: ReactN
       </MobileNavDrawer>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
-        <div className="mx-auto w-full max-w-5xl">{children}</div>
+        <div className="mx-auto w-full max-w-[1400px]">{children}</div>
       </main>
     </div>
   )
