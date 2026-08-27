@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- No realtime/websockets — every screen reads on page load, matching the rest of this project (the ISC invite banner: *"they see the change next time they load"*).
+- **Amended 2026-08-27:** message delivery inside an open thread, and the coordinator's unread nav badge, are real-time via Supabase Realtime (`postgres_changes`, the same websocket transport a custom server would use, already tied to this project's own database and RLS — no separate host to run). Everything else — the admin Support Inbox list, its own badge, contact-info edits — stays reload-based; see the design doc's "Real-time delivery" section for the full reasoning.
 - No email is ever sent by the platform — admin's contact info is display text plus `mailto:`/`tel:` links only.
 - Coordinator-to-coordinator messaging is out of scope — admin ↔ coordinator only.
 - A conversation only exists once either side sends a first message; an approved coordinator nobody has written to has no row anywhere.
@@ -205,6 +205,11 @@ $$;
 GRANT EXECUTE ON FUNCTION public.support_coordinator_send_message(TEXT)  TO authenticated;
 GRANT EXECUTE ON FUNCTION public.support_admin_send_message(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.support_mark_thread_read(UUID)         TO authenticated;
+
+-- Turns on realtime broadcast for this table. RLS still governs who actually
+-- receives a given row over the resulting websocket — this only opts the
+-- table into being broadcastable at all.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.support_messages;
 ```
 
 - [ ] **Step 2: Apply it to the live database**
@@ -269,6 +274,8 @@ Expected output includes: `coordinator send: sent`, `conversation created: true`
 
 If the school data doesn't have an approved coordinator to test against yet, create one disposable throwaway coordinator account and approve them first (same throwaway-account discipline used throughout this project — delete it afterward).
 
+Whether the realtime broadcast itself actually respects RLS the way the design assumes cannot be checked from this rolled-back-transaction SQL technique — it needs a real websocket subscription, which needs a browser. That check happens in Task 6's manual pass, once `SupportThread` exists to subscribe with.
+
 - [ ] **Step 4: No commit for this step**
 
 The migration file lives only at `supabase/migrations/0061_support_messages.sql` on disk — `supabase/` is gitignored in this project. Do not `git add` it. Move directly to Task 2.
@@ -283,8 +290,8 @@ The migration file lives only at `supabase/migrations/0061_support_messages.sql`
 - Create: `src/app/actions/support.ts`
 
 **Interfaces:**
-- Consumes: RPCs from Task 1 (`support_coordinator_send_message`, `support_admin_send_message`, `support_mark_thread_read`); tables `support_conversations`, `support_messages`
-- Produces: `SupportMessage { id, senderId, senderRole: 'admin'|'coordinator', body, createdAt }`, `loadConversation(supabase, coordinatorId): Promise<{ conversationId: string | null; messages: SupportMessage[] }>`, `<SupportThread messages conversationId viewerRole sendAction hiddenFields? emptyLabel />`, `sendCoordinatorMessageAction`, `sendAdminMessageAction`, `markThreadReadAction(conversationId)`, `SupportSendState` — consumed by Task 3 (admin thread page) and Task 5 (coordinator page).
+- Consumes: RPCs from Task 1 (`support_coordinator_send_message`, `support_admin_send_message`, `support_mark_thread_read`); tables `support_conversations`, `support_messages` (the latter now realtime-enabled); the browser Supabase client `createClient` from `@/lib/supabase/client`
+- Produces: `SupportMessage { id, senderId, senderRole: 'admin'|'coordinator', body, createdAt }`, `loadConversation(supabase, coordinatorId): Promise<{ conversationId: string | null; messages: SupportMessage[] }>`, `<SupportThread messages conversationId viewerRole sendAction hiddenFields? emptyLabel />` (self-contained real-time delivery — no extra wiring needed from any page that renders it), `sendCoordinatorMessageAction`, `sendAdminMessageAction`, `markThreadReadAction(conversationId)`, `SupportSendState` — consumed by Task 3 (admin thread page) and Task 5 (coordinator page).
 
 No unit tests: this task is a thin data-shaping layer plus a presentational component, matching how `admin-data.ts` and the ISC shell components had none — correctness is verified by the manual browser pass at the end of Tasks 3 and 5, and Task 1 already proved the RPCs themselves work.
 
@@ -414,9 +421,10 @@ export async function markThreadReadAction(conversationId: string): Promise<void
 ```tsx
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 import { markThreadReadAction, type SupportSendState } from '@/app/actions/support'
+import { createClient } from '@/lib/supabase/client'
 
 export interface SupportMessage {
   id: string
@@ -424,6 +432,14 @@ export interface SupportMessage {
   senderRole: 'admin' | 'coordinator'
   body: string
   createdAt: string
+}
+
+interface RawMessageRow {
+  id: string
+  sender_id: string
+  sender_role: 'admin' | 'coordinator'
+  body: string
+  created_at: string
 }
 
 const TIME_FORMAT = new Intl.DateTimeFormat('en-IN', {
@@ -438,6 +454,12 @@ const TIME_FORMAT = new Intl.DateTimeFormat('en-IN', {
  * The message history and composer, identical on the admin and coordinator
  * sides — only which server action it posts to (and which extra hidden field
  * that action needs) differs between the two callers.
+ *
+ * Delivery is real-time: while mounted, this subscribes to new rows on its
+ * own conversation over Supabase Realtime (a websocket) and appends them the
+ * instant they arrive, on top of whatever `messages` was rendered with. RLS
+ * governs the subscription exactly as it governs a normal read — a caller
+ * only ever receives a row their own session could have SELECTed.
  */
 export function SupportThread({
   messages,
@@ -458,19 +480,73 @@ export function SupportThread({
   emptyLabel: string
 }) {
   const [state, action, pending] = useActionState<SupportSendState, FormData>(sendAction, undefined)
+  const [liveMessages, setLiveMessages] = useState(messages)
   const formRef = useRef<HTMLFormElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Opening a thread is "read" — there is no separate read receipt UI, this
-  // just clears the unread badge on the next page load, matching how nothing
-  // else in this project pushes a live notification either.
+  // The server re-sends `messages` after every send (via revalidatePath) and
+  // on every fresh page load — resync from it rather than only ever
+  // appending, so a reload or navigating between threads always starts from
+  // the true server state.
+  useEffect(() => {
+    setLiveMessages(messages)
+  }, [messages])
+
+  // Live delivery. Runs again whenever `conversationId` changes — in
+  // particular the moment it flips from null to a real id right after the
+  // very first message either side sends creates the conversation.
+  useEffect(() => {
+    if (!conversationId) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`support-thread-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as RawMessageRow
+          setLiveMessages((prev) =>
+            prev.some((m) => m.id === row.id)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: row.id,
+                    senderId: row.sender_id,
+                    senderRole: row.sender_role,
+                    body: row.body,
+                    createdAt: row.created_at,
+                  },
+                ]
+          )
+          // A message from the other party landing while this thread is
+          // already open is read the instant it arrives — there is nothing
+          // "unread" about a message its recipient is looking at right now.
+          if (row.sender_role !== viewerRole) void markThreadReadAction(conversationId)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [conversationId, viewerRole])
+
+  // Opening a thread is "read" too, independent of the live path above —
+  // this covers messages that were already sitting there before this thread
+  // was ever opened.
   useEffect(() => {
     if (conversationId) void markThreadReadAction(conversationId)
   }, [conversationId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
+  }, [liveMessages.length])
 
   useEffect(() => {
     if (!pending) formRef.current?.reset()
@@ -479,10 +555,10 @@ export function SupportThread({
   return (
     <div className="clay-card flex flex-col h-[32rem]">
       <div className="flex-1 overflow-y-auto p-5 space-y-3">
-        {messages.length === 0 ? (
+        {liveMessages.length === 0 ? (
           <p className="text-sm text-muted text-center mt-8">{emptyLabel}</p>
         ) : (
-          messages.map((m) => {
+          liveMessages.map((m) => {
             const mine = m.senderRole === viewerRole
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -533,6 +609,8 @@ export function SupportThread({
   )
 }
 ```
+
+Note: this component now imports `createClient` from `@/lib/supabase/client` (the browser client), in addition to the server-facing helpers in `src/lib/support/data.ts` and `src/app/actions/support.ts` — it is the one piece of this feature that talks to Supabase directly from the browser, which is what a live subscription requires.
 
 - [ ] **Step 4: Verify it type-checks and lints**
 
@@ -1026,35 +1104,72 @@ export function CoordinatorNav({ approved = true }: { approved?: boolean }) {
   const pathname = usePathname()
   const [unread, setUnread] = useState(0)
 
-  // Client-side, on mount only — the badge is a convenience, not a source of
-  // truth, and matches every other "check on load, no push" moment in this
-  // project. Skipped entirely while unapproved, since there is nothing to
-  // check yet.
+  // Live: subscribes to any change on this coordinator's own conversation and
+  // re-derives the unread count from scratch on every event, rather than
+  // hand-incrementing/decrementing it. A fresh count on every change is both
+  // simpler and provably correct — no risk of the badge drifting from reality
+  // after a burst of messages or a missed event, and no stale-closure risk
+  // from capturing "am I currently on the support page" inside the
+  // subscription callback (SupportThread's own mark-read call is what drives
+  // the count back down; this effect just reflects the result).
+  //
+  // CoordinatorNav lives in the persistent sidebar layout, not a page, so this
+  // subscription survives navigation between /coordinator and
+  // /coordinator/support rather than being torn down and rebuilt each time.
   useEffect(() => {
     if (!approved) return
     let cancelled = false
+    const supabase = createClient()
+    let convId: string | null = null
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    const refreshCount = async () => {
+      if (!convId || cancelled) return
+      const { count } = await supabase
+        .from('support_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', convId)
+        .eq('sender_role', 'admin')
+        .is('read_at', null)
+      if (!cancelled) setUnread(count ?? 0)
+    }
+
     ;(async () => {
-      const supabase = createClient()
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || cancelled) return
+
       const { data: conv } = await supabase
         .from('support_conversations')
         .select('id')
         .eq('coordinator_id', user.id)
         .maybeSingle()
-      if (!conv) return
-      const { count } = await supabase
-        .from('support_messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('conversation_id', conv.id)
-        .eq('sender_role', 'admin')
-        .is('read_at', null)
-      if (!cancelled) setUnread(count ?? 0)
+      if (!conv || cancelled) return
+      convId = conv.id
+
+      await refreshCount()
+
+      channel = supabase
+        .channel(`coordinator-nav-unread-${conv.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'support_messages',
+            filter: `conversation_id=eq.${conv.id}`,
+          },
+          () => {
+            void refreshCount()
+          }
+        )
+        .subscribe()
     })()
+
     return () => {
       cancelled = true
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [approved])
 
@@ -1298,16 +1413,20 @@ Render right after `<PageHeader ... />`:
 Run: `npx tsc --noEmit && npm run lint`
 Expected: no errors
 
-- [ ] **Step 5: Manual, end-to-end browser verification**
+- [ ] **Step 5: Manual, end-to-end browser verification — two windows side by side**
 
-With the dev server running and two disposable accounts — an approved coordinator and an admin (same throwaway-account discipline used throughout this project; delete both afterward):
+With the dev server running and two disposable accounts — an approved coordinator and an admin (same throwaway-account discipline used throughout this project; delete both afterward) — signed in in two separate browser windows (or one normal + one incognito) placed side by side, so live delivery can actually be watched happening rather than inferred from a reload:
 
 - As admin, open `/admin/coordinators`: confirm the existing tabs and application list are unchanged, and the two new cards render above them, with no unread badge yet.
 - Set an admin contact email and phone from the Support Inbox page; confirm the save round-trips (reload the page and see the saved values, not just the optimistic UI).
-- As the coordinator, open `/coordinator`: confirm "Contact Admin" appears in the nav, the saved email/phone render as working `mailto:`/`tel:` links, and send a first message.
-- As admin, reload `/admin/coordinators`: confirm the Support Inbox card now shows an unread count, open it, confirm the new conversation appears with the coordinator's name, school, and message preview; open the thread and confirm the message reads correctly and the unread badge clears.
-- As admin, reply from the thread; as the coordinator, reload `/coordinator/support` and confirm the reply appears and the nav badge shows 1 unread, then clears once the thread is opened.
-- As admin, use Card 2 (`Message a coordinator`) to open a *different* approved coordinator with no prior messages — confirm the thread starts empty and a first admin message creates the conversation correctly.
+- As the coordinator, open `/coordinator`: confirm "Contact Admin" appears in the nav, the saved email/phone render as working `mailto:`/`tel:` links.
+- As admin, use Card 2 (`Message a coordinator`) to open that coordinator's thread and send the first message. **Without reloading the coordinator's window**, confirm it appears live once they open `/coordinator/support` for the first time (this first message necessarily requires a load, since their conversation didn't exist before).
+- With **both windows now on the open thread**, send a message from the coordinator side and confirm it appears in the admin's window instantly, with no reload — this is the core check. Reply from admin and confirm the same in reverse.
+- Move the coordinator's window to `/coordinator` (thread closed). Send another message from admin. Confirm the coordinator's nav badge climbs to 1 live, without any reload. Open `/coordinator/support` and confirm the badge clears and the message is there.
+- Send a message from the coordinator while admin's thread window is open and focused on it: confirm it arrives instantly *and* the admin never had to do anything for it to count as read (there is no separate read receipt to check, just that the coordinator's own badge stays clear since admin was already looking).
+- Open `/admin/coordinators/support` (the inbox list) in a third tab: confirm it reflects the conversation correctly on load, but do **not** expect it to update live if a new message arrives while that tab sits open — that's the one part of this feature that's still reload-based, by design.
+- Create a second disposable approved coordinator. Confirm their browser session never receives anything from the first coordinator's conversation — open dev tools' network tab and confirm no unexpected realtime payloads for a conversation that isn't theirs.
+- Use Card 2 to open a coordinator with no prior messages — confirm the thread starts empty and a first admin message creates the conversation and delivers correctly.
 - Confirm a pending (not yet approved) coordinator has no "Contact Admin" nav item and no "Message" button appears for them anywhere on the admin side.
 
 - [ ] **Step 6: Commit**
@@ -1328,8 +1447,9 @@ git commit -m "feat: add admin-editable support contact info"
 - Existing `/admin/coordinators` page unchanged apart from the two additive cards — Task 3 Step 3 explicitly only inserts, never edits, the existing tabs/list JSX.
 - Coordinator "Contact Admin" page and nav entry, gated behind the existing `approved` prop — Task 5.
 - Admin contact info editable in the dashboard — Task 6.
-- Unread badges on both sides, computed on load, no push — Task 3 (admin) and Task 5 (coordinator).
+- Unread badges — Task 3 (admin, computed on load, per the reload-based non-goal) and Task 5 (coordinator, live via the same subscription pattern as the thread itself).
 - "Only approved coordinators can be messaged" rule — enforced at the RPC layer (Task 1), the admin UI layer (Task 4's `coordinatorStatus === 'approved'` guard), and the coordinator nav layer (Task 5's existing `approved` gate) — three independent layers, not just a UI-only restriction.
+- Real-time delivery (2026-08-27 amendment) — the `ALTER PUBLICATION` line and RLS-governs-the-broadcast reasoning in Task 1, `SupportThread`'s subscription in Task 2 (consumed unchanged by both Task 3 and Task 5, since it's self-contained), and `CoordinatorNav`'s live badge in Task 5. The reload-based exception (admin's inbox list) is called out explicitly in both this plan's Global Constraints and Task 6's manual verification, not left implicit.
 
 **Placeholder scan:** No TBD/TODO; every step has complete, real code; the verification SQL in Task 1 asserts concrete expected strings and counts, not "add appropriate checks."
 

@@ -2,9 +2,15 @@
 
 **Status:** approved design, not yet planned or built
 **Date:** 2026-08-27
-**Scope:** two-way, asynchronous messaging between admin and approved coordinators —
-an admin support inbox and a "message this coordinator" action on the existing
+**Scope:** two-way, real-time messaging between admin and approved coordinators — an
+admin support inbox and a "message this coordinator" action on the existing
 Coordinators page, and a new "Contact Admin" page inside the coordinator console.
+
+> **Amended 2026-08-27:** message delivery inside an open thread, and the
+> coordinator's unread badge, are now real-time via Supabase Realtime
+> (`postgres_changes` over the same websocket connection Supabase already
+> provides) rather than reload-only — see "Real-time delivery" below. Everything
+> else in this document is unchanged.
 
 ---
 
@@ -18,12 +24,15 @@ history, and admin can see every conversation in one place rather than one at a 
 
 ## What this is not
 
-- **Not real-time chat.** No typing indicators, no instant delivery, no websockets.
-  This project has zero realtime infrastructure anywhere (confirmed: no
-  `.channel(...)` / Supabase Realtime usage exists), and every other "did something
-  change" moment here already works by reloading — the ISC invite banner is the
-  precedent: *"they see the change next time they load."* This follows the same
-  pattern rather than introducing new infrastructure for one feature.
+- **Not typing indicators, read receipts as a visible UI, or presence** ("is the
+  other person online"). Message delivery itself is real-time (see below); these
+  finer-grained signals are not — they'd need their own design and aren't what was
+  asked for.
+- **Not real-time everywhere.** The admin's Support Inbox *list* (row order, last-
+  message previews, its own unread badge on the Coordinators page) stays reload-based.
+  That page is visited occasionally, not kept open, so making it live would mean
+  converting more of it to always-connected client code for a benefit nobody's likely
+  to notice — the trade-off isn't worth it there the way it is for an open thread.
 - **Not email.** Admin's contact email/phone shown to a coordinator is plain display
   text (plus a `mailto:`/`tel:` link, which opens the coordinator's own mail app) —
   the platform itself sends nothing. This project has no email-sending capability at
@@ -44,6 +53,7 @@ history, and admin can see every conversation in one place rather than one at a 
 | Who can message first | Either side | An approved coordinator gets "Contact Admin" in their own nav the moment their console opens — they don't have to wait for admin to reach out |
 | Admin contact info | Editable in the admin dashboard, not hardcoded | Chosen over a fixed constant so support contact details can change without a code deploy |
 | Conversation scope | Only approved coordinators can be messaged or have a conversation | A pending or rejected coordinator's console is closed, so a message sent to them would be unreadable until they're approved — restricting to approved coordinators avoids ever creating a message nobody can see |
+| Message delivery | Real-time (Supabase Realtime, i.e. websockets) for an open thread and the coordinator's nav badge; reload-based everywhere else | Explicitly requested — "one sends the message, the other can see it immediately." Supabase Realtime is chosen over a custom websocket server: it's the same transport, already tied to this project's own database and RLS, with no separate host to run |
 
 ## Why only approved coordinators
 
@@ -123,6 +133,9 @@ CREATE POLICY "Anyone signed in reads support config" ON public.support_config
   FOR SELECT USING (auth.uid() IS NOT NULL);
 CREATE POLICY "Admins update support config" ON public.support_config
   FOR UPDATE USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- Turns on realtime broadcast for this table — see "Real-time delivery" below.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.support_messages;
 ```
 
 ### RPCs
@@ -143,6 +156,42 @@ All three `SECURITY DEFINER`, `SET search_path = ''`, every identifier schema-qu
 Unread counts need no RPC: `SELECT count(*) ... WHERE read_at IS NULL AND sender_role
 = 'coordinator'` (for admin) or `= 'admin'` (for a coordinator, on their own
 conversation) is already safe under the RLS above.
+
+---
+
+## Real-time delivery
+
+Supabase Realtime's `postgres_changes` broadcasts a table's row changes to any
+subscribed client over a websocket — the same mechanism a hand-rolled websocket server
+would provide, already wired to this project's own database, with no separate process
+to host or scale. It is off by default per table; the `ALTER PUBLICATION` statement
+above is what turns it on for `support_messages`.
+
+**RLS applies to the broadcast, not just the initial read.** A client subscribing with
+`postgres_changes` only receives a row if their own session could have `SELECT`ed it —
+the same `"Own conversation's messages or admin"` policy above governs both. A
+coordinator's browser is never sent another coordinator's messages, live or otherwise.
+This is the standard, documented behavior for `postgres_changes` and needs no
+additional policy — it is *the same* RLS already defined, just also consulted on the
+live path. Worth confirming directly in the browser during planning regardless, since
+it is new ground for this project.
+
+**What's live:**
+- The message thread itself — `SupportThread` subscribes to `INSERT` events filtered
+  to its own `conversation_id` while mounted, and appends any new row instantly. A
+  message that arrives while the thread is already open is marked read immediately —
+  there is nothing "unread" about a message the recipient is looking at as it lands.
+- The coordinator's unread badge next to "Contact Admin" — subscribes to any change on
+  their own conversation and re-derives the unread count, so it climbs (a new admin
+  message) or clears (the thread being opened elsewhere) without a reload.
+
+**What isn't:** the admin Support Inbox list — see the non-goal above.
+
+**Failure mode:** if a websocket connection drops, the thread simply behaves as it did
+before this amendment — correct as of the last load or the last message it received,
+catching back up on the next full page load. Nothing is lost: messages are still
+written by the RPCs regardless of who's watching live, and reads are marked exactly
+the same way either way.
 
 ---
 
@@ -194,18 +243,17 @@ as `ParameterRow`'s existing inline-edit pattern in the admin Parameters page.
 
 ## Unread handling
 
-No push notifications, matching every other async moment in this project. Each side
-sees an unread badge computed on page load:
-
 - **Admin:** a badge on Card 1 (Support Inbox) with the total count of conversations
   containing at least one unread coordinator message, and a per-row unread marker
-  inside the inbox list itself.
+  inside the inbox list itself — both computed on page load, not live (see the
+  reload-based non-goal above).
 - **Coordinator:** a badge next to "Contact Admin" in `CoordinatorNav`, counting
-  unread admin messages in their one conversation.
+  unread admin messages in their one conversation — live, per "Real-time delivery"
+  above, since `CoordinatorNav` stays mounted for as long as they're in the console.
 
-Opening a thread calls `support_mark_thread_read` once, which is what clears the
-badge on the next page load — there is no live update while the thread is open,
-consistent with the no-realtime decision above.
+Opening a thread calls `support_mark_thread_read` once on mount, same as before; the
+difference this amendment makes is that a message arriving *while* a thread is already
+open is marked read on arrival too, rather than only on the next mount.
 
 ---
 
@@ -230,15 +278,21 @@ established project pattern):
 - A non-admin, non-coordinator (e.g. a student) can read and write nothing here
 - Only `is_admin()` can update `support_config`; any signed-in user can read it
 
-**Manual, in the browser** — with disposable admin and coordinator accounts (same
-throwaway-account discipline as prior sub-projects): coordinator sends the first
-message from `/coordinator/support`, confirm it appears in admin's Support Inbox with
-an unread badge; admin replies, confirm the coordinator's badge appears on next load
-and the reply reads correctly; admin starts a conversation first from Card 2 on an
-approved coordinator with no prior messages, confirm it's created correctly; confirm
-a pending coordinator has no "Contact Admin" item and no "Message" button appears for
+**Manual, in the browser, with two windows open side by side** — disposable admin and
+coordinator accounts (same throwaway-account discipline as prior sub-projects), so
+delivery can actually be watched happening live rather than inferred from a reload:
+coordinator sends the first message from `/coordinator/support`, confirm it appears in
+admin's open thread *without* admin reloading; admin replies, confirm it appears in the
+coordinator's open thread live and their nav badge never ticks up (since the thread is
+open, it's marked read on arrival); with the coordinator's thread closed (on
+`/coordinator`, not `/coordinator/support`), admin sends another message, confirm the
+coordinator's nav badge climbs live, then opening the thread clears it; admin starts a
+conversation first from Card 2 on an approved coordinator with no prior messages,
+confirm it's created correctly and delivers live too; confirm a second coordinator's
+browser never receives anything from the first coordinator's conversation; confirm a
+pending coordinator has no "Contact Admin" item and no "Message" button appears for
 them on the admin side; admin edits the contact email/phone, confirm the coordinator's
-`/coordinator/support` page reflects it immediately on reload.
+`/coordinator/support` page reflects it on reload (this one stays reload-based).
 
 ---
 
