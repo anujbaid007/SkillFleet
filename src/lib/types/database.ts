@@ -215,15 +215,135 @@ export type Database = {
         }
         Relationships: []
       }
+      families: {
+        Row: {
+          id: string
+          parent_full_name: string | null
+          parent_email: string
+          parent_phone: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          parent_full_name?: string | null
+          parent_email: string
+          parent_phone?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          parent_full_name?: string | null
+          parent_email?: string
+          parent_phone?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      wallets: {
+        Row: { family_id: string; balance_paise: number; updated_at: string }
+        Insert: { family_id: string; balance_paise?: number; updated_at?: string }
+        Update: { family_id?: string; balance_paise?: number; updated_at?: string }
+        Relationships: []
+      }
+      wallet_transactions: {
+        Row: {
+          id: string
+          family_id: string
+          student_id: string | null
+          booking_id: string | null
+          amount_paise: number
+          type: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          student_id?: string | null
+          booking_id?: string | null
+          amount_paise: number
+          type: string
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          student_id?: string | null
+          booking_id?: string | null
+          amount_paise?: number
+          type?: string
+          description?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      cart_items: {
+        Row: { id: string; family_id: string; student_id: string; offering_id: string; added_by: string | null; created_at: string }
+        Insert: { id?: string; family_id: string; student_id: string; offering_id: string; added_by?: string | null; created_at?: string }
+        Update: { id?: string; family_id?: string; student_id?: string; offering_id?: string; added_by?: string | null; created_at?: string }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          id: string
+          family_id: string
+          placed_by: string | null
+          item_count: number
+          subtotal_paise: number
+          discount_percent: number
+          discount_paise: number
+          total_paise: number
+          wallet_paise: number
+          gateway_paise: number
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          placed_by?: string | null
+          item_count: number
+          subtotal_paise: number
+          discount_percent?: number
+          discount_paise?: number
+          total_paise: number
+          wallet_paise?: number
+          gateway_paise?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          placed_by?: string | null
+          item_count?: number
+          subtotal_paise?: number
+          discount_percent?: number
+          discount_paise?: number
+          total_paise?: number
+          wallet_paise?: number
+          gateway_paise?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           booked_by: string
+          cancelled_at: string | null
           completion_marked_at: string | null
           completion_marked_by: string | null
           created_at: string
           id: string
           offering_id: string
+          order_id: string | null
           package_id: string | null
+          paid_paise: number | null
           payment_order_id: string | null
           payment_payment_id: string | null
           payment_status: string
@@ -235,12 +355,15 @@ export type Database = {
         }
         Insert: {
           booked_by: string
+          cancelled_at?: string | null
           completion_marked_at?: string | null
           completion_marked_by?: string | null
           created_at?: string
           id?: string
           offering_id: string
+          order_id?: string | null
           package_id?: string | null
+          paid_paise?: number | null
           payment_order_id?: string | null
           payment_payment_id?: string | null
           payment_status?: string
@@ -252,12 +375,15 @@ export type Database = {
         }
         Update: {
           booked_by?: string
+          cancelled_at?: string | null
           completion_marked_at?: string | null
           completion_marked_by?: string | null
           created_at?: string
           id?: string
           offering_id?: string
+          order_id?: string | null
           package_id?: string | null
+          paid_paise?: number | null
           payment_order_id?: string | null
           payment_payment_id?: string | null
           payment_status?: string
@@ -1138,8 +1264,205 @@ export type Database = {
           },
         ]
       }
+      isc_consent: {
+        Row: {
+          id: string
+          student_id: string
+          season: string
+          guardian_name: string
+          given_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          season?: string
+          guardian_name: string
+          given_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          season?: string
+          guardian_name?: string
+          given_at?: string
+        }
+        Relationships: []
+      }
+      isc_entry_revisions: {
+        Row: {
+          id: string
+          entry_id: string
+          edited_by: string | null
+          changed: Json
+          edited_at: string
+        }
+        Insert: {
+          id?: string
+          entry_id: string
+          edited_by?: string | null
+          changed: Json
+          edited_at?: string
+        }
+        Update: {
+          id?: string
+          entry_id?: string
+          edited_by?: string | null
+          changed?: Json
+          edited_at?: string
+        }
+        Relationships: []
+      }
+      isc_entries: {
+        Row: {
+          id: string
+          track: string
+          school_id: string
+          created_by: string
+          status: string
+          submission: Json
+          consent_given_at: string | null
+          submitted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          track: string
+          school_id: string
+          created_by: string
+          status?: string
+          submission?: Json
+          consent_given_at?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          track?: string
+          school_id?: string
+          created_by?: string
+          status?: string
+          submission?: Json
+          consent_given_at?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      isc_entry_members: {
+        Row: {
+          id: string
+          entry_id: string
+          track: string
+          user_id: string | null
+          invited_email: string | null
+          invite_token: string | null
+          is_leader: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entry_id: string
+          track: string
+          user_id?: string | null
+          invited_email?: string | null
+          invite_token?: string | null
+          is_leader?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entry_id?: string
+          track?: string
+          user_id?: string | null
+          invited_email?: string | null
+          invite_token?: string | null
+          is_leader?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      isc_config: {
+        Row: { track: string; screening_deadline: string }
+        Insert: { track: string; screening_deadline: string }
+        Update: { track?: string; screening_deadline?: string }
+        Relationships: []
+      }
+      schools: {
+        Row: {
+          id: string
+          affiliation_no: string | null
+          name: string
+          state: string
+          district: string
+          address: string | null
+          pincode: string | null
+          level: string | null
+          source: string
+          review_status: string
+          review_notes: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_by: string | null
+          created_at: string
+          coordinator_id: string | null
+          coordinator_status: string
+          coordinator_notes: string | null
+          board: string | null
+          student_count_range: string | null
+        }
+        Insert: {
+          id?: string
+          affiliation_no?: string | null
+          name: string
+          state: string
+          district: string
+          address?: string | null
+          pincode?: string | null
+          level?: string | null
+          source?: string
+          review_status?: string
+          review_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          coordinator_id?: string | null
+          coordinator_status?: string
+          coordinator_notes?: string | null
+          board?: string | null
+          student_count_range?: string | null
+        }
+        Update: {
+          id?: string
+          affiliation_no?: string | null
+          name?: string
+          state?: string
+          district?: string
+          address?: string | null
+          pincode?: string | null
+          level?: string | null
+          source?: string
+          review_status?: string
+          review_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          coordinator_id?: string | null
+          coordinator_status?: string
+          coordinator_notes?: string | null
+          board?: string | null
+          student_count_range?: string | null
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
+          family_id: string | null
+          family_status: string
           avatar_url: string | null
           city: string | null
           created_at: string
@@ -1152,10 +1475,15 @@ export type Database = {
           role: string
           school_branch: string | null
           school_class: string | null
+          school_district: string | null
+          school_id: string | null
           school_name: string | null
+          school_state: string | null
           updated_at: string
         }
         Insert: {
+          family_id?: string | null
+          family_status?: string
           avatar_url?: string | null
           city?: string | null
           created_at?: string
@@ -1168,10 +1496,15 @@ export type Database = {
           role: string
           school_branch?: string | null
           school_class?: string | null
+          school_district?: string | null
+          school_id?: string | null
           school_name?: string | null
+          school_state?: string | null
           updated_at?: string
         }
         Update: {
+          family_id?: string | null
+          family_status?: string
           avatar_url?: string | null
           city?: string | null
           created_at?: string
@@ -1184,7 +1517,10 @@ export type Database = {
           role?: string
           school_branch?: string | null
           school_class?: string | null
+          school_district?: string | null
+          school_id?: string | null
           school_name?: string | null
+          school_state?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1204,21 +1540,110 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_parent_of: { Args: { p_student_id: string }; Returns: boolean }
-      link_student_with_password: {
-        Args: { p_email: string; p_password: string }
-        Returns: string
-      }
-      get_my_children: {
-        Args: never
+      get_family_students: {
+        Args: Record<string, never>
         Returns: {
           student_id: string
           full_name: string | null
           email: string
-          relationship: string
           date_of_birth: string | null
+          is_self: boolean
         }[]
       }
-      unlink_student: { Args: { p_student_id: string }; Returns: string }
+      get_pending_family_members: {
+        Args: Record<string, never>
+        Returns: { student_id: string; full_name: string | null; email: string; date_of_birth: string | null }[]
+      }
+      decide_family_member: { Args: { p_student_id: string; p_approve: boolean }; Returns: string }
+      get_school_states: { Args: Record<string, never>; Returns: { state: string }[] }
+      get_school_districts: { Args: { p_state: string }; Returns: { district: string }[] }
+      find_similar_schools: {
+        Args: { p_school_id: string }
+        Returns: {
+          id: string
+          name: string
+          address: string | null
+          review_status: string
+          score: number
+        }[]
+      }
+      admin_review_school: {
+        Args: {
+          p_school_id: string
+          p_decision: string
+          p_notes?: string | null
+          p_merge_into?: string | null
+        }
+        Returns: string
+      }
+      get_my_school_review_status: {
+        Args: Record<string, never>
+        Returns: { school_name: string; review_status: string; review_notes: string | null }[]
+      }
+      add_pending_school: {
+        Args: { p_name: string; p_state: string; p_district: string }
+        Returns: string
+      }
+      isc_claim_invites: { Args: Record<string, never>; Returns: Json }
+      isc_add_member: { Args: { p_entry_id: string; p_email: string }; Returns: Json }
+      isc_remove_member: { Args: { p_entry_id: string; p_member_id: string }; Returns: Json }
+      isc_start_entry: { Args: { p_track: string }; Returns: Json }
+      isc_save_entry: { Args: { p_entry_id: string; p_submission: Json }; Returns: Json }
+      isc_submit_entry: { Args: { p_entry_id: string }; Returns: Json }
+      isc_has_consent: { Args: Record<string, never>; Returns: boolean }
+      isc_give_consent: { Args: { p_guardian_name: string }; Returns: Json }
+      isc_get_my_entries: { Args: Record<string, never>; Returns: Json }
+      isc_get_my_invites: { Args: Record<string, never>; Returns: Json }
+      isc_leave_entry: { Args: { p_entry_id: string }; Returns: Json }
+      isc_respond_to_invite: {
+        Args: { p_member_id: string; p_accept: boolean }
+        Returns: Json
+      }
+      isc_get_entry: { Args: { p_entry_id: string }; Returns: Json }
+      isc_get_entry_revisions: { Args: { p_entry_id: string }; Returns: Json }
+      apply_as_coordinator: {
+        Args: { p_school_id: string; p_board: string; p_student_count_range: string }
+        Returns: string
+      }
+      admin_review_coordinator_claim: {
+        Args: { p_school_id: string; p_decision: string; p_notes?: string | null }
+        Returns: string
+      }
+      get_my_coordinator_school: {
+        Args: Record<string, never>
+        Returns: {
+          school_id: string
+          school_name: string
+          coordinator_status: string
+          review_notes: string | null
+        }[]
+      }
+      get_school_roster: {
+        Args: Record<string, never>
+        Returns: {
+          student_id: string
+          full_name: string | null
+          school_class: string | null
+          isc_status: Json
+        }[]
+      }
+      get_my_family: {
+        Args: Record<string, never>
+        Returns: {
+          family_id: string
+          parent_full_name: string
+          parent_email: string
+          parent_phone: string | null
+          my_status: string
+          member_count: number
+        }[]
+      }
+      update_family_parent_details: {
+        Args: { p_full_name: string; p_phone: string }
+        Returns: string
+      }
+      my_family_id: { Args: Record<string, never>; Returns: string | null }
+      same_family: { Args: { p_student_id: string }; Returns: boolean }
       admin_approve_cert: {
         Args: {
           p_cert_id: string
@@ -1313,6 +1738,34 @@ export type Database = {
       admin_review_offering: {
         Args: { p_offering_id: string; p_decision: string; p_notes?: string | null }
         Returns: string
+      }
+      get_switch_targets: {
+        Args: Record<string, never>
+        Returns: { user_id: string; full_name: string | null; email: string; role: string }[]
+      }
+      accounts_are_linked: { Args: { p_a: string; p_b: string }; Returns: boolean }
+      get_student_rank: {
+        Args: { p_student_id: string }
+        Returns: {
+          total_points: number
+          student_rank: number
+          cohort_size: number
+          percentile: number
+          band_label: string
+        }[]
+      }
+      bulk_discount_percent: { Args: { p_count: number }; Returns: number }
+      add_to_cart: { Args: { p_student_id: string; p_offering_id: string }; Returns: string }
+      remove_from_cart: { Args: { p_cart_item_id: string }; Returns: string }
+      clear_cart: { Args: Record<string, never>; Returns: string }
+      checkout_cart: {
+        Args: { p_use_wallet?: boolean }
+        Returns: { status: string; order_id: string | null }[]
+      }
+      settle_order_payment: { Args: { p_order_id: string; p_success: boolean }; Returns: string }
+      cancel_booking_refund: {
+        Args: { p_booking_id: string }
+        Returns: { status: string; refunded_paise: number }[]
       }
       create_package_upgrade: {
         Args: { p_package_id: string; p_new_tier_id: string }

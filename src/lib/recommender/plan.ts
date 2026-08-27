@@ -4,8 +4,36 @@ import type { ParameterGap, CandidateOffering, RankedCandidate, RankedParameter 
 export interface PlanOptions {
   age: number | null
   bookedOfferingIds?: Set<string>
-  /** How many activities to plan for the year (e.g. package slot count). */
+  /** How many activities to plan for the year. */
   size: number
+  /**
+   * Optional variety seed. The greedy pass always takes the highest-scoring
+   * candidate, so this only changes which of several EQUALLY good options wins
+   * — letting "Rebuild" produce a fresh plan without ever picking a worse
+   * activity. Omit for fully deterministic output (used by the tests).
+   */
+  seed?: number
+}
+
+/** Small deterministic PRNG (mulberry32) so a given seed always shuffles alike. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffled<T>(items: T[], seed: number): T[] {
+  const rand = mulberry32(seed)
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
 }
 
 /**
@@ -27,7 +55,7 @@ export function buildBalancedPlan(
   offerings: CandidateOffering[],
   options: PlanOptions
 ): RankedCandidate[] {
-  const { age, bookedOfferingIds, size } = options
+  const { age, bookedOfferingIds, size, seed } = options
   if (size <= 0) return []
 
   // Mutable residual weight per below-target gap, seeded from its deficit.
@@ -37,10 +65,13 @@ export function buildBalancedPlan(
   }
   if (residual.size === 0) return []
 
-  // Deterministic candidate order: cheaper first, then title.
-  const available = offerings
-    .filter((o) => !bookedOfferingIds?.has(o.id) && ageEligible(o, age))
-    .sort((a, b) => a.pricePaise - b.pricePaise || a.title.localeCompare(b.title))
+  // Candidate order only decides ties. Default is deterministic (cheaper first);
+  // with a seed it's shuffled so a rebuild surfaces different equally-good picks.
+  const eligible = offerings.filter((o) => !bookedOfferingIds?.has(o.id) && ageEligible(o, age))
+  const available =
+    seed === undefined
+      ? [...eligible].sort((a, b) => a.pricePaise - b.pricePaise || a.title.localeCompare(b.title))
+      : shuffled(eligible, seed)
 
   const chosen: RankedCandidate[] = []
   const usedIds = new Set<string>()

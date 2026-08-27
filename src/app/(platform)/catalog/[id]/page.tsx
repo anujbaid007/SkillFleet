@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Store } from 'lucide-react'
-import { BookOfferingForm } from '@/components/catalog/book-offering-form'
+import { AddToCartForm } from '@/components/cart/add-to-cart-form'
 import { NotifyMeButton } from '@/components/requests/notify-me-button'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, OFFERING_STATUS_META, MODE_LABEL } from '@/lib/offering-meta'
@@ -95,25 +95,14 @@ export default async function OfferingDetailPage({
     .gt('points', 0)) as unknown as { data: RawContribution[] | null }
 
   let childrenList: RawChild[] = []
-  let packageOptions: { id: string; student_id: string; slots_remaining: number }[] = []
-  if (profile?.role === 'parent') {
-    const [{ data: kids }, { data: pkgs }] = await Promise.all([
-      supabase.rpc('get_my_children'),
-      supabase
-        .from('packages')
-        .select('id, student_id, slot_count, slots_used, valid_until')
-        .eq('status', 'active')
-        .eq('payment_status', 'paid'),
+  let inCartFor: string[] = []
+  if (profile?.role === 'student') {
+    const [{ data: kids }, { data: cart }] = await Promise.all([
+      supabase.rpc('get_family_students'),
+      supabase.from('cart_items').select('student_id').eq('offering_id', id),
     ])
     childrenList = (kids ?? []) as RawChild[]
-    const now = Date.now()
-    packageOptions = (pkgs ?? [])
-      .filter(
-        (p) =>
-          p.slots_used < p.slot_count &&
-          (p.valid_until == null || new Date(p.valid_until).getTime() > now)
-      )
-      .map((p) => ({ id: p.id, student_id: p.student_id, slots_remaining: p.slot_count - p.slots_used }))
+    inCartFor = (cart ?? []).map((c) => c.student_id)
   }
 
   const meta = OFFERING_TYPE_META[offering.type]
@@ -276,26 +265,26 @@ export default async function OfferingDetailPage({
         <div className="clay-card p-5 text-sm text-muted">
           This offering has ended and is no longer open for booking.
         </div>
-      ) : profile?.role === 'parent' ? (
+      ) : profile?.role === 'student' ? (
         childrenList.length > 0 ? (
-          <BookOfferingForm
+          <AddToCartForm
             offeringId={offering.id}
             offeringMinAge={offering.min_age}
             offeringMaxAge={offering.max_age}
             childrenList={childrenList}
-            packages={packageOptions}
+            inCartFor={inCartFor}
           />
         ) : (
           <div className="clay-card p-5 text-sm text-muted">
-            Link a child&apos;s account before booking.{' '}
-            <Link href="/children" className="text-primary hover:underline font-medium">
-              Link a child →
+            Finish setting up your profile before booking.{' '}
+            <Link href="/family" className="text-primary hover:underline font-medium">
+              My Family →
             </Link>
           </div>
         )
       ) : (
         <div className="clay-card p-5 text-sm text-muted">
-          Ask a parent or guardian to book this offering for you.
+          Sign in with your student account to book this offering.
         </div>
       )}
     </div>

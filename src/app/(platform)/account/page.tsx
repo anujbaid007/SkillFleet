@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { AccountForm } from '@/components/account/account-form'
+import { ParentDetailsForm } from '@/components/account/parent-details-form'
+import { getSchoolStates } from '@/app/actions/schools'
+import { SchoolRejectedNotice } from '@/components/platform/school-rejected-notice'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 
@@ -12,13 +15,33 @@ export default async function AccountPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('full_name, role, date_of_birth, phone, school_class, school_branch, school_name, city, parent_mobile')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { data: familyRows }, states, { data: schoolReview }] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select(
+        'full_name, role, date_of_birth, phone, school_class, school_branch, school_name, school_id, school_state, school_district, city, parent_mobile'
+      )
+      .eq('id', user.id)
+      .single(),
+    supabase.rpc('get_my_family'),
+    getSchoolStates(),
+    supabase.rpc('get_my_school_review_status'),
+  ])
+
+  // The school they typed in was rejected. This is the page where they fix it.
+  const rejectedSchool =
+    (
+      (schoolReview ?? []) as {
+        school_name: string
+        review_status: string
+        review_notes: string | null
+      }[]
+    ).find((s) => s.review_status === 'rejected') ?? null
 
   if (!profile) redirect('/login')
+
+  // One account per student, so the parent's details live here too.
+  const family = (familyRows ?? [])[0] ?? null
 
   return (
     <div className="space-y-6">
@@ -46,10 +69,20 @@ export default async function AccountPage() {
         </div>
       </Reveal>
 
+      {rejectedSchool && (
+        <Reveal delay={0.045}>
+          <SchoolRejectedNotice
+            schoolName={rejectedSchool.school_name}
+            reason={rejectedSchool.review_notes}
+          />
+        </Reveal>
+      )}
+
       <Reveal delay={0.06}>
       <AccountForm
         role={profile.role}
         email={user.email ?? ''}
+        states={states}
         initial={{
           full_name: profile.full_name ?? '',
           date_of_birth: profile.date_of_birth ?? '',
@@ -57,11 +90,25 @@ export default async function AccountPage() {
           school_class: profile.school_class ?? '',
           school_branch: profile.school_branch ?? '',
           school_name: profile.school_name ?? '',
+          school_id: profile.school_id ?? '',
+          school_state: profile.school_state ?? '',
+          school_district: profile.school_district ?? '',
           city: profile.city ?? '',
           parent_mobile: profile.parent_mobile ?? '',
         }}
       />
       </Reveal>
+
+      {family && (
+        <Reveal delay={0.09}>
+          <ParentDetailsForm
+            parentName={family.parent_full_name}
+            parentEmail={family.parent_email}
+            parentPhone={family.parent_phone ?? ''}
+            memberCount={family.member_count}
+          />
+        </Reveal>
+      )}
     </div>
   )
 }

@@ -2,41 +2,41 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, Baby, LogOut, UserRound, Award, Layers, Sparkles, Megaphone } from 'lucide-react'
+import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, LogOut, UserRound, Award, Megaphone, ShoppingCart, Wallet, CalendarDays, Trophy } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
+import { AccountSwitcher } from '@/components/platform/account-switcher'
+import type { SwitchTarget } from '@/app/actions/switch'
 import type { UserProfile } from '@/lib/types/database'
 
+// One account per student, so one nav. Everything a parent used to do —
+// cart, wallet, the family view — now lives on the student's own account.
 const studentNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Growth Profile', icon: Activity },
-  { href: '/recommendations', label: 'Recommendations', icon: Sparkles },
+  { href: '/isc', label: 'ISC 2026', icon: Trophy },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/catalog', label: 'Explore', icon: BookOpen },
   { href: '/requests', label: 'Requests', icon: Megaphone },
-  { href: '/packages', label: 'My Packages', icon: Layers },
+  { href: '/cart', label: 'Cart', icon: ShoppingCart },
+  { href: '/wallet', label: 'Wallet', icon: Wallet },
   { href: '/bookings', label: 'My Bookings', icon: ShoppingBag },
   { href: '/certificates', label: 'Certificates', icon: Award },
-]
-
-const parentNav = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/children', label: 'My Children', icon: Baby },
-  { href: '/recommendations', label: 'Recommendations', icon: Sparkles },
-  { href: '/catalog', label: 'Explore', icon: BookOpen },
-  { href: '/requests', label: 'Requests', icon: Megaphone },
-  { href: '/packages', label: 'Packages', icon: Layers },
-  { href: '/bookings', label: 'My Bookings', icon: ShoppingBag },
+  { href: '/family', label: 'My Family', icon: Users },
 ]
 
 const adminNav = [{ href: '/admin', label: 'Admin', icon: Users }]
 
 interface PlatformNavProps {
   profile: UserProfile
+  /** Live cart count, shown as a badge next to Cart. */
+  cartCount?: number
+  /** Linked family accounts this user can switch into. */
+  switchTargets?: SwitchTarget[]
 }
 
-export function PlatformNav({ profile }: PlatformNavProps) {
+export function PlatformNav({ profile, cartCount = 0, switchTargets = [] }: PlatformNavProps) {
   const pathname = usePathname()
-  const navItems =
-    profile.role === 'parent' ? parentNav : profile.role === 'admin' ? adminNav : studentNav
+  const navItems = profile.role === 'admin' ? adminNav : studentNav
 
   return (
     <nav className="flex flex-col h-full">
@@ -56,12 +56,18 @@ export function PlatformNav({ profile }: PlatformNavProps) {
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               {label}
+              {href === '/cart' && cartCount > 0 && (
+                <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
             </Link>
           )
         })}
       </div>
 
       <div className="px-3 pb-4 border-t border-black/[0.06] pt-3 space-y-1">
+        <AccountSwitcher targets={switchTargets} />
         <Link
           href="/account"
           className={[

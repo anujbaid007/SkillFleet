@@ -1,9 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { validateMobile } from '@/lib/validation/mobile'
 import { validateClassBranch, branchToStore } from '@/lib/profile/details'
+import { parseSchoolSelection, validateSchoolSelection } from '@/lib/schools/validate'
+import { resolveSchoolId } from '@/app/actions/schools'
 
 export type AccountFormState = { error?: string; success?: string } | undefined
 
@@ -38,6 +41,9 @@ export async function updateAccountAction(
     school_class?: string
     school_branch?: string | null
     school_name?: string
+    school_id?: string
+    school_state?: string
+    school_district?: string
     city?: string
     parent_mobile?: string
   } = {
@@ -49,22 +55,30 @@ export async function updateAccountAction(
   // Students additionally edit (and must keep) the required fields.
   if (profile.role === 'student') {
     const schoolClass = (formData.get('school_class') as string)?.trim()
-    const schoolName = (formData.get('school_name') as string)?.trim()
     const city = (formData.get('city') as string)?.trim()
     const schoolBranch = (formData.get('school_branch') as string)?.trim() || null
     const parentMobileRaw = (formData.get('parent_mobile') as string) ?? ''
+    const selection = parseSchoolSelection(formData)
 
-    if (!schoolClass || !schoolName || !city) {
-      return { error: 'Class, school, and city are required.' }
+    if (!schoolClass || !city) {
+      return { error: 'Class and city are required.' }
     }
     const classBranchError = validateClassBranch(schoolClass, schoolBranch)
     if (classBranchError) return { error: classBranchError }
     const mobileError = validateMobile(parentMobileRaw)
     if (mobileError) return { error: mobileError }
+    const schoolError = validateSchoolSelection(selection)
+    if (schoolError) return { error: schoolError }
+
+    const resolved = await resolveSchoolId(selection)
+    if ('error' in resolved) return { error: resolved.error }
 
     update.school_class = schoolClass
     update.school_branch = branchToStore(schoolClass, schoolBranch)
-    update.school_name = schoolName
+    update.school_id = resolved.schoolId
+    update.school_name = resolved.name
+    update.school_state = selection.state
+    update.school_district = selection.district
     update.city = city
     update.parent_mobile = parentMobileRaw.replace(/\s+/g, '')
   }
@@ -72,6 +86,52 @@ export async function updateAccountAction(
   const { error } = await supabase.from('user_profiles').update(update).eq('id', user.id)
   if (error) return { error: 'Could not save changes. Please try again.' }
 
+  // A student who corrects their school should pick up any ISC invite that
+  // now matches it.
+  await supabase.rpc('isc_claim_invites')
+
   revalidatePath('/account')
+  // The dashboard carries the "we couldn't verify your school" notice, so it
+  // has to refresh too — otherwise fixing the school here leaves a stale
+  // warning sitting on the dashboard.
+  revalidatePath('/dashboard')
+  return { success: 'Saved.' }
+}
+
+/**
+ * Update the parent details shared by everyone in the family. The parent email
+ * is deliberately not editable — it is the key siblings join on, so changing it
+ * would silently split or merge families.
+ */
+export async function updateParentDetailsAction(
+  _prevState: AccountFormState,
+  formData: FormData
+): Promise<AccountFormState> {
+  const fullName = (formData.get('parent_full_name') as string)?.trim()
+  const phone = ((formData.get('parent_phone') as string) ?? '').trim()
+
+  if (!fullName) return { error: "Parent's name is required." }
+  if (phone) {
+    const mobileError = validateMobile(phone)
+    if (mobileError) return { error: mobileError }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data, error } = await supabase.rpc('update_family_parent_details', {
+    p_full_name: fullName,
+    p_phone: phone,
+  })
+
+  if (error) return { error: 'Could not save changes. Please try again.' }
+  if (data === 'no_family') return { error: 'Your account is not part of a family yet.' }
+  if (data !== 'ok') return { error: "Parent's name is required." }
+
+  revalidatePath('/account')
+  revalidatePath('/family')
   return { success: 'Saved.' }
 }

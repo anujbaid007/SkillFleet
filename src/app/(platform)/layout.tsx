@@ -4,7 +4,9 @@ import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { PlatformNav } from '@/components/platform/platform-nav'
 import { MobileNavDrawer } from '@/components/mobile-nav-drawer'
+import { ChatWidget } from '@/components/chat/chat-widget'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
+import type { SwitchTarget } from '@/app/actions/switch'
 
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
@@ -22,13 +24,25 @@ export default async function PlatformLayout({ children }: { children: ReactNode
 
   if (!profile) redirect('/login')
 
-  // Admin and vendor have their own consoles
+  // Admin, vendor and coordinator each have their own console
   if (profile.role === 'admin') redirect('/admin')
   if (profile.role === 'vendor') redirect('/vendor')
+  if (profile.role === 'coordinator') redirect('/coordinator')
 
   // Students must give their required details before using the platform.
   if (profile.role === 'student' && !isStudentDetailsComplete(profile)) {
     redirect('/onboarding/details')
+  }
+
+  // Siblings on this family account, so the sidebar can offer one-tap switching.
+  const { data: switchTargetRows } = await supabase.rpc('get_switch_targets')
+  const switchTargets = (switchTargetRows ?? []) as SwitchTarget[]
+
+  // Cart badge. RLS already scopes the cart to this family.
+  let cartCount = 0
+  if (profile.role === 'student') {
+    const { count } = await supabase.from('cart_items').select('id', { count: 'exact', head: true })
+    cartCount = count ?? 0
   }
 
   return (
@@ -45,19 +59,27 @@ export default async function PlatformLayout({ children }: { children: ReactNode
           <Image src="/logo.svg" alt="SkillFleet" width={120} height={32} className="h-8 w-auto" priority />
         </div>
         <div className="flex-1 overflow-y-auto">
-          <PlatformNav profile={profile} />
+          <PlatformNav profile={profile} cartCount={cartCount} switchTargets={switchTargets} />
         </div>
       </aside>
 
       {/* Mobile top bar + drawer */}
       <MobileNavDrawer>
-        <PlatformNav profile={profile} />
+        <PlatformNav profile={profile} cartCount={cartCount} switchTargets={switchTargets} />
       </MobileNavDrawer>
 
       {/* Main content — centered in a consistent content frame */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mx-auto w-full max-w-5xl">{children}</div>
       </main>
+
+      {/* Floating assistant — available on every page */}
+      {profile.role === 'student' && (
+        <ChatWidget
+          firstName={profile.full_name?.split(' ')[0] ?? 'you'}
+          siblingNames={switchTargets.map((t) => t.full_name?.split(' ')[0] ?? 'them')}
+        />
+      )}
     </div>
   )
 }

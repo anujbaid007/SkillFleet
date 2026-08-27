@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Video } from 'lucide-react'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, MODE_LABEL } from '@/lib/offering-meta'
+import { CancelBooking } from '@/components/bookings/cancel-booking'
 
 interface RawBookingDetail {
   id: string
@@ -13,6 +14,7 @@ interface RawBookingDetail {
   status: string
   payment_status: string
   price_paise: number
+  paid_paise: number | null
   created_at: string
   offerings: {
     title: string
@@ -76,10 +78,10 @@ export default async function BookingDetailPage({
 
   const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
 
-  // RLS limits this to the student's own booking or the parent who booked it.
+  // RLS limits this to bookings made by, or for, this family.
   const { data: booking } = (await supabase
     .from('bookings')
-    .select('id, student_id, offering_id, booked_by, status, payment_status, price_paise, created_at, offerings(title, description, type, mode, scheduled_at, duration_minutes, location, min_age, max_age, topics(name, categories(name)))')
+    .select('id, student_id, offering_id, booked_by, status, payment_status, price_paise, paid_paise, created_at, offerings(title, description, type, mode, scheduled_at, duration_minutes, location, min_age, max_age, topics(name, categories(name)))')
     .eq('id', id)
     .single()) as unknown as { data: RawBookingDetail | null }
 
@@ -95,18 +97,34 @@ export default async function BookingDetailPage({
     .eq('offering_id', booking.offering_id)
     .gt('points', 0)) as unknown as { data: RawContribution[] | null }
 
-  // Resolve the child's name (for a parent viewing their booking).
+  // Resolve whose activity this is when it belongs to a sibling.
+  // Whose activity is this? (self or a sibling)
   let childName: string | null = null
-  if (profile?.role === 'parent') {
-    const { data: kids } = await supabase.rpc('get_my_children')
-    childName = (kids as RawChild[] | null)?.find((k) => k.student_id === booking.student_id)?.full_name ?? null
+  if (profile?.role === 'student' && booking.student_id !== user.id) {
+    const { data: family } = await supabase.rpc('get_family_students')
+    childName = (family as RawChild[] | null)?.find((k) => k.student_id === booking.student_id)?.full_name ?? null
   }
 
   const canPay =
-    profile?.role === 'parent' &&
-    booking.booked_by === user.id &&
+    profile?.role === 'student' &&
     booking.payment_status !== 'paid' &&
     booking.status !== 'cancelled'
+
+  // Cancellation is only allowed while the activity is >= 15 days away
+  // (or has no fixed date). The RPC re-checks this server-side.
+  const scheduled = o.scheduled_at ? new Date(o.scheduled_at).getTime() : null
+  const fifteenDaysOut = Date.now() + 15 * 24 * 60 * 60 * 1000
+  const canCancel =
+    profile?.role === 'student' &&
+    booking.status !== 'cancelled' &&
+    booking.status !== 'completed' &&
+    (scheduled === null || scheduled >= fifteenDaysOut)
+  const cancelTooLate =
+    profile?.role === 'student' &&
+    booking.status !== 'cancelled' &&
+    booking.status !== 'completed' &&
+    scheduled !== null &&
+    scheduled < fifteenDaysOut
 
   // Meeting link for online workshops — RLS only returns it for a confirmed/paid
   // booking, so fetching it here already enforces the access rule.
@@ -201,6 +219,22 @@ export default async function BookingDetailPage({
               {booking.payment_status === 'failed' ? 'Retry payment' : 'Complete payment'}
               <ArrowRight className="w-4 h-4" />
             </Link>
+          )}
+
+          {canCancel && (
+            <div className="pt-2 border-t border-black/[0.06]">
+              <CancelBooking
+                bookingId={booking.id}
+                refundPaise={
+                  booking.payment_status === 'paid' ? booking.paid_paise ?? booking.price_paise : 0
+                }
+              />
+            </div>
+          )}
+          {cancelTooLate && (
+            <p className="text-xs text-muted pt-2 border-t border-black/[0.06]">
+              This activity is less than 15 days away, so it can no longer be cancelled.
+            </p>
           )}
         </div>
       </Reveal>

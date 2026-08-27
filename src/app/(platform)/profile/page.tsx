@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Sprout, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { scoreLevelFor, internalToDisplay } from '@/lib/scoring'
 import type { ScoreLevel } from '@/lib/scoring/types'
@@ -7,7 +8,7 @@ import { ParameterCard } from '@/components/dashboard/parameter-card'
 import { ProgressRing } from '@/components/dashboard/progress-ring'
 import { Reveal } from '@/components/ui/reveal'
 import { GradientCard } from '@/components/ui/gradient-card'
-import { RecommendationTeaser } from '@/components/recommendations/recommendation-teaser'
+import { RankCard, type RankInfo } from '@/components/dashboard/rank-card'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -23,42 +24,10 @@ export default async function ProfilePage() {
     .single()
 
   if (!profile) redirect('/login')
-  // Profile is student-only; parents and admins have their own views.
+  // Admins and vendors have their own consoles.
   if (profile.role !== 'student') redirect('/dashboard')
 
   const firstName = profile.full_name?.split(' ')[0] ?? 'there'
-
-  // The assessment is optional — an un-onboarded student sees an empty profile
-  // with a prompt to complete it, rather than being force-redirected.
-  if (!profile.onboarding_completed) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">
-            {firstName}&apos;s Growth Profile
-          </h1>
-          <p className="text-muted mt-1 text-sm">
-            Your scores appear here once you complete the starter assessment.
-          </p>
-        </div>
-        <div className="clay-card p-8 text-center space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl mx-auto">
-            🌱
-          </div>
-          <p className="font-medium text-foreground">Your growth profile is empty</p>
-          <p className="text-muted text-sm max-w-md mx-auto">
-            Take the quick starter assessment to set your baseline scores across all skills.
-          </p>
-          <Link
-            href="/onboarding"
-            className="inline-block clay-button bg-cta text-white px-6 py-2.5 text-sm font-semibold"
-          >
-            Start the assessment →
-          </Link>
-        </div>
-      </div>
-    )
-  }
 
   const [{ data: rawScores }, { data: rawParameters }, { data: rawLevels }] =
     await Promise.all([
@@ -77,8 +46,14 @@ export default async function ProfilePage() {
         .order('display_order'),
     ])
 
+  const { data: rankRows } = await supabase.rpc('get_student_rank', { p_student_id: user.id })
+  const rank = ((rankRows ?? []) as RankInfo[])[0] ?? null
+
   const levels = (rawLevels ?? []) as ScoreLevel[]
 
+  // Every active parameter gets a card, whether or not it has been scored yet —
+  // the assessment is optional, and completing an activity awards points on top
+  // of a zero baseline, so the breakdown must exist for it to land in.
   const parameterScores = (rawParameters ?? []).map((gp) => {
     const row = (rawScores ?? []).find((s) => s.parameter_id === gp.id)
     const total = (row?.baseline_score ?? 0) + (row?.accrued_score ?? 0)
@@ -99,6 +74,7 @@ export default async function ProfilePage() {
       : 0
   const avgDisplay = internalToDisplay(avgTotal)
   const avgLevel = scoreLevelFor(avgDisplay, levels)
+  const hasPoints = parameterScores.some((p) => p.total > 0)
 
   return (
     <div className="space-y-6">
@@ -129,9 +105,38 @@ export default async function ProfilePage() {
         </GradientCard>
       </Reveal>
 
-      <Reveal>
-        <RecommendationTeaser name={firstName} />
-      </Reveal>
+      {/* The assessment is optional, so this is a prompt rather than a gate. */}
+      {!profile.onboarding_completed && (
+        <Reveal delay={0.04}>
+          <div className="clay-card p-5 flex items-center gap-4 flex-wrap">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-accent-yellow to-accent-pink flex items-center justify-center text-white shrink-0">
+              <Sprout className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-display font-bold text-foreground text-sm">
+                {hasPoints ? 'Set your baseline scores' : 'Your scores start at zero'}
+              </p>
+              <p className="text-xs text-muted mt-0.5">
+                {hasPoints
+                  ? 'These points came from activities you finished. The starter assessment fills in where you already stand across every skill.'
+                  : 'Take the starter assessment to set a baseline, or just book an activity — finishing one adds points here either way.'}
+              </p>
+            </div>
+            <Link
+              href="/onboarding"
+              className="clay-button bg-cta text-white px-5 h-10 text-sm font-semibold inline-flex items-center gap-1.5 shrink-0"
+            >
+              Start the assessment <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </Reveal>
+      )}
+
+      {rank && (
+        <Reveal delay={0.05}>
+          <RankCard rank={rank} />
+        </Reveal>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {parameterScores.map((p, i) => (

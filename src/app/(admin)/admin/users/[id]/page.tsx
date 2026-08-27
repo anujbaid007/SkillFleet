@@ -121,7 +121,6 @@ export default async function UserDetailPage({
       </div>
 
       {profile.role === 'student' && <StudentSections studentId={id} />}
-      {profile.role === 'parent' && <ParentSections parentId={id} />}
     </div>
   )
 }
@@ -134,7 +133,7 @@ async function StudentSections({ studentId }: { studentId: string }) {
     { data: rawParameters },
     { data: rawLevels },
     { data: rawContributions },
-    { data: parentLinks },
+    { data: familyRow },
   ] = await Promise.all([
     supabase
       .from('student_parameter_scores')
@@ -148,7 +147,7 @@ async function StudentSections({ studentId }: { studentId: string }) {
       .eq('student_id', studentId)
       .order('created_at', { ascending: false })
       .limit(15),
-    supabase.from('parent_student_links').select('parent_id').eq('student_id', studentId),
+    supabase.from('user_profiles').select('family_id').eq('id', studentId).single(),
   ])
 
   const levels = (rawLevels ?? []) as ScoreLevel[]
@@ -167,12 +166,25 @@ async function StudentSections({ studentId }: { studentId: string }) {
     }
   })
 
-  // Linked parents' names
-  const parentIds = (parentLinks ?? []).map((l) => l.parent_id)
-  const parents: { id: string; full_name: string | null }[] = []
-  if (parentIds.length) {
-    const { data } = await supabase.from('user_profiles').select('id, full_name').in('id', parentIds)
-    parents.push(...(data ?? []))
+  // The family this student belongs to: the parent on record, plus siblings.
+  const familyId = familyRow?.family_id ?? null
+  let parent: { parent_full_name: string | null; parent_email: string; parent_phone: string | null } | null = null
+  const siblings: { id: string; full_name: string | null; family_status: string }[] = []
+  if (familyId) {
+    const [{ data: fam }, { data: members }] = await Promise.all([
+      supabase
+        .from('families')
+        .select('parent_full_name, parent_email, parent_phone')
+        .eq('id', familyId)
+        .single(),
+      supabase
+        .from('user_profiles')
+        .select('id, full_name, family_status')
+        .eq('family_id', familyId)
+        .neq('id', studentId),
+    ])
+    parent = fam ?? null
+    siblings.push(...(members ?? []))
   }
 
   return (
@@ -199,19 +211,40 @@ async function StudentSections({ studentId }: { studentId: string }) {
         )}
       </div>
 
-      {/* Linked parents */}
+      {/* Family */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-foreground">Linked Guardians</h2>
-        {parents.length === 0 ? (
-          <div className="clay-card p-5 text-sm text-muted">No parent accounts linked.</div>
+        <h2 className="font-semibold text-foreground">Family</h2>
+        {!parent ? (
+          <div className="clay-card p-5 text-sm text-muted">Not part of a family.</div>
         ) : (
-          <div className="clay-card divide-y divide-black/[0.06]">
-            {parents.map((p) => (
-              <Link key={p.id} href={`/admin/users/${p.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-black/[0.02] transition-colors">
-                <span className="text-sm font-medium text-foreground">{p.full_name ?? 'Guardian'}</span>
-                <span className="text-xs text-primary">View →</span>
-              </Link>
-            ))}
+          <div className="clay-card p-5 space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <DetailRow label="Parent" value={parent.parent_full_name} />
+              <DetailRow label="Parent email" value={parent.parent_email} />
+              <DetailRow label="Parent phone" value={parent.parent_phone} />
+            </div>
+            {siblings.length > 0 && (
+              <div className="pt-3 border-t border-black/[0.06] space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Siblings</p>
+                {siblings.map((sib) => (
+                  <Link
+                    key={sib.id}
+                    href={`/admin/users/${sib.id}`}
+                    className="flex items-center justify-between py-1.5 hover:bg-black/[0.02] transition-colors rounded"
+                  >
+                    <span className="text-sm font-medium text-foreground">
+                      {sib.full_name ?? 'Student'}
+                      {sib.family_status === 'pending' && (
+                        <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent-yellow/15 text-accent-yellow">
+                          Awaiting approval
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-primary">View →</span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -244,45 +277,5 @@ async function StudentSections({ studentId }: { studentId: string }) {
         )}
       </div>
     </>
-  )
-}
-
-async function ParentSections({ parentId }: { parentId: string }) {
-  const supabase = await createClient()
-
-  const { data: childLinks } = await supabase
-    .from('parent_student_links')
-    .select('student_id')
-    .eq('parent_id', parentId)
-
-  const childIds = (childLinks ?? []).map((l) => l.student_id)
-  const children: { id: string; full_name: string | null; onboarding_completed: boolean }[] = []
-  if (childIds.length) {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('id, full_name, onboarding_completed')
-      .in('id', childIds)
-    children.push(...(data ?? []))
-  }
-
-  return (
-    <div className="space-y-3">
-      <h2 className="font-semibold text-foreground">Linked Children</h2>
-      {children.length === 0 ? (
-        <div className="clay-card p-5 text-sm text-muted">No children linked to this account.</div>
-      ) : (
-        <div className="clay-card divide-y divide-black/[0.06]">
-          {children.map((c) => (
-            <Link key={c.id} href={`/admin/users/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-black/[0.02] transition-colors">
-              <div>
-                <p className="text-sm font-medium text-foreground">{c.full_name ?? 'Student'}</p>
-                <p className="text-xs text-muted">{c.onboarding_completed ? 'Onboarded' : 'Onboarding pending'}</p>
-              </div>
-              <span className="text-xs text-primary">View →</span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
   )
 }

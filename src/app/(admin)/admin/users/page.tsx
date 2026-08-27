@@ -20,7 +20,7 @@ const ROLE_BADGE: Record<string, string> = {
   vendor: 'bg-accent-yellow/10 text-accent-yellow',
 }
 
-const ROLE_FILTERS = ['student', 'parent', 'admin', 'vendor']
+const ROLE_FILTERS = ['student', 'admin', 'vendor']
 
 function fmtDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })

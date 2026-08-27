@@ -5,11 +5,18 @@ import { motion } from 'motion/react'
 import { saveStudentDetailsAction } from '@/app/onboarding/details/actions'
 import type { DetailsFormState } from '@/app/onboarding/details/actions'
 import { ClassBranchFields } from '@/components/onboarding/class-branch-fields'
+import { SchoolLocationFields } from '@/components/onboarding/school-location-fields'
 
 const INPUT_CLASS =
   'w-full h-11 px-4 rounded-xl border-2 border-black/[0.06] bg-white text-foreground placeholder:text-muted/60 focus:outline-none focus:border-primary transition-colors'
 
-export function DetailsForm() {
+export function DetailsForm({
+  states,
+  previousFreeText,
+}: {
+  states: string[]
+  previousFreeText?: string
+}) {
   const [state, action, pending] = useActionState<DetailsFormState, FormData>(
     saveStudentDetailsAction,
     undefined
@@ -25,19 +32,11 @@ export function DetailsForm() {
     >
       <ClassBranchFields className={INPUT_CLASS} />
 
-      <div>
-        <label htmlFor="school_name" className="block text-sm font-medium text-foreground mb-1">
-          School name
-        </label>
-        <input
-          id="school_name"
-          name="school_name"
-          type="text"
-          required
-          className={INPUT_CLASS}
-          placeholder="e.g. Delhi Public School"
-        />
-      </div>
+      <SchoolLocationFields
+        className={INPUT_CLASS}
+        states={states}
+        previousFreeText={previousFreeText}
+      />
 
       <div>
         <label htmlFor="city" className="block text-sm font-medium text-foreground mb-1">
@@ -50,21 +49,6 @@ export function DetailsForm() {
           required
           className={INPUT_CLASS}
           placeholder="e.g. Pune"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="parent_mobile" className="block text-sm font-medium text-foreground mb-1">
-          Parent&apos;s mobile number
-        </label>
-        <input
-          id="parent_mobile"
-          name="parent_mobile"
-          type="tel"
-          inputMode="numeric"
-          required
-          className={INPUT_CLASS}
-          placeholder="10-digit mobile number"
         />
       </div>
 

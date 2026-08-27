@@ -53,7 +53,7 @@ export default async function BookingsPage({
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
-  const isParent = profile?.role === 'parent'
+  const isFamilyView = profile?.role === 'student'
 
   const { data: bookings } = (await supabase
     .from('bookings')
@@ -78,7 +78,7 @@ export default async function BookingsPage({
       )}
       {redeemed && (
         <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-          Package slot redeemed — your booking is confirmed! 🎉
+          Booked! Your activities are confirmed. 🎉
         </div>
       )}
       {failed && (
@@ -109,7 +109,7 @@ export default async function BookingsPage({
         <div className="space-y-3">
           {rows.map((b, i) => {
             const needsPayment =
-              isParent && b.booked_by === user.id && b.payment_status !== 'paid' && b.status !== 'cancelled'
+              isFamilyView && b.payment_status !== 'paid' && b.status !== 'cancelled'
             const meta = OFFERING_TYPE_META[b.offerings?.type ?? '']
             const Icon = meta?.icon
             return (

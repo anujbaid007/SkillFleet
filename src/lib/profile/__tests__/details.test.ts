@@ -11,12 +11,14 @@ import {
 const full = {
   school_class: 'Class 8',
   school_name: 'Delhi Public School',
+  school_state: 'Maharashtra',
+  school_district: 'Pune',
   city: 'Pune',
   parent_mobile: '9876543210',
 }
 
 describe('isStudentDetailsComplete', () => {
-  it('true when all four fields present', () =>
+  it('true when every required field is present', () =>
     expect(isStudentDetailsComplete(full)).toBe(true))
 
   it('false when school_class is null', () =>
@@ -28,14 +30,32 @@ describe('isStudentDetailsComplete', () => {
   it('false when city is null', () =>
     expect(isStudentDetailsComplete({ ...full, city: null })).toBe(false))
 
-  it('false when parent_mobile is null', () =>
-    expect(isStudentDetailsComplete({ ...full, parent_mobile: null })).toBe(false))
+  // parent_mobile is deliberately NOT required. Signup already captures the
+  // parent's phone onto the family record, and the only screen that can set
+  // this column lives behind the very gate this function controls — so
+  // requiring it locked every new student out of the platform entirely.
+  it('true when parent_mobile is null — the family record already holds it', () =>
+    expect(isStudentDetailsComplete({ ...full, parent_mobile: null })).toBe(true))
+
+  it('true when parent_mobile is absent altogether', () => {
+    const { parent_mobile: _omitted, ...withoutParentMobile } = full
+    expect(isStudentDetailsComplete(withoutParentMobile)).toBe(true)
+  })
 
   it('false when a field is whitespace-only', () =>
     expect(isStudentDetailsComplete({ ...full, city: '   ' })).toBe(false))
 
   it('false when a field is empty string', () =>
     expect(isStudentDetailsComplete({ ...full, school_name: '' })).toBe(false))
+
+  it('false when school_state is null — this is what re-gates existing students', () =>
+    expect(isStudentDetailsComplete({ ...full, school_state: null })).toBe(false))
+
+  it('false when school_district is null', () =>
+    expect(isStudentDetailsComplete({ ...full, school_district: null })).toBe(false))
+
+  it('false when school_state is whitespace-only', () =>
+    expect(isStudentDetailsComplete({ ...full, school_state: '   ' })).toBe(false))
 })
 
 describe('classRequiresBranch', () => {

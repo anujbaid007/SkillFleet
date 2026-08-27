@@ -9,12 +9,15 @@ const PROTECTED_PREFIXES = [
   '/catalog',
   '/booking',
   '/parent',
-  '/children',
+  '/family',
   '/admin',
   '/vendor',
   '/requests',
-  '/recommendations',
-  '/packages',
+  '/calendar',
+  '/switch',
+  '/cart',
+  '/wallet',
+  '/checkout',
   '/bookings',
   '/profile',
   '/account',
@@ -54,11 +57,8 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Authenticated users visiting auth pages → send to dashboard.
-  // Exception: the post-signup parent→student linking step lives under
-  // /signup but requires an authenticated parent, so let it through.
   const isAuthPage = AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  const isPostSignupStep = pathname.startsWith('/signup/parent/link-student')
-  if (user && isAuthPage && !isPostSignupStep) {
+  if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
