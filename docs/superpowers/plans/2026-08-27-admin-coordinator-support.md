@@ -31,7 +31,9 @@
 **Interfaces:**
 - Produces: tables `support_conversations`, `support_messages`, `support_config`; RPCs `support_coordinator_send_message(p_body TEXT) RETURNS TEXT`, `support_admin_send_message(p_coordinator_id UUID, p_body TEXT) RETURNS TEXT`, `support_mark_thread_read(p_conversation_id UUID) RETURNS TEXT` — consumed by Task 2's server actions.
 
-There is no failing-test-first cycle for a brand-new migration — there is nothing to fail against yet. Instead: write it, apply it, then verify with real queries against the live database in rolled-back transactions, the established pattern in this project (`DO $$ ... RAISE EXCEPTION '%', chr(10) || out_txt; END $$;` always rolls back; impersonation via `set_config('request.jwt.claims', json_build_object('sub', <uuid>, 'role','authenticated')::text, true)`, never `set_config('role', ...)`).
+There is no failing-test-first cycle for a brand-new migration — there is nothing to fail against yet. Instead: write it, apply it, then verify with real queries against the live database in rolled-back transactions, the established pattern in this project (`DO $$ ... RAISE EXCEPTION '%', chr(10) || out_txt; END $$;` always rolls back; impersonation via `set_config('request.jwt.claims', json_build_object('sub', <uuid>, 'role','authenticated')::text, true)`).
+
+**Critical, learned the hard way during execution:** the Management API connects as `postgres`, which has `rolbypassrls = true`. Setting `request.jwt.claims` alone controls what `auth.uid()` returns but does **not** cause any RLS policy to be enforced — so an RLS check written that way silently passes no matter what the policy says. Any check that asserts *visibility* (who can read or write which rows) must wrap its reads in `EXECUTE 'SET LOCAL ROLE authenticated'` / `EXECUTE 'RESET ROLE'`, which is the role a real PostgREST request actually runs as. Checks that assert an **RPC's return value** are unaffected, since `SECURITY DEFINER` bodies run their own logic either way. The two concerns are therefore verified in two separate scripts below.
 
 - [ ] **Step 1: Write the migration**
 
