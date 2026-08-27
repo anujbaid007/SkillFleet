@@ -1361,6 +1361,7 @@ export type Database = {
           invite_token: string | null
           is_leader: boolean
           created_at: string
+          accepted_at: string | null
         }
         Insert: {
           id?: string
@@ -1371,6 +1372,7 @@ export type Database = {
           invite_token?: string | null
           is_leader?: boolean
           created_at?: string
+          accepted_at?: string | null
         }
         Update: {
           id?: string
@@ -1381,6 +1383,7 @@ export type Database = {
           invite_token?: string | null
           is_leader?: boolean
           created_at?: string
+          accepted_at?: string | null
         }
         Relationships: []
       }
