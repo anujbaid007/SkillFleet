@@ -1,15 +1,20 @@
 'use client'
 
-import { useActionState, useState } from 'react'
-import { Check, Mail, Pencil, Phone, X } from 'lucide-react'
+import { useActionState } from 'react'
+import { Check } from 'lucide-react'
 import { updateSupportConfigAction, type SupportConfigState } from '@/app/actions/support-config'
 
 /**
  * The email and phone coordinators see on their Contact Admin page.
  *
- * Inline edit rather than its own settings screen, matching ParameterRow —
- * two fields do not warrant a page, and they read best right above the inbox
- * they belong to.
+ * Always editable, with no read/edit toggle: it is two fields, and a toggle
+ * bought nothing but a way to get the save wrong — closing the editor from the
+ * submit button's own onClick unmounted the form mid-submit and silently threw
+ * the save away.
+ *
+ * Keyed on the server's current values so a successful save re-syncs the
+ * inputs to what was actually stored, rather than leaving whatever was typed
+ * sitting there unverified.
  */
 export function SupportConfigForm({
   id,
@@ -20,93 +25,62 @@ export function SupportConfigForm({
   email: string | null
   phone: string | null
 }) {
-  const [editing, setEditing] = useState(false)
   const [state, action, pending] = useActionState<SupportConfigState, FormData>(
     updateSupportConfigAction,
     undefined
   )
 
-  if (!editing) {
-    return (
-      <div className="clay-card p-5 flex items-center justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide">
-            Shown to coordinators
-          </p>
-          {email || phone ? (
-            <p className="text-sm text-foreground mt-1.5 flex items-center gap-4 flex-wrap">
-              {email && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-muted" />
-                  {email}
-                </span>
-              )}
-              {phone && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-muted" />
-                  {phone}
-                </span>
-              )}
-            </p>
-          ) : (
-            <p className="text-sm text-muted mt-1.5">
-              No contact details set — coordinators see only the message thread.
-            </p>
-          )}
-          {state?.ok && <p className="text-xs text-green-700 mt-1.5">{state.ok}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="text-muted hover:text-primary transition-colors shrink-0"
-          aria-label="Edit admin contact details"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
-      </div>
-    )
-  }
-
   return (
-    <form action={action} className="clay-card p-5 space-y-3">
+    <form
+      key={`${email ?? ''}|${phone ?? ''}`}
+      action={action}
+      className="clay-card p-5 space-y-3"
+    >
       <input type="hidden" name="id" value={id} />
-      <p className="text-xs font-semibold text-muted uppercase tracking-wide">
-        Shown to coordinators
-      </p>
-      {state?.error && <p className="text-xs text-red-500">{state.error}</p>}
-      <div className="grid sm:grid-cols-2 gap-3">
-        <input
-          name="admin_contact_email"
-          type="email"
-          defaultValue={email ?? ''}
-          placeholder="support@skillfleet.in"
-          aria-label="Admin contact email"
-          className="px-3 py-2 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
-        />
-        <input
-          name="admin_contact_phone"
-          defaultValue={phone ?? ''}
-          placeholder="+91 90000 00000"
-          aria-label="Admin contact phone"
-          className="px-3 py-2 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
-        />
+      <div>
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide">
+          Shown to coordinators
+        </p>
+        <p className="text-xs text-muted mt-1">
+          Your email and phone appear on every coordinator&apos;s Contact Admin page.
+        </p>
       </div>
-      <div className="flex gap-2">
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="sr-only">Admin contact email</span>
+          <input
+            name="admin_contact_email"
+            type="email"
+            defaultValue={email ?? ''}
+            placeholder="support@skillfleet.in"
+            aria-label="Admin contact email"
+            className="w-full px-3 py-2 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block">
+          <span className="sr-only">Admin contact phone</span>
+          <input
+            name="admin_contact_phone"
+            defaultValue={phone ?? ''}
+            placeholder="+91 90000 00000"
+            aria-label="Admin contact phone"
+            className="w-full px-3 py-2 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           type="submit"
           disabled={pending}
-          onClick={() => setEditing(false)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium disabled:opacity-50"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold disabled:opacity-50"
         >
-          <Check className="w-3.5 h-3.5" /> Save
+          <Check className="w-3.5 h-3.5" />
+          {pending ? 'Saving…' : 'Save'}
         </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-black/10 text-xs text-muted hover:text-foreground"
-        >
-          <X className="w-3.5 h-3.5" /> Cancel
-        </button>
+        {state?.error && <p className="text-xs text-red-500">{state.error}</p>}
+        {state?.ok && <p className="text-xs text-green-700">{state.ok}</p>}
       </div>
     </form>
   )

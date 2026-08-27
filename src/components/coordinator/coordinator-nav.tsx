@@ -49,9 +49,18 @@ export function CoordinatorNav({ approved = true }: { approved?: boolean }) {
 
     void (async () => {
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
+        data: { session },
+      } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user || cancelled) return
+
+      // Realtime authenticates separately from ordinary queries — without this
+      // the subscription registers as `anon`, auth.uid() is NULL in the RLS
+      // check, and nothing is ever delivered. See SupportThread for the longer
+      // note; this component only worked before because awaiting the session
+      // happened to give the client time to load it.
+      await supabase.realtime.setAuth(session.access_token)
+      if (cancelled) return
 
       const { data: conv } = await supabase
         .from('support_conversations')

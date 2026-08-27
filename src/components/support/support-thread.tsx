@@ -85,45 +85,69 @@ export function SupportThread({
   // either side sends brings the conversation into existence.
   useEffect(() => {
     if (!conversationId) return
+    let cancelled = false
     const supabase = createClient()
-    const channel = supabase
-      .channel(`support-thread-${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'support_messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const row = payload.new as RawMessageRow
-          setLiveExtra((prev) =>
-            // Realtime can redeliver on reconnect; the render-time merge
-            // dedupes against the server's list, this dedupes against itself.
-            prev.some((m) => m.id === row.id)
-              ? prev
-              : [
-                  ...prev,
-                  {
-                    id: row.id,
-                    senderId: row.sender_id,
-                    senderRole: row.sender_role,
-                    body: row.body,
-                    createdAt: row.created_at,
-                  },
-                ]
-          )
-          // A message from the other party landing while this thread is open is
-          // read the instant it arrives — there is nothing unread about a
-          // message its recipient is looking at right now.
-          if (row.sender_role !== viewerRole) void markThreadReadAction(conversationId)
-        }
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    void (async () => {
+      /*
+        The realtime socket authenticates separately from ordinary queries, and
+        it does NOT pick the session up on its own here: subscribing straight
+        away registers the subscription as `anon`, so auth.uid() is NULL inside
+        the RLS check and every row is — correctly — withheld. The symptom is a
+        thread that silently never updates, which is easy to mistake for a
+        broken policy rather than an unauthenticated socket.
+
+        Waiting for the session and handing the token to realtime explicitly is
+        what makes the subscription run as the signed-in user.
+      */
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (cancelled || !session?.access_token) return
+      await supabase.realtime.setAuth(session.access_token)
+      if (cancelled) return
+
+      channel = supabase
+        .channel(`support-thread-${conversationId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'support_messages',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const row = payload.new as RawMessageRow
+            setLiveExtra((prev) =>
+              // Realtime can redeliver on reconnect; the render-time merge
+              // dedupes against the server's list, this dedupes against itself.
+              prev.some((m) => m.id === row.id)
+                ? prev
+                : [
+                    ...prev,
+                    {
+                      id: row.id,
+                      senderId: row.sender_id,
+                      senderRole: row.sender_role,
+                      body: row.body,
+                      createdAt: row.created_at,
+                    },
+                  ]
+            )
+            // A message from the other party landing while this thread is open
+            // is read the instant it arrives — there is nothing unread about a
+            // message its recipient is looking at right now.
+            if (row.sender_role !== viewerRole) void markThreadReadAction(conversationId)
+          }
+        )
+        .subscribe()
+    })()
 
     return () => {
-      void supabase.removeChannel(channel)
+      cancelled = true
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [conversationId, viewerRole])
 

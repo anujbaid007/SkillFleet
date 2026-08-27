@@ -1,9 +1,8 @@
-import { Mail, Phone } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { loadConversation } from '@/lib/support/data'
-import { SupportThread } from '@/components/support/support-thread'
-import { sendCoordinatorMessageAction } from '@/app/actions/support'
+import { ContactAdminPanel } from '@/components/support/contact-admin-panel'
 
 export default async function CoordinatorSupportPage() {
   const supabase = await createClient()
@@ -23,7 +22,14 @@ export default async function CoordinatorSupportPage() {
     loadConversation(supabase, user.id),
   ])
 
-  const hasContact = Boolean(config?.admin_contact_email || config?.admin_contact_phone)
+  const { count: unread } = conversationId
+    ? await supabase
+        .from('support_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', conversationId)
+        .eq('sender_role', 'admin')
+        .is('read_at', null)
+    : { count: 0 }
 
   return (
     <div className="space-y-6">
@@ -31,43 +37,15 @@ export default async function CoordinatorSupportPage() {
         eyebrow="Coordinator"
         icon={Mail}
         title="Contact Admin"
-        subtitle="Message the SkillFleet team — they usually reply here."
+        subtitle="Email, call, or message the SkillFleet team."
       />
 
-      {hasContact && (
-        <div className="clay-card p-5">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide">
-            Other ways to reach us
-          </p>
-          <div className="flex flex-wrap gap-6 mt-3">
-            {config?.admin_contact_email && (
-              <a
-                href={`mailto:${config.admin_contact_email}`}
-                className="text-sm text-foreground inline-flex items-center gap-2 hover:text-primary"
-              >
-                <Mail className="w-4 h-4 text-muted" />
-                {config.admin_contact_email}
-              </a>
-            )}
-            {config?.admin_contact_phone && (
-              <a
-                href={`tel:${config.admin_contact_phone}`}
-                className="text-sm text-foreground inline-flex items-center gap-2 hover:text-primary"
-              >
-                <Phone className="w-4 h-4 text-muted" />
-                {config.admin_contact_phone}
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-
-      <SupportThread
+      <ContactAdminPanel
+        email={config?.admin_contact_email ?? null}
+        phone={config?.admin_contact_phone ?? null}
         messages={messages}
         conversationId={conversationId}
-        viewerRole="coordinator"
-        sendAction={sendCoordinatorMessageAction}
-        emptyLabel="No messages yet. Ask us anything."
+        unread={unread ?? 0}
       />
     </div>
   )

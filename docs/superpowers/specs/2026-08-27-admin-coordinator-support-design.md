@@ -173,8 +173,26 @@ the same `"Own conversation's messages or admin"` policy above governs both. A
 coordinator's browser is never sent another coordinator's messages, live or otherwise.
 This is the standard, documented behavior for `postgres_changes` and needs no
 additional policy — it is *the same* RLS already defined, just also consulted on the
-live path. Worth confirming directly in the browser during planning regardless, since
-it is new ground for this project.
+live path.
+
+**The websocket authenticates separately, and this bit the first implementation.**
+Subscribing as soon as a component mounts registers the subscription as `anon` —
+verifiable directly in `realtime.subscription`, where `claims->>'role'` reads `anon`
+and `claims->>'sub'` is null. `auth.uid()` is then NULL inside the RLS check and every
+row is correctly withheld, so the symptom is a thread that silently never updates,
+which looks exactly like a broken policy rather than an unauthenticated socket. Any
+component opening a channel must therefore await the session and hand realtime the
+token explicitly before subscribing:
+
+```ts
+const { data: { session } } = await supabase.auth.getSession()
+if (session?.access_token) await supabase.realtime.setAuth(session.access_token)
+// only now: supabase.channel(...).subscribe()
+```
+
+`SELECT claims->>'role', claims->>'sub' FROM realtime.subscription` is the fastest way
+to confirm a subscription is authenticated — check it before concluding anything about
+the policy.
 
 **What's live:**
 - The message thread itself — `SupportThread` subscribes to `INSERT` events filtered
@@ -226,11 +244,15 @@ New item in `CoordinatorNav`'s `items` array (`coordinator-nav.tsx:9`), alongsid
 new gating logic needed, it falls under the existing `{(approved ? items : [])}` line.
 Carries an unread badge the same way, computed from their own conversation.
 
-`/coordinator/support` shows:
+`/coordinator/support` leads with the contact details and keeps the chat behind a
+deliberate choice:
 - Admin's email and phone, read from `support_config`, each as a live `mailto:`/`tel:`
-  link
-- The same thread component as the admin side, scoped to their own conversation,
-  calling `support_coordinator_send_message`
+  link — first on the page, because most questions are answered faster by a mail or a
+  call than by waiting on a reply
+- Below them, a **"Chat with admin"** button. The thread opens only when a coordinator
+  decides they would rather message directly; it is not shown by default. The button
+  carries an unread count so an active conversation is never hidden behind it with no
+  hint that something is waiting.
 
 ### Admin: editing the contact info
 
