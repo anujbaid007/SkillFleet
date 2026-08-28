@@ -10,6 +10,16 @@ function row(over: Partial<RosterRow> = {}): RosterRow {
     tracks: ['ai_for_impact'],
     hasDraft: false,
     hasSubmitted: true,
+    trackEntries: [
+      {
+        track: 'ai_for_impact',
+        entryStatus: 'submitted',
+        accepted: true,
+        teamSize: 1,
+        maxTeamSize: 3,
+        hasPendingInvite: false,
+      },
+    ],
     status: { kind: 'solo', entryStatus: 'submitted' },
     ...over,
   }
@@ -113,6 +123,78 @@ describe('filterRoster', () => {
       }),
     ]
     expect(filterRoster(rows, { status: 'draft' })).toEqual([])
+  })
+
+  it('scopes status to the chosen track, not to any track', () => {
+    // The reported bug, exactly: Maya has a submitted Content Creator entry
+    // and drafts on two other tracks. Content Creator + open draft must not
+    // match her, because her draft is somewhere else.
+    const maya = row({
+      studentId: 'maya',
+      hasDraft: true,
+      hasSubmitted: true,
+      tracks: ['ai_for_impact', 'entrepreneurship', 'content_creator'],
+      trackEntries: [
+        {
+          track: 'ai_for_impact',
+          entryStatus: 'draft',
+          accepted: true,
+          teamSize: 1,
+          maxTeamSize: 3,
+          hasPendingInvite: false,
+        },
+        {
+          track: 'entrepreneurship',
+          entryStatus: 'draft',
+          accepted: true,
+          teamSize: 1,
+          maxTeamSize: 3,
+          hasPendingInvite: false,
+        },
+        {
+          track: 'content_creator',
+          entryStatus: 'submitted',
+          accepted: true,
+          teamSize: 1,
+          maxTeamSize: 3,
+          hasPendingInvite: false,
+        },
+      ],
+      status: { kind: 'solo', entryStatus: 'submitted' },
+    })
+
+    const ids = (p: Record<string, string>) => filterRoster([maya], p).map((r) => r.studentId)
+
+    expect(ids({ track: 'content_creator', status: 'draft' })).toEqual([])
+    expect(ids({ track: 'content_creator', status: 'submitted' })).toEqual(['maya'])
+    expect(ids({ track: 'ai_for_impact', status: 'draft' })).toEqual(['maya'])
+    expect(ids({ track: 'ai_for_impact', status: 'submitted' })).toEqual([])
+    // Without a status, a track still means everyone involved with it.
+    expect(ids({ track: 'content_creator' })).toEqual(['maya'])
+  })
+
+  it('reads not-started, with a track chosen, as not started on that track', () => {
+    const onlyAi = row({
+      studentId: 'ai-only',
+      hasDraft: true,
+      hasSubmitted: false,
+      tracks: ['ai_for_impact'],
+      trackEntries: [
+        {
+          track: 'ai_for_impact',
+          entryStatus: 'draft',
+          accepted: true,
+          teamSize: 1,
+          maxTeamSize: 3,
+          hasPendingInvite: false,
+        },
+      ],
+      status: { kind: 'solo', entryStatus: 'draft' },
+    })
+    const ids = (p: Record<string, string>) => filterRoster([onlyAi], p).map((r) => r.studentId)
+
+    expect(ids({ track: 'content_creator', status: 'not_started' })).toEqual(['ai-only'])
+    expect(ids({ track: 'ai_for_impact', status: 'not_started' })).toEqual([])
   })
 
   it('combines filters, and searches by name', () => {

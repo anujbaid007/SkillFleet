@@ -36,7 +36,16 @@ export interface RosterFilterParams {
   q?: string
 }
 
-function matchesStatus(row: RosterRow, status: string): boolean {
+/**
+ * Status across every track the student touches.
+ *
+ * Deliberately "has at least one", not "their headline status is": a student
+ * can hold a submitted entry on one track and drafts on two others, and
+ * testing the collapsed status meant they read as submitted only, so filtering
+ * for drafts returned nobody while drafts plainly existed. The two are not
+ * mutually exclusive — a student with both appears under both.
+ */
+function matchesStatusOverall(row: RosterRow, status: string): boolean {
   const s = row.status
   switch (status) {
     case 'not_started':
@@ -47,20 +56,45 @@ function matchesStatus(row: RosterRow, status: string): boolean {
       return s.kind === 'solo'
     case 'team':
       return s.kind === 'team'
-    /*
-      Deliberately "has at least one", not "their headline status is".
-
-      A student can hold a submitted entry on one track and drafts on two
-      others. Testing the row's collapsed status meant such a student read as
-      submitted only, so filtering for drafts returned nobody while drafts
-      plainly existed — and "who still has a draft open" is exactly the list
-      someone filters for when deciding who to chase. The two are therefore
-      not mutually exclusive: a student with both appears under both.
-    */
     case 'submitted':
       return row.hasSubmitted
     case 'draft':
       return row.hasDraft
+    default:
+      return true
+  }
+}
+
+/**
+ * The same question asked about one track only.
+ *
+ * Choosing a track turns it into a lens: "Content Creator + has an open draft"
+ * must mean a draft *on Content Creator*, not a draft anywhere. Evaluating the
+ * two filters independently matched a student whose Content Creator entry was
+ * submitted and whose drafts sat on other tracks entirely.
+ */
+function matchesStatusOnTrack(row: RosterRow, track: string, status: string): boolean {
+  const on = row.trackEntries.filter((t) => t.track === track)
+
+  switch (status) {
+    // No entry on this track at all — including students who are busy
+    // elsewhere, which is the point of asking per track.
+    case 'not_started':
+      return on.length === 0
+    case 'invited':
+      return on.some((t) => !t.accepted)
+    case 'submitted':
+      return on.some((t) => t.accepted && t.entryStatus === 'submitted')
+    case 'draft':
+      return on.some((t) => t.accepted && t.entryStatus !== 'submitted')
+    case 'solo':
+      return on.some(
+        (t) => t.accepted && (t.maxTeamSize === 1 || (t.teamSize === 1 && !t.hasPendingInvite))
+      )
+    case 'team':
+      return on.some(
+        (t) => t.accepted && t.maxTeamSize > 1 && (t.teamSize > 1 || t.hasPendingInvite)
+      )
     default:
       return true
   }
@@ -71,13 +105,26 @@ export function filterRoster(rows: RosterRow[], params: RosterFilterParams): Ros
   const q = (params.q ?? '').trim().toLowerCase()
 
   return rows.filter((row) => {
-    if (params.track && !row.tracks.includes(params.track as RosterRow['tracks'][number])) {
-      return false
-    }
     if (params.group && iscGroupForClass(row.schoolClass) !== params.group) return false
     if (params.schoolClass && row.schoolClass !== params.schoolClass) return false
-    if (params.status && !matchesStatus(row, params.status)) return false
     if (q && !row.name.toLowerCase().includes(q)) return false
+
+    /*
+      Track and status compose rather than stacking independently.
+
+      With both set, the track scopes the status question — and that includes
+      "not started", which then means "has not started this track" and so must
+      not be pre-filtered away by a track-involvement test. With only a track
+      set, the sensible reading is everyone involved with it.
+    */
+    if (params.track && params.status) {
+      return matchesStatusOnTrack(row, params.track, params.status)
+    }
+    if (params.track) {
+      return row.tracks.includes(params.track as RosterRow['tracks'][number])
+    }
+    if (params.status) return matchesStatusOverall(row, params.status)
+
     return true
   })
 }

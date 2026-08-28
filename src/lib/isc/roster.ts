@@ -34,6 +34,27 @@ export type RosterStatus =
   | { kind: 'solo'; entryStatus: string }
   | { kind: 'team'; size: number; maxSize: number; entryStatus: string }
 
+/**
+ * One student's position on one track.
+ *
+ * The row's headline `status` collapses every track into a single chip, which
+ * is right for a list but wrong for filtering: choosing a track has to narrow
+ * the status question to that track, or "Content Creator + has an open draft"
+ * matches a student whose Content Creator entry is submitted and whose drafts
+ * are on entirely different tracks.
+ */
+export interface RosterTrackEntry {
+  track: IscTrackId
+  /** 'draft' | 'submitted' */
+  entryStatus: string
+  /** False while this is still an unanswered invite. */
+  accepted: boolean
+  /** Accepted members on this entry. */
+  teamSize: number
+  maxTeamSize: number
+  hasPendingInvite: boolean
+}
+
 export interface RosterRow {
   studentId: string
   name: string
@@ -57,6 +78,8 @@ export interface RosterRow {
    */
   hasDraft: boolean
   hasSubmitted: boolean
+  /** Every track this student is attached to, with their position on each. */
+  trackEntries: RosterTrackEntry[]
   status: RosterStatus
 }
 
@@ -141,6 +164,23 @@ export function buildSchoolRoster(
     const hasSubmitted = acceptedEntries.some((e) => e.status === 'submitted')
     const hasDraft = acceptedEntries.some((e) => e.status !== 'submitted')
 
+    const trackEntries: RosterTrackEntry[] = own
+      .map((m) => {
+        const e = entryById.get(m.entryId)
+        if (!e) return null
+        const entryMembers = membersByEntry.get(e.entryId) ?? []
+        return {
+          track: e.track,
+          entryStatus: e.status,
+          accepted: acceptance(m) === 'accepted',
+          teamSize: entryMembers.filter((x) => acceptance(x) === 'accepted').length,
+          maxTeamSize: trackById(e.track)?.maxTeamSize ?? 1,
+          hasPendingInvite: entryMembers.some((x) => acceptance(x) === 'awaiting_accept'),
+        }
+      })
+      .filter((t): t is RosterTrackEntry => t !== null)
+      .sort((a, b) => (TRACK_ORDER.get(a.track) ?? 0) - (TRACK_ORDER.get(b.track) ?? 0))
+
     if (accepted.length > 0) {
       const best = accepted
         .map((m) => entryById.get(m.entryId))
@@ -172,6 +212,7 @@ export function buildSchoolRoster(
           tracks,
           hasDraft,
           hasSubmitted,
+          trackEntries,
           status,
         }
       }
@@ -185,6 +226,7 @@ export function buildSchoolRoster(
         tracks,
         hasDraft,
         hasSubmitted,
+        trackEntries,
         status: { kind: 'invited' },
       }
     }
@@ -196,6 +238,7 @@ export function buildSchoolRoster(
       tracks,
       hasDraft,
       hasSubmitted,
+      trackEntries,
       status: { kind: 'not_started' },
     }
   })
