@@ -77,7 +77,12 @@ export default async function CoordinatorDashboardPage() {
         deadlines={deadlines}
         now={new Date()}
       />
-      <NeedsNudge students={students} />
+      <NeedsNudge
+        students={students}
+        entries={school.entries}
+        members={school.rosterMembers}
+        submissionByEntry={school.submissionByEntry}
+      />
       <CoordinatorRoster
         rows={roster}
         students={school.rosterStudents}

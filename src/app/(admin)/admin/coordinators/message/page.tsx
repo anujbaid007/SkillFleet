@@ -43,7 +43,8 @@ export default async function AdminMessageCoordinatorPage() {
     coordinatorId: s.coordinator_id,
     name: nameById.get(s.coordinator_id) || 'Unknown coordinator',
     schoolName: s.name,
-    location: `${s.district}, ${s.state}`,
+    state: s.state,
+    district: s.district,
   }))
 
   return (
