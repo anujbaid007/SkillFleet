@@ -1361,6 +1361,7 @@ export type Database = {
           invite_token: string | null
           is_leader: boolean
           created_at: string
+          accepted_at: string | null
         }
         Insert: {
           id?: string
@@ -1371,6 +1372,7 @@ export type Database = {
           invite_token?: string | null
           is_leader?: boolean
           created_at?: string
+          accepted_at?: string | null
         }
         Update: {
           id?: string
@@ -1381,6 +1383,79 @@ export type Database = {
           invite_token?: string | null
           is_leader?: boolean
           created_at?: string
+          accepted_at?: string | null
+        }
+        Relationships: []
+      }
+      support_conversations: {
+        Row: {
+          id: string
+          coordinator_id: string
+          created_at: string
+          last_message_at: string
+        }
+        Insert: {
+          id?: string
+          coordinator_id: string
+          created_at?: string
+          last_message_at?: string
+        }
+        Update: {
+          id?: string
+          coordinator_id?: string
+          created_at?: string
+          last_message_at?: string
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          sender_role: string
+          body: string
+          created_at: string
+          read_at: string | null
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          sender_id: string
+          sender_role: string
+          body: string
+          created_at?: string
+          read_at?: string | null
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          sender_id?: string
+          sender_role?: string
+          body?: string
+          created_at?: string
+          read_at?: string | null
+        }
+        Relationships: []
+      }
+      support_config: {
+        Row: {
+          id: string
+          admin_contact_email: string | null
+          admin_contact_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          admin_contact_email?: string | null
+          admin_contact_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          admin_contact_email?: string | null
+          admin_contact_phone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1601,6 +1676,12 @@ export type Database = {
       }
       isc_get_entry: { Args: { p_entry_id: string }; Returns: Json }
       isc_get_entry_revisions: { Args: { p_entry_id: string }; Returns: Json }
+      support_coordinator_send_message: { Args: { p_body: string }; Returns: string }
+      support_admin_send_message: {
+        Args: { p_coordinator_id: string; p_body: string }
+        Returns: string
+      }
+      support_mark_thread_read: { Args: { p_conversation_id: string }; Returns: string }
       apply_as_coordinator: {
         Args: { p_school_id: string; p_board: string; p_student_count_range: string }
         Returns: string

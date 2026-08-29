@@ -127,6 +127,48 @@ export function byState(entries: AnalyticsEntry[]): StateRow[] {
     .sort((a, b) => b.entries - a.entries || a.state.localeCompare(b.state))
 }
 
+export interface DistrictRow {
+  district: string
+  state: string
+  schools: number
+  entries: number
+  submitted: number
+}
+
+/**
+ * The same shape as byState, one level down: the comparison chart a state page
+ * shows so a state with hundreds of schools can be read district by district
+ * rather than as one unusable bar list.
+ */
+export function byDistrict(entries: AnalyticsEntry[]): DistrictRow[] {
+  const acc = new Map<string, DistrictRow & { schoolSet: Set<string> }>()
+
+  for (const e of entries) {
+    // Same reasoning as byState: an entry with no district is still an entry,
+    // and dropping it would make this table disagree with the headline count.
+    const district = e.district || 'Unknown'
+    let row = acc.get(district)
+    if (!row) {
+      row = {
+        district,
+        state: e.state,
+        schools: 0,
+        entries: 0,
+        submitted: 0,
+        schoolSet: new Set<string>(),
+      }
+      acc.set(district, row)
+    }
+    row.entries += 1
+    if (isSubmitted(e)) row.submitted += 1
+    row.schoolSet.add(e.schoolId)
+  }
+
+  return [...acc.values()]
+    .map(({ schoolSet, ...row }) => ({ ...row, schools: schoolSet.size }))
+    .sort((a, b) => b.entries - a.entries || a.district.localeCompare(b.district))
+}
+
 /** CBSE / ICSE / State board split, from the school each entry belongs to. */
 export function byBoard(entries: AnalyticsEntry[]): CountRow[] {
   const acc = new Map<string, number>()
