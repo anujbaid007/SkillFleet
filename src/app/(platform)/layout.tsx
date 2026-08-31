@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentProfile } from '@/lib/supabase/session'
 import { PlatformNav } from '@/components/platform/platform-nav'
 import { MobileNavDrawer } from '@/components/mobile-nav-drawer'
 import { ChatWidget } from '@/components/chat/chat-widget'
@@ -9,19 +10,9 @@ import { isStudentDetailsComplete } from '@/lib/profile/details'
 import type { SwitchTarget } from '@/app/actions/switch'
 
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
+  // Shared with the page below via React's per-request cache, so the two do
+  // not each pay for the same auth check and profile read.
+  const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
 
   // Admin, vendor and coordinator each have their own console
@@ -34,16 +25,23 @@ export default async function PlatformLayout({ children }: { children: ReactNode
     redirect('/onboarding/details')
   }
 
-  // Siblings on this family account, so the sidebar can offer one-tap switching.
-  const { data: switchTargetRows } = await supabase.rpc('get_switch_targets')
-  const switchTargets = (switchTargetRows ?? []) as SwitchTarget[]
+  const supabase = await createClient()
 
-  // Cart badge. RLS already scopes the cart to this family.
-  let cartCount = 0
-  if (profile.role === 'student') {
-    const { count } = await supabase.from('cart_items').select('id', { count: 'exact', head: true })
-    cartCount = count ?? 0
-  }
+  /*
+    Nothing here depends on anything else here, so they go together rather
+    than one after the other. Sequentially these were two more round trips
+    in front of every page on the platform.
+  */
+  const [switchTargetsResult, cartResult] = await Promise.all([
+    supabase.rpc('get_switch_targets'),
+    // Cart badge. RLS already scopes the cart to this family.
+    profile.role === 'student'
+      ? supabase.from('cart_items').select('id', { count: 'exact', head: true })
+      : Promise.resolve({ count: 0 }),
+  ])
+
+  const switchTargets = (switchTargetsResult.data ?? []) as SwitchTarget[]
+  const cartCount = cartResult.count ?? 0
 
   return (
     <div

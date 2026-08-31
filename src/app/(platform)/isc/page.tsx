@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { Trophy } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentProfile } from '@/lib/supabase/session'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
@@ -12,25 +12,19 @@ import { HowItWorks } from '@/components/isc/how-it-works'
 import { PendingInvites } from '@/components/isc/pending-invites'
 
 export default async function IscPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // Already fetched and memoised by the layout — free here.
+  const profile = await getCurrentProfile()
+  if (!profile) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('school_class')
-    .eq('id', user.id)
-    .single()
-
-  const eligible = isEligibleClass(profile?.school_class)
-  const entries = eligible ? await getMyIscEntries() : []
+  const eligible = isEligibleClass(profile.school_class)
+  // Neither list depends on the other, so they are fetched together.
+  const [entries, invites] = eligible
+    ? await Promise.all([getMyIscEntries(), getMyPendingInvites()])
+    : [[], []]
   // A pending invite is not one of "my championships" yet — it must not make
   // a track card read as draft/submitted before the student has agreed to join.
   const byTrack = new Map(entries.filter((e) => e.isAccepted).map((e) => [e.track, e]))
-  const invites = eligible ? await getMyPendingInvites() : []
-  const group = eligible ? iscGroupForClass(profile?.school_class) : null
+  const group = eligible ? iscGroupForClass(profile.school_class) : null
 
   return (
     <div className="space-y-6">
@@ -61,7 +55,7 @@ export default async function IscPage() {
               <p className="text-sm text-muted mt-1">
                 ISC 2026 is for{' '}
                 <span className="font-semibold text-foreground">Classes 5 to 12</span>.
-                {profile?.school_class
+                {profile.school_class
                   ? ` Your profile says ${profile.school_class}, so you can’t enter this cycle — but you can still read what each championship involves.`
                   : ' Add your class to your profile to check whether you can enter.'}
               </p>

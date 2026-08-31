@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentProfile } from '@/lib/supabase/session'
 import { trackBySlug } from '@/lib/isc/tracks'
 import { isEligibleClass, isTrackLocked } from '@/lib/isc/validate'
 import { getMyIscEntries, getIscEntry, getTrackDeadline, hasIscConsent } from '@/app/actions/isc'
@@ -23,22 +23,24 @@ export default async function IscTrackPage({
   const track = trackBySlug(slug)
   if (!track) notFound()
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // Memoised by the layout for this request, so neither costs a round trip.
+  const profile = await getCurrentProfile()
+  if (!profile) redirect('/login')
+  if (!isEligibleClass(profile.school_class)) redirect('/isc')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('school_class, full_name')
-    .eq('id', user.id)
-    .single()
-  if (!isEligibleClass(profile?.school_class)) redirect('/isc')
-
-  // Read-only: neither browsing a track nor opening its form creates anything.
-  // The entry is written by the first real action — see resolveEntryId.
-  const mine = await getMyIscEntries()
+  /*
+    These three are independent of one another, and the first two are also
+    independent of the entry lookup below. Run one after another they were
+    three separate waits stacked in front of the page; together they cost one.
+  */
+  const [mine, deadline, consentGiven] = await Promise.all([
+    // Read-only: neither browsing a track nor opening its form creates
+    // anything. The entry is written by the first real action — see
+    // resolveEntryId.
+    getMyIscEntries(),
+    getTrackDeadline(track.id),
+    hasIscConsent(),
+  ])
   const existing = mine.find((e) => e.track === track.id)
   // A pending invite has a row here but isn't joined yet — send them back to
   // /isc to respond on the banner rather than showing a half-formed team page,
@@ -48,7 +50,6 @@ export default async function IscTrackPage({
   if (existing && !existing.isAccepted) redirect('/isc')
   const entry = existing ? await getIscEntry(existing.entryId) : null
 
-  const deadline = await getTrackDeadline(track.id)
   const locked = isTrackLocked(deadline ?? '', new Date())
   const deadlineLabel = deadline
     ? new Date(deadline).toLocaleDateString('en-IN', {
@@ -61,8 +62,6 @@ export default async function IscTrackPage({
     ? Math.ceil((new Date(deadline).getTime() - Date.now()) / 86_400_000)
     : null
 
-  const consentGiven = await hasIscConsent()
-
   // The form is open either because an entry exists, or because the student
   // just asked to start one (?start=1) and nothing has been written yet.
   const opening = !entry && start === '1' && consentGiven && !locked
@@ -73,9 +72,9 @@ export default async function IscTrackPage({
   const previewMembers: IscMember[] = [
     {
       memberId: 'preview-leader',
-      userId: user.id,
-      name: profile?.full_name ?? null,
-      schoolClass: profile?.school_class ?? null,
+      userId: profile.id,
+      name: profile.full_name ?? null,
+      schoolClass: profile.school_class ?? null,
       invitedEmail: null,
       inviteToken: null,
       isLeader: true,
