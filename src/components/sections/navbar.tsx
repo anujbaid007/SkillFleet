@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { isNavScrolled, shouldUseLightNav } from "./nav-appearance";
 
 interface NavNode {
   name: string;
@@ -248,11 +249,24 @@ export default function Navbar() {
   const pathname = usePathname();
   const isHome = pathname === "/";
 
-  // When not scrolled on a subpage, use light (white) text
-  const isLight = !isHome && !isScrolled;
+  // Light (white) text and logo, which is only legible over a subpage's
+  // purple banner. See nav-appearance.ts for when that is actually true.
+  const isLight = shouldUseLightNav({ isHome, isScrolled, isMenuOpen: isMobileOpen });
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    const handleScroll = () => setIsScrolled(isNavScrolled(window.scrollY));
+
+    /*
+      Read the position we mounted at before listening. The page is often
+      already scrolled by then — pull-to-refresh part-way down, a reload, the
+      browser restoring the offset on back-navigation, or a deep link to an
+      anchor — and none of those fire a scroll event we would catch. Listening
+      alone left `isScrolled` false on a scrolled subpage, which kept the logo
+      inverted to solid white over the white page body until the reader
+      happened to scroll.
+    */
+    handleScroll();
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -265,7 +279,10 @@ export default function Navbar() {
         transition={{ type: "spring", stiffness: 100, damping: 20, delay: 0.1 }}
         className={cn(
           "transition-all duration-300 border-b",
-          isScrolled
+          // The open mobile menu is a white sheet, so the bar above it has to
+          // be solid too — otherwise the sheet appears to hang off a
+          // transparent strip, and the dark logo lands on the purple banner.
+          isScrolled || isMobileOpen
             ? "bg-white/80 backdrop-blur-xl border-primary/10 shadow-sm"
             : "bg-transparent border-transparent"
         )}

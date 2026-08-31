@@ -61,7 +61,7 @@ export function EntryForm({
   }, [state])
 
   return (
-    <form id="isc-entry-form" action={action} className="clay-card p-6 space-y-5">
+    <form id="isc-entry-form" action={action} className="clay-card p-4 sm:p-6 space-y-5">
       <input type="hidden" name="entry_id" value={entryId} />
       <input type="hidden" name="track" value={track} />
 
@@ -177,13 +177,16 @@ export function EntryForm({
               : 'Only your team leader can edit this entry.'}
         </p>
       ) : (
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Full-width and stacked on a phone: side by side these were
+              squeezed against the floating assistant, and neither read as
+              the main action. */}
           <button
             type="submit"
             name="intent"
             value="save"
             disabled={pending}
-            className="px-5 h-11 rounded-xl text-sm font-semibold border border-black/10 text-foreground hover:bg-black/[0.03] disabled:opacity-60"
+            className="w-full sm:w-auto px-5 h-12 sm:h-11 rounded-xl text-sm font-semibold border border-black/10 text-foreground hover:bg-black/[0.03] disabled:opacity-60"
           >
             Save draft
           </button>
@@ -196,7 +199,7 @@ export function EntryForm({
             type="button"
             onClick={() => setConfirming(true)}
             disabled={pending}
-            className="clay-button bg-cta text-white px-6 h-11 text-sm font-semibold disabled:opacity-60"
+            className="w-full sm:w-auto clay-button bg-cta text-white px-6 h-12 sm:h-11 text-sm font-semibold disabled:opacity-60"
           >
             {pending ? 'Working…' : 'Submit entry'}
           </button>

@@ -46,21 +46,33 @@ export function HowItWorks() {
         // Only the first stage is actually open; the other two are announcements.
         const open = i === 0
         return (
-          <div key={s.n} className="clay-card p-5 relative" style={open ? OPEN_STAGE_STYLE : undefined}>
+          /*
+            One compact row per stage on a phone, three cards from `sm` up.
+            Stacked as full cards these three ran to roughly 1,500px, pushing
+            the championships themselves — the reason for the page — well below
+            the fold. The number moves beside the text rather than above it.
+          */
+          <div
+            key={s.n}
+            className="clay-card p-4 sm:p-5 relative flex sm:block items-start gap-3"
+            style={open ? OPEN_STAGE_STYLE : undefined}
+          >
             <span
-              className={`font-display text-2xl font-bold ${open ? 'text-primary' : 'text-primary/25'}`}
+              className={`font-display text-xl sm:text-2xl font-bold leading-none mt-0.5 sm:mt-0 shrink-0 ${open ? 'text-primary' : 'text-primary/25'}`}
             >
               {s.n}
             </span>
-            <h3 className="font-display font-bold text-foreground mt-1">{s.title}</h3>
-            <p className="text-xs text-muted mt-1">{s.body}</p>
-            <span
-              className={`inline-block mt-3 text-[10px] font-bold px-2 py-1 rounded-full ${
-                open ? 'bg-green-50 text-green-700' : 'bg-black/[0.05] text-muted'
-              }`}
-            >
-              {s.note}
-            </span>
+            <div className="min-w-0">
+              <h3 className="font-display font-bold text-foreground sm:mt-1">{s.title}</h3>
+              <p className="text-xs text-muted mt-1">{s.body}</p>
+              <span
+                className={`inline-block mt-2 sm:mt-3 text-[10px] font-bold px-2 py-1 rounded-full ${
+                  open ? 'bg-green-50 text-green-700' : 'bg-black/[0.05] text-muted'
+                }`}
+              >
+                {s.note}
+              </span>
+            </div>
           </div>
         )
       })}

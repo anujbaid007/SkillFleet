@@ -11,7 +11,7 @@ export function TrackFacts({
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <div className="clay-card p-5">
+      <div className="clay-card p-4 sm:p-5">
         <h2 className="font-display font-bold text-foreground inline-flex items-center gap-2">
           <Trophy className={`w-4 h-4 ${accent}`} />
           What the winners get
@@ -22,7 +22,7 @@ export function TrackFacts({
         </p>
       </div>
 
-      <div className="clay-card p-5">
+      <div className="clay-card p-4 sm:p-5">
         <h2 className="font-display font-bold text-foreground">What you’ll need</h2>
         <ul className="mt-2 space-y-2">
           {prepare.map((item) => (

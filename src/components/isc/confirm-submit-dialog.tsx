@@ -66,7 +66,7 @@ export function ConfirmSubmitDialog({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-            className="clay-card p-6 w-full max-w-md"
+            className="clay-card p-5 sm:p-6 w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
@@ -87,13 +87,15 @@ export function ConfirmSubmitDialog({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-6">
+            {/* Reversed on a phone so the irreversible answer is not the one sitting
+                under the thumb by default. */}
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 mt-6">
               <button
                 ref={cancelRef}
                 type="button"
                 onClick={onCancel}
                 disabled={pending}
-                className="px-4 h-10 rounded-xl text-sm font-semibold border border-black/10 text-foreground hover:bg-black/[0.03] disabled:opacity-60"
+                className="w-full sm:w-auto px-4 h-12 sm:h-10 rounded-xl text-sm font-semibold border border-black/10 text-foreground hover:bg-black/[0.03] disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -104,7 +106,7 @@ export function ConfirmSubmitDialog({
                 value="submit"
                 onClick={onConfirm}
                 disabled={pending}
-                className="clay-button bg-cta text-white px-5 h-10 text-sm font-semibold disabled:opacity-60"
+                className="w-full sm:w-auto clay-button bg-cta text-white px-5 h-12 sm:h-10 text-sm font-semibold disabled:opacity-60"
               >
                 {pending ? 'Submitting…' : 'Yes, submit'}
               </button>

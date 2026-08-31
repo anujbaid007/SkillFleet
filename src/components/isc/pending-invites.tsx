@@ -23,14 +23,16 @@ function InviteCard({ invite }: { invite: PendingInvite }) {
           join <span className="font-semibold">{track?.name ?? invite.track}</span>
         </p>
       </div>
-      <form action={action} className="flex items-center gap-2 shrink-0">
+      {/* The two answers share the width on a phone, so neither is a small
+          target sitting at the end of a wrapped row. */}
+      <form action={action} className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0">
         <input type="hidden" name="member_id" value={invite.memberId} />
         <button
           type="submit"
           name="intent"
           value="decline"
           disabled={pending}
-          className="px-3 h-9 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-foreground disabled:opacity-60"
+          className="flex-1 sm:flex-none px-3 h-11 sm:h-9 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-foreground disabled:opacity-60"
         >
           Decline
         </button>
@@ -39,7 +41,7 @@ function InviteCard({ invite }: { invite: PendingInvite }) {
           name="intent"
           value="accept"
           disabled={pending}
-          className="px-4 h-9 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+          className="flex-1 sm:flex-none px-4 h-11 sm:h-9 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
         >
           Accept
         </button>

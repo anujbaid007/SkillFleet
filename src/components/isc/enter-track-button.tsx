@@ -18,7 +18,7 @@ export function EnterTrackButton({ slug, needsConsent }: { slug: string; needsCo
   return (
     <Link
       href={href}
-      className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold inline-flex items-center gap-2"
+      className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-2"
     >
       Start your entry
       <ArrowRight className="w-4 h-4" />

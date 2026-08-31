@@ -16,7 +16,7 @@ export function LeaveEntryButton({ entryId, slug }: { entryId: string; slug: str
   const [confirming, setConfirming] = useState(false)
 
   return (
-    <div className="clay-card p-5">
+    <div className="clay-card p-4 sm:p-5">
       <h2 className="font-display font-bold text-foreground text-sm">Not entering after all?</h2>
       <p className="text-xs text-muted mt-1">
         While you are on your own and have not submitted, you can withdraw this entry. Do this if
@@ -34,14 +34,14 @@ export function LeaveEntryButton({ entryId, slug }: { entryId: string; slug: str
           <button
             type="submit"
             disabled={pending}
-            className="px-4 h-9 rounded-xl text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+            className="px-4 h-11 sm:h-9 rounded-xl text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
           >
             {pending ? 'Withdrawing…' : 'Yes, withdraw my entry'}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="px-3 h-9 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-foreground"
+            className="px-3 h-11 sm:h-9 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-foreground"
           >
             Keep it
           </button>
@@ -50,7 +50,7 @@ export function LeaveEntryButton({ entryId, slug }: { entryId: string; slug: str
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="mt-3 px-3 h-9 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-red-600 inline-flex items-center gap-1.5"
+          className="mt-3 px-3 h-11 sm:h-9 rounded-xl text-xs font-semibold border border-black/10 text-muted hover:text-red-600 inline-flex items-center gap-1.5"
         >
           <Trash2 className="w-3.5 h-3.5" />
           Leave this championship

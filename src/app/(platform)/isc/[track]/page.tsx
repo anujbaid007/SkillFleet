@@ -107,7 +107,7 @@ export default async function IscTrackPage({
       <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
 
       {!entry && !opening ? (
-        <div className="clay-card p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+        <div className="clay-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
           <div>
             <p className="font-display font-bold text-foreground">
               {locked ? 'Entries have closed' : 'Ready when you are'}

@@ -53,7 +53,7 @@ export function TeamPanel({
   )
 
   return (
-    <div className="clay-card p-6 space-y-4">
+    <div className="clay-card p-4 sm:p-6 space-y-4">
       <div>
         <h2 className="font-display font-bold text-foreground">Your team</h2>
         <p className="text-xs text-muted mt-1">
@@ -83,15 +83,22 @@ export function TeamPanel({
         {members.map((m) => (
           <li
             key={m.memberId}
-            className="flex items-center justify-between gap-3 rounded-xl bg-black/[0.02] px-3 py-2"
+            /*
+              Wraps only when it has to. A member with a pending invite carries
+              a status line plus Copy link / WhatsApp / remove, which on one
+              fixed row left barely 100px for the name — every teammate read as
+              an ellipsis. The name wraps now instead of truncating, and the
+              buttons drop to their own line only when they no longer fit.
+            */
+            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl bg-black/[0.02] px-3 py-2.5"
           >
-            <span className="min-w-0 flex items-center gap-2 text-sm">
+            <span className="min-w-0 flex-1 flex items-start gap-2 text-sm">
               {m.userId && m.acceptedAt ? (
-                <Check className="w-4 h-4 text-green-600 shrink-0" />
+                <Check className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
               ) : (
-                <Clock className="w-4 h-4 text-accent-yellow shrink-0" />
+                <Clock className="w-4 h-4 text-accent-yellow shrink-0 mt-0.5" />
               )}
-              <span className="truncate">
+              <span className="min-w-0 break-words">
                 <span className="font-medium text-foreground">{m.name ?? m.invitedEmail}</span>
                 {m.schoolClass && <span className="text-muted"> · {m.schoolClass}</span>}
                 {m.isLeader && <span className="text-muted"> · team leader</span>}
@@ -104,7 +111,7 @@ export function TeamPanel({
               </span>
             </span>
 
-            <span className="flex items-center gap-1 shrink-0">
+            <span className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
               {!m.userId && m.inviteToken && (
                 <button
                   type="button"
@@ -112,7 +119,7 @@ export function TeamPanel({
                     navigator.clipboard.writeText(inviteUrl(m.inviteToken as string))
                     setCopied(m.memberId)
                   }}
-                  className="px-2 h-8 rounded-lg text-xs font-semibold border border-black/10 text-muted hover:text-foreground inline-flex items-center gap-1"
+                  className="px-2.5 h-11 sm:h-8 rounded-lg text-xs font-semibold border border-black/10 text-muted hover:text-foreground inline-flex items-center gap-1"
                 >
                   <Copy className="w-3 h-3" />
                   {copied === m.memberId ? 'Copied' : 'Copy link'}
@@ -125,7 +132,7 @@ export function TeamPanel({
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-2 h-8 rounded-lg text-xs font-semibold border border-black/10 text-muted hover:text-foreground inline-flex items-center"
+                  className="px-2.5 h-11 sm:h-8 rounded-lg text-xs font-semibold border border-black/10 text-muted hover:text-foreground inline-flex items-center"
                 >
                   WhatsApp
                 </a>
@@ -138,7 +145,7 @@ export function TeamPanel({
                   <button
                     type="submit"
                     aria-label="Remove from team"
-                    className="w-8 h-8 rounded-lg text-muted hover:text-red-600 inline-flex items-center justify-center"
+                    className="w-11 h-11 sm:w-8 sm:h-8 rounded-lg text-muted hover:text-red-600 inline-flex items-center justify-center"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -150,21 +157,26 @@ export function TeamPanel({
       </ul>
 
       {canEdit && !full && (
-        <form action={addAction} className="flex items-center gap-2 flex-wrap">
+        <form action={addAction} className="flex flex-col sm:flex-row sm:items-center gap-2">
           <input type="hidden" name="entry_id" value={entryId} />
           <input type="hidden" name="slug" value={slug} />
+          {/*
+            The field owns its own row on a phone. Sharing one with the button
+            left it under 200px wide, so the placeholder that tells you which
+            email to use was cut off mid-word.
+          */}
           <input
             name="email"
             type="email"
             required
             placeholder="Teammate's registered SkillFleet email"
             aria-label="Teammate email"
-            className="flex-1 min-w-[220px] h-10 px-3 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
+            className="w-full sm:flex-1 h-12 sm:h-10 px-3 rounded-xl border-2 border-black/[0.06] text-sm focus:outline-none focus:border-primary"
           />
           <button
             type="submit"
             disabled={adding}
-            className="px-4 h-10 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+            className="w-full sm:w-auto px-4 h-12 sm:h-10 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
           >
             {adding ? 'Checking…' : 'Add'}
           </button>

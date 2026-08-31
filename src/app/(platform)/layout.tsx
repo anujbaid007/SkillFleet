@@ -47,7 +47,13 @@ export default async function PlatformLayout({ children }: { children: ReactNode
 
   return (
     <div
-      className="flex flex-col md:flex-row h-screen"
+      /*
+        h-dvh, not h-screen: on phones 100vh is the tallest the viewport ever
+        gets, so with the browser's toolbars showing, the bottom of the shell
+        sits behind them and the last control on a page is unreachable. The
+        dynamic unit tracks the visible area instead.
+      */
+      className="flex flex-col md:flex-row h-dvh"
       style={{
         background:
           'radial-gradient(1100px 550px at 100% 0%, rgba(116,71,225,0.06), transparent 60%), radial-gradient(900px 500px at 0% 100%, rgba(20,184,166,0.05), transparent 60%), #F8FAFC',
@@ -69,7 +75,13 @@ export default async function PlatformLayout({ children }: { children: ReactNode
       </MobileNavDrawer>
 
       {/* Main content — centered in a consistent content frame */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+      {/*
+        The floating assistant is fixed to the viewport, so on a phone it sits
+        on top of whatever is at the bottom of the page — which on ISC is the
+        Submit entry button. The extra bottom padding lets every page scroll
+        clear of it. It is only needed where the button floats over content.
+      */}
+      <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-8 md:pb-10">
         <div className="mx-auto w-full max-w-5xl">{children}</div>
       </main>
 
