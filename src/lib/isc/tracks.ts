@@ -25,6 +25,14 @@ export interface IscTrack {
   tint: string
   /** solid text/accent colour class */
   accent: string
+  /** Stronger card wash for the ISC dashboard, where the art needs a field
+      to sit on. `tint` is too faint once a 3D render is laid over it. */
+  wash: string
+  /** The track's word in the championship's "Build. Solve. Create. Lead."
+      line, so the dashboard cards and the key art say the same thing. */
+  verb: string
+  /** Glossy 3D prop from the ISC 2026 art, cut out on transparency. */
+  art: string
   /** What a national winner receives, from the Skill Fleet deck. */
   prize: string
   /** What the student actually needs to have ready before entering. */
@@ -44,6 +52,9 @@ export const ISC_TRACKS: IscTrack[] = [
     gradient: 'from-primary to-primary-light',
     tint: 'from-primary/[0.08]',
     accent: 'text-primary',
+    wash: 'from-primary/[0.16] via-accent-purple/[0.06]',
+    verb: 'Build',
+    art: '/isc/2026/ai.webp',
     prize:
       'All three national winners get enterprise-grade deployment and scalability support for their app, plus social-media visibility.',
     prepare: [
@@ -64,6 +75,9 @@ export const ISC_TRACKS: IscTrack[] = [
     gradient: 'from-accent-teal to-primary',
     tint: 'from-accent-teal/[0.08]',
     accent: 'text-accent-teal',
+    wash: 'from-accent-teal/[0.16] via-primary/[0.06]',
+    verb: 'Lead',
+    art: '/isc/2026/venture.webp',
     prize: 'The national winner receives funding of up to ₹1 lakh to take the idea forward.',
     prepare: [
       'Your idea written out: problem, solution, who it is for, and why it works',
@@ -83,6 +97,9 @@ export const ISC_TRACKS: IscTrack[] = [
     gradient: 'from-accent-pink to-accent-purple',
     tint: 'from-accent-pink/[0.08]',
     accent: 'text-accent-pink',
+    wash: 'from-accent-pink/[0.16] via-accent-purple/[0.06]',
+    verb: 'Create',
+    art: '/isc/2026/content.webp',
     prize:
       'The top three national winners become brand ambassadors and feature in digital campaigns for participating brands.',
     prepare: [
@@ -107,6 +124,9 @@ export const PUZZLE_MASTER = {
   gradient: 'from-accent-yellow to-accent-pink',
   tint: 'from-accent-yellow/[0.08]',
   accent: 'text-accent-yellow',
+  wash: 'from-accent-yellow/[0.18] via-accent-pink/[0.06]',
+  verb: 'Solve',
+  art: '/isc/2026/puzzle.webp',
   divisions: 'Two divisions: Classes 5–8 and Classes 9–12',
   prize:
     'A shared ₹2 lakh pool across both divisions — ₹1 lakh in gifts or devices and ₹1 lakh in scholarships.',

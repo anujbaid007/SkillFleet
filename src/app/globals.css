@@ -151,3 +151,55 @@ html {
     transform: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* International Skill Championship                                    */
+/* Lifted from the ISC 2026 key art: a white-to-lavender studio        */
+/* backdrop, glossy 3D props, and a four-colour rule under the         */
+/* wordmark. These live here rather than in utilities because          */
+/* .clay-card declares `background` as a shorthand, which wipes out any */
+/* background-image utility applied alongside it.                       */
+/* ------------------------------------------------------------------ */
+
+/* The banner's segmented purple/teal/pink/yellow rule. */
+.isc-rule {
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0 24%,
+    var(--color-accent-teal) 24% 50%,
+    var(--color-accent-pink) 50% 74%,
+    var(--color-accent-yellow) 74% 100%
+  );
+}
+
+/* The lavender studio sweep the students stand on in the key art. */
+.isc-stage {
+  background:
+    radial-gradient(115% 95% at 86% 112%, rgba(116, 71, 225, 0.3), transparent 62%),
+    radial-gradient(70% 65% at 2% -10%, #ffffff, transparent 62%),
+    linear-gradient(135deg, #fcfbff 0%, #f4efff 50%, #e9defc 100%);
+}
+
+/* The concentric podium rings behind the students. */
+.isc-ring {
+  border-radius: 50%;
+  border: 1.5px solid rgba(116, 71, 225, 0.14);
+}
+
+/* A slow halo on the one stage that is actually open, so the eye lands
+   on the step a student can take today rather than on the announcements. */
+@keyframes isc-halo {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(116, 71, 225, 0.35); }
+  50% { box-shadow: 0 0 0 8px rgba(116, 71, 225, 0); }
+}
+
+.isc-halo {
+  animation: isc-halo 2.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .isc-halo {
+    animation: none;
+  }
+}

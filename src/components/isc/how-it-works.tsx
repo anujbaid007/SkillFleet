@@ -19,63 +19,77 @@ const STAGES = [
   },
 ]
 
-/**
- * The open stage's purple wash.
- *
- * Applied as an inline style rather than Tailwind's bg-gradient-* utilities on
- * purpose: .clay-card declares `background: #ffffff` and `border: 2px solid …`
- * as CSS *shorthands*, which reset background-image to none and overwrite any
- * border-color utility at the same specificity. A gradient class simply does
- * not survive that, so the value has to come from the style attribute.
- *
- * Colours are read from the palette tokens rather than hardcoded, so the card
- * still tracks the design system.
- */
-const OPEN_STAGE_STYLE: React.CSSProperties = {
-  backgroundImage:
-    'linear-gradient(135deg, color-mix(in srgb, var(--color-accent-purple) 16%, transparent), color-mix(in srgb, var(--color-primary) 16%, transparent), color-mix(in srgb, var(--color-primary-light) 22%, transparent))',
-  borderColor: 'color-mix(in srgb, var(--color-primary) 35%, transparent)',
-}
-
-/** The three stages from the Skill Fleet deck, so a student can see where
-    entering actually leads rather than just filling a form. */
+/** The three rounds from the Skill Fleet deck, drawn as a route rather than a
+    list, so a student can see where entering actually leads. Only the first
+    round is open; the other two are announcements, and are drawn as the empty
+    stops they are. */
 export function HowItWorks() {
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {STAGES.map((s, i) => {
-        // Only the first stage is actually open; the other two are announcements.
-        const open = i === 0
-        return (
-          /*
-            One compact row per stage on a phone, three cards from `sm` up.
-            Stacked as full cards these three ran to roughly 1,500px, pushing
-            the championships themselves — the reason for the page — well below
-            the fold. The number moves beside the text rather than above it.
-          */
-          <div
-            key={s.n}
-            className="clay-card p-4 sm:p-5 relative flex sm:block items-start gap-3"
-            style={open ? OPEN_STAGE_STYLE : undefined}
-          >
-            <span
-              className={`font-display text-xl sm:text-2xl font-bold leading-none mt-0.5 sm:mt-0 shrink-0 ${open ? 'text-primary' : 'text-primary/25'}`}
+    <div className="clay-card p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-base font-bold text-foreground sm:text-lg">
+          Three rounds to the national finals
+        </h2>
+        <span className="isc-rule h-1 w-16 shrink-0" />
+      </div>
+
+      <ol className="relative mt-4 grid gap-3 sm:mt-5 sm:grid-cols-3 sm:gap-4">
+        {STAGES.map((s, i) => {
+          // Only the first round is actually open.
+          const open = i === 0
+          return (
+            /*
+              One compact row per round on a phone, three stops from `sm` up.
+              Stacked as full cards these three ran to roughly 1,500px, pushing
+              the championships themselves — the reason for the page — well
+              below the fold.
+            */
+            <li
+              key={s.n}
+              className={`relative flex items-start gap-3 rounded-2xl border p-4 sm:block ${
+                open
+                  ? 'border-primary/25 bg-gradient-to-br from-primary/[0.14] via-accent-purple/[0.05] to-transparent'
+                  : 'border-black/[0.05] bg-black/[0.015]'
+              }`}
             >
-              {s.n}
-            </span>
-            <div className="min-w-0">
-              <h3 className="font-display font-bold text-foreground sm:mt-1">{s.title}</h3>
-              <p className="text-xs text-muted mt-1">{s.body}</p>
               <span
-                className={`inline-block mt-2 sm:mt-3 text-[10px] font-bold px-2 py-1 rounded-full ${
-                  open ? 'bg-green-50 text-green-700' : 'bg-black/[0.05] text-muted'
+                className={`font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                  open
+                    ? 'isc-halo bg-gradient-to-br from-primary to-primary-light text-white'
+                    : 'border-2 border-dashed border-primary/25 bg-white text-primary/45'
                 }`}
               >
-                {s.note}
+                {s.n}
               </span>
-            </div>
-          </div>
-        )
-      })}
+
+              {/*
+                The route between the stops, drawn one gap at a time. A single
+                line spanning the row showed through the panels' translucent
+                washes and struck out the text; this only ever occupies the
+                16px gap to the next stop. top-9 is the badge's centre: 16px of
+                panel padding plus half of the 40px badge.
+              */}
+              {i < STAGES.length - 1 && (
+                <span
+                  aria-hidden
+                  className="absolute top-9 -right-4 hidden w-4 border-t-2 border-dashed border-primary/30 sm:block"
+                />
+              )}
+              <div className="min-w-0">
+                <h3 className="font-display font-bold text-foreground sm:mt-3">{s.title}</h3>
+                <p className="mt-1 text-xs text-muted">{s.body}</p>
+                <span
+                  className={`mt-2 inline-block rounded-full px-2 py-1 text-[10px] font-bold sm:mt-3 ${
+                    open ? 'bg-green-100 text-green-700' : 'bg-white text-muted'
+                  }`}
+                >
+                  {s.note}
+                </span>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
     </div>
   )
 }

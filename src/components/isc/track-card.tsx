@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, Lock, type LucideIcon } from 'lucide-react'
 
 export type TrackCardState = 'not_started' | 'draft' | 'submitted' | 'coming_soon' | 'closed'
@@ -14,11 +15,11 @@ const STATE_LABEL: Record<TrackCardState, string> = {
 }
 
 const STATE_CLASS: Record<TrackCardState, string> = {
-  not_started: 'bg-black/[0.05] text-muted',
-  draft: 'bg-accent-yellow/20 text-accent-yellow',
-  submitted: 'bg-green-50 text-green-700',
-  coming_soon: 'bg-black/[0.05] text-muted',
-  closed: 'bg-black/[0.05] text-muted',
+  not_started: 'bg-white/80 text-muted',
+  draft: 'bg-accent-yellow/25 text-[#8a5a00]',
+  submitted: 'bg-green-100 text-green-700',
+  coming_soon: 'bg-white/80 text-muted',
+  closed: 'bg-white/80 text-muted',
 }
 
 export function TrackCard({
@@ -29,8 +30,10 @@ export function TrackCard({
   teamNote,
   icon: Icon,
   gradient,
-  tint,
+  wash,
   accent,
+  verb,
+  art,
 }: {
   name: string
   tagline: string
@@ -39,48 +42,77 @@ export function TrackCard({
   teamNote: string
   icon: LucideIcon
   gradient: string
-  tint: string
+  wash: string
   accent: string
+  verb: string
+  art: string
 }) {
-  const body = (
-    <div className="clay-card p-0 h-full flex flex-col overflow-hidden">
-      {/* Tinted head carrying the track's colour, so the four cards are told
-          apart at a glance rather than by reading their titles. */}
-      <div className={`relative bg-gradient-to-br ${tint} to-transparent p-5 pb-4`}>
-        <div className="flex items-start justify-between gap-3">
-          <span
-            className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0 shadow-sm`}
-          >
-            <Icon className="w-5 h-5 text-white" />
-          </span>
-          <span
-            className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${STATE_CLASS[state]}`}
-          >
-            {STATE_LABEL[state]}
-          </span>
-        </div>
-        <h2 className="font-display text-lg font-bold text-foreground leading-snug mt-3">{name}</h2>
-      </div>
+  const locked = state === 'coming_soon' || state === 'closed'
 
-      <div className="flex flex-col flex-1 px-5 pb-5">
-        <p className="text-sm text-muted flex-1">{tagline}</p>
-        <div className="flex items-center justify-between gap-3 pt-3 mt-auto">
-          <span className="text-xs text-muted inline-flex items-center gap-1.5">
-            {state === 'coming_soon' && <Lock className="w-3 h-3" />}
-            {teamNote}
-          </span>
-          {href && (
-            <span className={`text-xs font-semibold inline-flex items-center gap-1 ${accent}`}>
-              View
-              <ArrowRight className="w-3 h-3" />
+  const body = (
+    <div className="clay-card group relative flex h-full flex-col overflow-hidden p-0">
+      {/* The track's own colour, read as a rule on the card's top edge — the
+          same device the key art uses under the wordmark. */}
+      <span className={`absolute inset-x-0 top-0 z-10 h-1.5 bg-gradient-to-r ${gradient}`} />
+      <span className={`absolute inset-0 bg-gradient-to-br ${wash} to-transparent`} />
+
+      <div className="relative flex flex-1 items-stretch gap-2 p-5 pt-6">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br ${gradient} px-2.5 py-1 text-[11px] font-bold text-white shadow-sm`}
+            >
+              <Icon className="h-3 w-3" />
+              {verb}
             </span>
-          )}
+            <span
+              className={`rounded-full px-2 py-1 text-[10px] font-bold ${STATE_CLASS[state]}`}
+            >
+              {STATE_LABEL[state]}
+            </span>
+          </div>
+
+          <h2 className="font-display mt-3 text-lg font-bold leading-snug text-foreground sm:text-xl">
+            {name}
+          </h2>
+          <p className="mt-1.5 flex-1 text-sm text-foreground/65">{tagline}</p>
+
+          <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+              {locked && <Lock className="h-3 w-3" />}
+              {teamNote}
+            </span>
+            {href && (
+              <span
+                className={`inline-flex items-center gap-1 text-xs font-bold ${accent} transition-transform group-hover:translate-x-0.5`}
+              >
+                View
+                <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* The championship's 3D prop, bled into the card's bottom-right
+            corner. The render is a true cutout, so it sits straight on the
+            card's wash. */}
+        <div className="relative -mr-4 -mb-4 aspect-square w-28 shrink-0 self-end sm:w-36">
+          <Image
+            src={art}
+            alt=""
+            aria-hidden
+            fill
+            sizes="140px"
+            className={`object-contain transition-transform duration-500 ease-out group-hover:-rotate-3 group-hover:scale-105 ${
+              locked ? 'opacity-70 saturate-[0.6]' : ''
+            }`}
+          />
         </div>
       </div>
     </div>
   )
 
-  if (!href) return <div className="opacity-75">{body}</div>
+  if (!href) return body
   return (
     <Link href={href} className="block h-full">
       {body}
