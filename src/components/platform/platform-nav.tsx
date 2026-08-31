@@ -47,6 +47,20 @@ export function PlatformNav({ profile, cartCount = 0, switchTargets = [] }: Plat
             <Link
               key={href}
               href={href}
+              /*
+                Every page behind the sidebar is dynamic, and Next only
+                prefetches a dynamic route as far as its loading boundary
+                unless asked for the whole thing. Without this a tap showed the
+                skeleton and then waited on the server; with it the page is
+                usually already in the client cache when the tap lands.
+
+                This is the sidebar of a signed-in app — a known, small set of
+                destinations the reader moves between constantly — so warming
+                them is worth the background requests. Results are reused for
+                the `static` window in next.config.ts rather than refetched per
+                navigation.
+              */
+              prefetch
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
                 active

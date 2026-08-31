@@ -18,7 +18,10 @@ export interface CalEvent {
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/** Dots shown on a phone cell, where there is no room for titles. */
 const MAX_DOTS = 3
+/** Named activities shown inside a cell from `sm` up, where there is. */
+const MAX_CHIPS = 2
 
 export function CalendarView({
   cells,
@@ -49,7 +52,7 @@ export function CalendarView({
   return (
     <div className="space-y-5">
       {/* Grid */}
-      <div className="clay-card p-3 sm:p-4">
+      <div className="clay-card p-2.5 sm:p-4">
         <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1">
           {WEEKDAYS.map((d) => (
             <div key={d} className="text-center text-[11px] font-bold text-muted uppercase tracking-wide py-1">
@@ -72,26 +75,39 @@ export function CalendarView({
                 onClick={() => has && setSelected(cell.key)}
                 aria-label={`${dayKeyLabel(cell.key)}${has ? `, ${dayEvents.length} activities` : ''}`}
                 aria-pressed={isSelected}
+                aria-current={cell.isToday ? 'date' : undefined}
                 disabled={!has}
+                /*
+                  A fixed, modest height rather than aspect-square. Square cells
+                  track the column width, and on a desktop column near 140px
+                  that turned a six-week month into ~840px of empty boxes with
+                  one numeral adrift in each.
+                */
                 className={[
-                  'aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all relative',
-                  cell.inMonth ? '' : 'opacity-35',
-                  has ? 'cursor-pointer hover:bg-primary/[0.06]' : 'cursor-default',
+                  'min-h-14 sm:min-h-24 rounded-xl p-1 sm:p-1.5 flex flex-col transition-colors text-left relative',
+                  cell.inMonth ? 'bg-black/[0.02]' : 'bg-transparent',
+                  has ? 'cursor-pointer hover:bg-primary/[0.07]' : 'cursor-default',
                   isSelected ? 'ring-2 ring-primary bg-primary/[0.07]' : '',
-                  cell.isToday && !isSelected ? 'ring-1 ring-primary/40' : '',
                 ].join(' ')}
               >
+                {/* Today is a filled marker, not a hairline ring — it should be
+                    findable at a glance across a 42-cell grid. */}
                 <span
                   className={[
-                    'text-sm font-semibold',
-                    cell.isToday ? 'text-primary font-bold' : 'text-foreground',
+                    'text-xs sm:text-sm font-semibold self-center sm:self-start shrink-0',
+                    cell.isToday
+                      ? 'w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold'
+                      : cell.inMonth
+                        ? 'text-foreground'
+                        : 'text-muted/50',
                   ].join(' ')}
                 >
                   {cell.day}
                 </span>
 
+                {/* Phones: dots. There is no width for a title at 7 columns. */}
                 {has && (
-                  <span className="flex items-center gap-0.5">
+                  <span className="sm:hidden flex items-center justify-center gap-0.5 mt-1">
                     {dayEvents.slice(0, MAX_DOTS).map((e, i) => {
                       const meta = OFFERING_TYPE_META[e.type]
                       return (
@@ -102,7 +118,38 @@ export function CalendarView({
                       )
                     })}
                     {dayEvents.length > MAX_DOTS && (
-                      <span className="text-[9px] font-bold text-muted ml-0.5">+{dayEvents.length - MAX_DOTS}</span>
+                      <span className="text-[9px] font-bold text-muted ml-0.5">
+                        +{dayEvents.length - MAX_DOTS}
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {/* Wider screens: say what is actually on that day. A grid of
+                    anonymous dots makes you click every one to find out. */}
+                {has && (
+                  <span className="hidden sm:flex flex-col gap-0.5 mt-1 w-full min-w-0">
+                    {dayEvents.slice(0, MAX_CHIPS).map((e) => {
+                      const meta = OFFERING_TYPE_META[e.type]
+                      return (
+                        <span
+                          key={e.bookingId}
+                          className="flex items-center gap-1 rounded-md bg-white px-1 py-0.5 min-w-0 shadow-sm"
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 bg-gradient-to-br ${meta?.gradient ?? 'from-primary to-primary-light'}`}
+                          />
+                          <span className="text-[10px] font-semibold text-foreground truncate">
+                            {e.timeLabel ? `${e.timeLabel} ` : ''}
+                            {e.title}
+                          </span>
+                        </span>
+                      )
+                    })}
+                    {dayEvents.length > MAX_CHIPS && (
+                      <span className="text-[10px] font-bold text-muted pl-1">
+                        +{dayEvents.length - MAX_CHIPS} more
+                      </span>
                     )}
                   </span>
                 )}
@@ -151,12 +198,25 @@ export function CalendarView({
           </div>
         </div>
       ) : (
-        <div className="clay-card p-8 text-center space-y-2">
+        /* An empty month should offer the next step, not just report the
+           absence — booking something is the only thing that fills it. */
+        <div className="clay-card p-6 sm:p-8 text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
             <CalendarDays className="w-6 h-6 text-primary" />
           </div>
-          <p className="font-display font-bold text-foreground">Nothing scheduled this month</p>
-          <p className="text-muted text-sm">Booked activities with a date will appear here.</p>
+          <div className="space-y-1">
+            <p className="font-display font-bold text-foreground">Nothing booked this month</p>
+            <p className="text-muted text-sm">
+              Activities show up here once they are booked and have a date.
+            </p>
+          </div>
+          <Link
+            href="/catalog"
+            className="clay-button bg-cta text-white px-5 h-11 text-sm font-semibold inline-flex items-center justify-center gap-2"
+          >
+            Browse activities
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       )}
     </div>

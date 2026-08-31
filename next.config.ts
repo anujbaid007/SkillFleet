@@ -8,6 +8,25 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+
+  experimental: {
+    /*
+      Every signed-in page is dynamic (it reads the auth cookie), and Next's
+      default client cache for dynamic segments is 0 seconds — so returning to
+      a page you were just on refetched it from the server every time. Moving
+      between Dashboard, Calendar and ISC therefore paid a full render on each
+      hop, in both directions.
+
+      Holding those segments briefly makes a revisit instant. The window is
+      deliberately short: these pages show carts, bookings and entry status,
+      and a stale read there is confusing. Anything that changes data calls
+      revalidatePath, which evicts the entry regardless of these times.
+    */
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
 };
 
 export default nextConfig;
