@@ -14,7 +14,7 @@ import { Users } from 'lucide-react'
  */
 export function IscHero({ groupLabel }: { groupLabel: string | null }) {
   return (
-    <div className="isc-stage relative overflow-hidden rounded-[18px] sm:rounded-[26px] border-2 border-white shadow-[8px_8px_24px_rgba(80,50,160,0.10),-4px_-4px_14px_rgba(255,255,255,0.9)] sm:border-[3px] md:min-h-[380px] lg:min-h-[430px]">
+    <div className="isc-stage relative overflow-hidden rounded-[18px] sm:rounded-[26px] border-2 border-white shadow-[8px_8px_24px_rgba(80,50,160,0.10),-4px_-4px_14px_rgba(255,255,255,0.9)] sm:border-[3px] lg:min-h-[420px]">
       {/* The podium rings and floating props from the key art. Purely
           decorative, so they are hidden from assistive tech and never take a
           click away from the content above them. */}
@@ -30,7 +30,7 @@ export function IscHero({ groupLabel }: { groupLabel: string | null }) {
       <div className="relative">
         {/* From md up the students sit in the right half of the card, so the
             column reserves that space rather than running text under them. */}
-        <div className="p-5 sm:p-7 lg:p-9 md:pr-[44%] lg:pr-[46%]">
+        <div className="p-5 sm:p-7 lg:p-9 lg:pr-[46%]">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-bold text-primary shadow-sm">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-teal opacity-60" />
@@ -82,17 +82,27 @@ export function IscHero({ groupLabel }: { groupLabel: string | null }) {
           )}
         </div>
 
-        {/* One element for both layouts: in normal flow under the text on a
-            phone, pinned to the bottom-right of the card from md up. */}
-        <div className="relative -mt-2 px-5 md:absolute md:right-0 md:bottom-0 md:mt-0 md:flex md:w-[46%] md:justify-end md:px-0 lg:w-[48%]">
+        {/*
+            One element for both layouts: in normal flow under the text up to
+            lg, pinned to the bottom-right of the card beyond it. The split
+            waits for lg because the platform sidebar takes 240px — at md the
+            two columns would each be too narrow to hold their content.
+
+            Only the container's width ever changes; the image is always
+            `w-full h-auto`, so its height is derived from its own aspect
+            ratio at every size and it cannot be squashed. An earlier version
+            pinned a height here and let max-width clamp the width, which
+            stretched the students horizontally on desktop.
+        */}
+        <div className="relative -mt-2 px-5 lg:absolute lg:right-0 lg:bottom-0 lg:mt-0 lg:w-[46%] lg:px-0 xl:w-[48%]">
           <Image
             src="/isc/2026/students.webp"
             alt="Students competing across the four ISC championships"
             width={1400}
             height={932}
             priority
-            sizes="(max-width: 768px) 100vw, 48vw"
-            className="h-auto w-full md:h-[330px] md:w-auto md:max-w-full lg:h-[380px]"
+            sizes="(max-width: 1024px) 100vw, 48vw"
+            className="h-auto w-full"
           />
         </div>
       </div>
