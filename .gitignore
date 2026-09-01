@@ -48,3 +48,9 @@ next-env.d.ts
 
 # reference data — source spreadsheet for the schools import, kept local
 cbse_schools_master.xlsx
+
+# ISC source material — deck PDFs, banners and cutouts the email art was cut
+# from (~44MB). Anchored to the repo root on purpose: an unanchored "ISC/"
+# would also match public/isc/ on a case-insensitive filesystem, which is
+# exactly the folder that has to stay committed.
+/ISC
