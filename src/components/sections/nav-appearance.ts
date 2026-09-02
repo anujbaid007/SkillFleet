@@ -14,18 +14,37 @@ export function isNavScrolled(scrollY: number): boolean {
 }
 
 interface NavAppearanceInput {
-  isHome: boolean
+  /**
+   * Whether a purple PageBanner sits behind the bar on this page.
+   *
+   * Passed down by the layout rather than derived from the pathname. The
+   * pathname is only knowable at request time, and this decision has to be
+   * right during static prerendering too — when usePathname() returned
+   * something other than '/', the home page was prerendered with the white
+   * logo baked in, and React does not repair a className mismatch during
+   * hydration, so it stayed invisible on a white background.
+   */
+  hasBanner: boolean
   isScrolled: boolean
   isMenuOpen: boolean
 }
 
 /*
   The light look is only safe when something dark is genuinely behind the bar.
-  That is true in exactly one case: a subpage, still at the top, with the
-  purple PageBanner filling the space behind it. The home page has no banner,
-  a scrolled page shows white body content, and an open mobile menu turns the
-  bar into the top edge of a white sheet — the logo must stay dark for all three.
+  That is true in exactly one case: a page with the purple PageBanner, still at
+  the top, so the banner fills the space behind it. A page without a banner
+  shows white body content, a scrolled page has moved past it, and an open
+  mobile menu turns the bar into the top edge of a white sheet — the logo must
+  stay dark for all three.
+
+  Note the default: anything that does not positively declare a banner gets the
+  dark logo. Dark-on-purple is merely less pretty; white-on-white cannot be
+  seen at all, so that is the direction to fail in.
 */
-export function shouldUseLightNav({ isHome, isScrolled, isMenuOpen }: NavAppearanceInput): boolean {
-  return !isHome && !isScrolled && !isMenuOpen
+export function shouldUseLightNav({
+  hasBanner,
+  isScrolled,
+  isMenuOpen,
+}: NavAppearanceInput): boolean {
+  return hasBanner && !isScrolled && !isMenuOpen
 }

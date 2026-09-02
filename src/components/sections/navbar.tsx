@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -242,16 +241,14 @@ function MobileNavNode({
   );
 }
 
-export default function Navbar() {
+export default function Navbar({ hasBanner = false }: { hasBanner?: boolean } = {}) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<Set<string>>(new Set());
-  const pathname = usePathname();
-  const isHome = pathname === "/";
-
   // Light (white) text and logo, which is only legible over a subpage's
-  // purple banner. See nav-appearance.ts for when that is actually true.
-  const isLight = shouldUseLightNav({ isHome, isScrolled, isMenuOpen: isMobileOpen });
+  // purple banner. Whether there is one is declared by the layout — see
+  // nav-appearance.ts for why it is not read from the pathname.
+  const isLight = shouldUseLightNav({ hasBanner, isScrolled, isMenuOpen: isMobileOpen });
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(isNavScrolled(window.scrollY));

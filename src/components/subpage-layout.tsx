@@ -7,7 +7,8 @@ import Footer from "@/components/sections/footer";
 export default function SubpageLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Navbar />
+      {/* Every page using this layout renders a PageBanner. */}
+      <Navbar hasBanner />
       <main>{children}</main>
       <Footer />
     </>

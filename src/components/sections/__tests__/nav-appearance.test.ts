@@ -21,26 +21,34 @@ describe('isNavScrolled', () => {
 })
 
 describe('shouldUseLightNav', () => {
-  it('is light on a subpage at the top, where the purple banner sits behind the bar', () => {
-    expect(shouldUseLightNav({ isHome: false, isScrolled: false, isMenuOpen: false })).toBe(true)
+  it('is light on a page with a banner, at the top', () => {
+    expect(shouldUseLightNav({ hasBanner: true, isScrolled: false, isMenuOpen: false })).toBe(true)
   })
 
-  it('is never light on a subpage that is scrolled past the banner', () => {
+  it('is never light once scrolled past the banner', () => {
     // The regression this guards: a navbar mounted at a restored scroll offset
     // (pull-to-refresh mid-page, back-navigation, deep link to an anchor) used
     // to keep the white logo over the white page body, leaving it invisible.
-    expect(shouldUseLightNav({ isHome: false, isScrolled: true, isMenuOpen: false })).toBe(false)
+    expect(shouldUseLightNav({ hasBanner: true, isScrolled: true, isMenuOpen: false })).toBe(false)
   })
 
   it('is never light while the mobile menu is open, because the sheet is white', () => {
-    expect(shouldUseLightNav({ isHome: false, isScrolled: false, isMenuOpen: true })).toBe(false)
-    expect(shouldUseLightNav({ isHome: false, isScrolled: true, isMenuOpen: true })).toBe(false)
+    expect(shouldUseLightNav({ hasBanner: true, isScrolled: false, isMenuOpen: true })).toBe(false)
+    expect(shouldUseLightNav({ hasBanner: true, isScrolled: true, isMenuOpen: true })).toBe(false)
   })
 
-  it('is never light on the home page, which has no banner behind the bar', () => {
+  /*
+    The bug this replaced: the rule used to ask whether the pathname was '/'.
+    During static prerendering usePathname() did not report '/', so the home
+    page was built with the white logo baked into its HTML — and React does not
+    repair a className mismatch while hydrating, so it stayed white on white for
+    every visitor. Whether a banner exists is now declared by the layout, which
+    is knowable at build time.
+  */
+  it('is never light without a banner, whatever else is true', () => {
     for (const isScrolled of [false, true]) {
       for (const isMenuOpen of [false, true]) {
-        expect(shouldUseLightNav({ isHome: true, isScrolled, isMenuOpen })).toBe(false)
+        expect(shouldUseLightNav({ hasBanner: false, isScrolled, isMenuOpen })).toBe(false)
       }
     }
   })
