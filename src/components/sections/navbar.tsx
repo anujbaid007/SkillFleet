@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { isNavScrolled, shouldUseLightNav } from "./nav-appearance";
@@ -323,6 +323,20 @@ export default function Navbar() {
                   </Link>
                 )
               )}
+
+              {/*
+                ISC 2026 is a campaign destination rather than an ordinary
+                section, so it reads as a bubble among the plain text links.
+                The pill carries its own contrast, which is why it needs no
+                `isLight` variant the way the text links do.
+              */}
+              <Link
+                href="/isc"
+                className="ml-1.5 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent-teal px-3.5 py-2 text-sm font-bold text-white shadow-[0_6px_16px_-6px_rgba(116,71,225,0.85)] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_22px_-8px_rgba(116,71,225,0.95)]"
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                ISC 2026
+              </Link>
             </div>
 
             {/* CTA */}
@@ -397,6 +411,14 @@ export default function Navbar() {
               className="lg:hidden bg-white/95 backdrop-blur-xl border-t border-primary/10 shadow-xl overflow-hidden"
             >
               <div className="px-4 py-6 space-y-1">
+                <Link
+                  href="/isc"
+                  onClick={() => setIsMobileOpen(false)}
+                  className="mb-3 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-accent-teal px-4 py-3 text-base font-bold text-white shadow-[0_8px_20px_-8px_rgba(116,71,225,0.85)]"
+                >
+                  <Trophy className="h-4 w-4" />
+                  ISC 2026
+                </Link>
                 {navItems.map((item, i) => (
                   <motion.div
                     key={item.name}

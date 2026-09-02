@@ -24,7 +24,7 @@ const steps = [
     step: "02",
     title: "Explore & Participate",
     description:
-      "Choose from trips, workshops, events, and competitions — each curated for maximum learning impact.",
+      "Choose from trips, workshops, events and competitions, each curated for real impact.",
     color: "bg-primary-light text-white",
   },
   {
@@ -100,7 +100,7 @@ export default function Passport() {
               whileInView="visible"
               viewport={{ once: true, margin: "-40px" }}
               variants={stepVariants}
-              className="relative text-center"
+              className="relative flex flex-col text-center"
             >
               {/* Step number circle */}
               <motion.div
@@ -116,7 +116,7 @@ export default function Passport() {
               </motion.div>
 
               {/* Content */}
-              <div className="clay-card p-3 sm:p-6">
+              <div className="clay-card flex flex-1 flex-col p-3 sm:p-6">
                 <span className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-widest">
                   Step {step.step}
                 </span>
