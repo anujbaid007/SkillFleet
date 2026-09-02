@@ -3,7 +3,14 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { TRACK_FIELDS, trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
+import {
+  ISC_SEASON,
+  TRACK_FIELDS,
+  trackById,
+  trackBySlug,
+  type IscTrackId,
+} from '@/lib/isc/tracks'
+import { CONSENT_PURPOSES, CONSENT_VERSION } from '@/lib/isc/consent-notice'
 import { readSubmission } from '@/lib/isc/submission'
 import { firstInvalidField } from '@/lib/isc/validate'
 import { checkLink } from '@/lib/isc/link-check'
@@ -509,18 +516,58 @@ export async function giveConsentAction(
   _prev: ConsentState,
   formData: FormData
 ): Promise<ConsentState> {
-  const guardianName = ((formData.get('guardian_name') as string) ?? '').trim()
+  const consentName = ((formData.get('consent_name') as string) ?? '').trim()
   const next = ((formData.get('next') as string) ?? '/isc').trim()
-  if (!guardianName) return { error: CONSENT_ERR.guardian_name_required }
+  if (!consentName) return { error: CONSENT_ERR.guardian_name_required }
+
+  /*
+    Each purpose is read separately, and the required one is checked here as
+    well as in the form. A disabled button is a convenience, not a control —
+    the form can be submitted without it.
+  */
+  const agreed = (id: string) => formData.get(id) === 'on'
+  const required = CONSENT_PURPOSES.filter((p) => p.required)
+  if (!required.every((p) => agreed(p.id))) {
+    return { error: 'Please agree to taking part before continuing.' }
+  }
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('isc_give_consent', {
-    p_guardian_name: guardianName,
+    p_guardian_name: consentName,
   })
   if (error) return { error: iscError(undefined) }
 
   const r = data as { ok: boolean; error?: string }
   if (!r?.ok) return { error: CONSENT_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+
+  /*
+    Record what was actually agreed to, against the row the RPC just wrote.
+
+    Separate from the RPC on purpose: the RPC owns eligibility and the
+    one-per-season rule, and rewriting it to carry four more arguments would
+    put that logic at risk for what is only bookkeeping. The version stamp
+    matters most — without it, editing the consent wording later would
+    silently change what past students are recorded as having agreed to.
+
+    A failure here is deliberately not fatal. The consent itself is stored; a
+    missing detail row is a reporting gap, not grounds to send a student back
+    round a form they have already completed.
+  */
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user) {
+    await supabase
+      .from('isc_consent')
+      .update({
+        consented_by: 'student',
+        consent_version: CONSENT_VERSION,
+        brainweave_sharing: agreed('brainweave_sharing'),
+        promo_use: agreed('promo_use'),
+      })
+      .eq('student_id', user.id)
+      .eq('season', ISC_SEASON)
+  }
 
   revalidatePath('/isc')
   // Only ever an internal path: `next` comes from our own links, but refuse

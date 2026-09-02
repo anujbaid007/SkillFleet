@@ -20,7 +20,7 @@ export default async function IscConsentPage({
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('school_class')
+    .select('school_class, full_name')
     .eq('id', user.id)
     .single()
   if (!isEligibleClass(profile?.school_class)) redirect('/isc')
@@ -28,13 +28,9 @@ export default async function IscConsentPage({
   // Already agreed this season — nothing to ask.
   if (await hasIscConsent()) redirect(target)
 
-  // Pre-fill from the family record rather than asking for something we hold.
-  const { data: familyRows } = await supabase.rpc('get_my_family')
-  const guardianName = (familyRows ?? [])[0]?.parent_full_name ?? ''
-
   return (
     <div className="max-w-xl mx-auto">
-      <ConsentForm guardianName={guardianName} next={target} />
+      <ConsentForm studentName={profile?.full_name ?? ''} next={target} />
     </div>
   )
 }

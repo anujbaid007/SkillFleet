@@ -1271,6 +1271,10 @@ export type Database = {
           season: string
           guardian_name: string
           given_at: string
+          consented_by: string | null
+          consent_version: string | null
+          promo_use: boolean | null
+          brainweave_sharing: boolean | null
         }
         Insert: {
           id?: string
@@ -1278,6 +1282,10 @@ export type Database = {
           season?: string
           guardian_name: string
           given_at?: string
+          consented_by?: string | null
+          consent_version?: string | null
+          promo_use?: boolean | null
+          brainweave_sharing?: boolean | null
         }
         Update: {
           id?: string
@@ -1285,6 +1293,10 @@ export type Database = {
           season?: string
           guardian_name?: string
           given_at?: string
+          consented_by?: string | null
+          consent_version?: string | null
+          promo_use?: boolean | null
+          brainweave_sharing?: boolean | null
         }
         Relationships: []
       }
