@@ -6,6 +6,7 @@ import { ParentDetailsForm } from '@/components/account/parent-details-form'
 import { getSchoolStates } from '@/app/actions/schools'
 import { SchoolRejectedNotice } from '@/components/platform/school-rejected-notice'
 import { PageHeader } from '@/components/ui/page-header'
+import { DangerZone } from '@/components/account/danger-zone'
 import { Reveal } from '@/components/ui/reveal'
 
 export default async function AccountPage() {
@@ -109,6 +110,16 @@ export default async function AccountPage() {
           />
         </Reveal>
       )}
+    <Reveal delay={0.2}>
+        <div className="pt-2">
+          <h2 className="font-display text-lg font-bold text-foreground">Your data</h2>
+          <p className="mt-0.5 mb-4 text-sm text-muted">
+            Take a copy of everything we hold, or remove it altogether.
+          </p>
+          <DangerZone />
+        </div>
+      </Reveal>
+
     </div>
   )
 }

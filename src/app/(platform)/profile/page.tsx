@@ -4,7 +4,7 @@ import { Sprout, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { scoreLevelFor, internalToDisplay } from '@/lib/scoring'
 import type { ScoreLevel } from '@/lib/scoring/types'
-import { ParameterCard } from '@/components/dashboard/parameter-card'
+import { SkillLadder, SkillHighlights, type SkillRow } from '@/components/profile/skill-ladder'
 import { ProgressRing } from '@/components/dashboard/progress-ring'
 import { Reveal } from '@/components/ui/reveal'
 import { GradientCard } from '@/components/ui/gradient-card'
@@ -63,10 +63,11 @@ export default async function ProfilePage() {
       parameterId: gp.id,
       name: gp.name,
       total,
+      percent: displayPct,
       levelName: level?.name ?? 'Seed',
       levelColorClass: level?.color_class ?? 'text-accent-yellow',
     }
-  })
+  }) satisfies SkillRow[]
 
   const avgTotal =
     parameterScores.length > 0
@@ -138,18 +139,13 @@ export default async function ProfilePage() {
         </Reveal>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {parameterScores.map((p, i) => (
-          <Reveal key={p.parameterId} delay={Math.min(i * 0.05, 0.4)}>
-            <ParameterCard
-              name={p.name}
-              total={p.total}
-              levelName={p.levelName}
-              levelColorClass={p.levelColorClass}
-            />
-          </Reveal>
-        ))}
-      </div>
+      <Reveal delay={0.06}>
+        <SkillHighlights skills={parameterScores} />
+      </Reveal>
+
+      <Reveal delay={0.08}>
+        <SkillLadder skills={parameterScores} />
+      </Reveal>
     </div>
   )
 }
