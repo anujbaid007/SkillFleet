@@ -2,9 +2,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowRight, Trophy } from 'lucide-react'
-import { adminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
+import { resolveJoinSchool } from '@/lib/coordinator/resolve-school'
 
 export const metadata: Metadata = {
   title: 'Join your school on SkillFleet',
@@ -21,14 +21,7 @@ export const metadata: Metadata = {
  */
 export default async function JoinPage({ params }: { params: Promise<{ schoolId: string }> }) {
   const { schoolId } = await params
-
-  // Read with the service-role client: a signed-out visitor is exactly who
-  // this link is for, and RLS on `schools` assumes a session.
-  const { data: school } = await adminClient
-    .from('schools')
-    .select('id, name, state, district')
-    .eq('id', schoolId)
-    .maybeSingle()
+  const school = await resolveJoinSchool(schoolId)
 
   // A dead or mistyped link should still lead somewhere useful.
   if (!school) redirect('/signup')

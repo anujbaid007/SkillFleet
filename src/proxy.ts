@@ -1,10 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { JOIN_COOKIE, JOIN_COOKIE_MAX_AGE } from '@/lib/coordinator/join-link'
+import {
+  JOIN_COOKIE,
+  JOIN_COOKIE_MAX_AGE,
+  parseJoinSlug,
+} from '@/lib/coordinator/join-link'
 
-/** /join/<uuid> — a coordinator's prefilled signup link. */
-const JOIN_PATH = /^\/join\/([0-9a-fA-F-]{36})\/?$/
+/** /join/<school-name>-<code>, or the original /join/<uuid>. */
+const JOIN_PATH = /^\/join\/([^/]+)\/?$/
 
 // Routes that require authentication
 const PROTECTED_PREFIXES = [
@@ -76,13 +80,18 @@ export async function proxy(request: NextRequest) {
   */
   const join = pathname.match(JOIN_PATH)
   if (join) {
-    supabaseResponse.cookies.set(JOIN_COOKIE, join[1], {
-      maxAge: JOIN_COOKIE_MAX_AGE,
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      secure: process.env.NODE_ENV === 'production',
-    })
+    const parsed = parseJoinSlug(join[1])
+    // Store the whole slug, not just the id: /onboarding/details re-resolves
+    // it, and needs the readable half to separate two ids that share a prefix.
+    if (parsed.schoolId || parsed.code) {
+      supabaseResponse.cookies.set(JOIN_COOKIE, join[1], {
+        maxAge: JOIN_COOKIE_MAX_AGE,
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      })
+    }
   }
 
   // Unauthenticated users visiting protected routes → send to login

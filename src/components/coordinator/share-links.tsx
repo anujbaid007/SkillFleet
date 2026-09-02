@@ -24,7 +24,7 @@ export function ShareLinks({
 }) {
   const [copied, setCopied] = useState(false)
 
-  const url = joinUrl(schoolId, origin)
+  const url = joinUrl(schoolId, schoolName, origin)
 
   async function copy() {
     try {

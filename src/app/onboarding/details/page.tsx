@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { adminClient } from '@/lib/supabase/admin'
 import { JOIN_COOKIE } from '@/lib/coordinator/join-link'
+import { resolveJoinSchool } from '@/lib/coordinator/resolve-school'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import { DetailsForm } from '@/components/onboarding/details-form'
 import { getSchoolStates } from '@/app/actions/schools'
@@ -36,14 +36,8 @@ export default async function OnboardingDetailsPage() {
     service-role client because the student has no school of their own yet,
     which is what the RLS policy on `schools` keys off.
   */
-  const joinSchoolId = (await cookies()).get(JOIN_COOKIE)?.value
-  const { data: joinSchool } = joinSchoolId
-    ? await adminClient
-        .from('schools')
-        .select('id, name, state, district')
-        .eq('id', joinSchoolId)
-        .maybeSingle()
-    : { data: null }
+  const joinSlug = (await cookies()).get(JOIN_COOKIE)?.value
+  const joinSchool = joinSlug ? await resolveJoinSchool(joinSlug) : null
 
   const states = await getSchoolStates()
 

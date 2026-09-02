@@ -1,18 +1,96 @@
-import { Download, FileText, Lock, Users } from 'lucide-react'
+import { Download, FileText, Lock, Trophy, Users, type LucideIcon } from 'lucide-react'
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { HowItWorks } from '@/components/isc/how-it-works'
 
 /** dd Mon yyyy, in IST, matching how deadlines read elsewhere. */
 function deadlineLabel(iso: string | undefined): string {
-  if (!iso) return 'To be announced'
+  if (!iso) return 'Date to be announced'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return 'To be announced'
-  return d.toLocaleDateString('en-IN', {
+  if (Number.isNaN(d.getTime())) return 'Date to be announced'
+  return `Closes ${d.toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     timeZone: 'Asia/Kolkata',
-  })
+  })}`
+}
+
+interface Championship {
+  key: string
+  name: string
+  blurb: string
+  icon: LucideIcon
+  gradient: string
+  wash: string
+  badge: string
+  /** Heading above the list, since Puzzle Master lists divisions not deliverables. */
+  listTitle: string
+  listItems: string[]
+  prize: string
+  teamNote: string
+  locked?: boolean
+}
+
+/**
+ * One card, four times.
+ *
+ * All four are rendered from the same shape on purpose. Puzzle Master
+ * previously had its own markup and spanned the full width, which left the
+ * grid as two cards, then one beside a gap, then a short wide slab. Every
+ * championship now occupies an equal cell.
+ */
+function ChampionshipCard({ c }: { c: Championship }) {
+  return (
+    <div
+      className={`flex flex-col rounded-2xl border border-black/[0.05] bg-gradient-to-br p-5 ${c.wash} to-transparent`}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${c.gradient}`}
+        >
+          <c.icon className="h-4.5 w-4.5 text-white" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display leading-snug font-bold text-foreground">{c.name}</h3>
+          <span
+            className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              c.locked ? 'bg-white/70 text-muted' : 'bg-white/80 text-foreground'
+            }`}
+          >
+            {c.locked && <Lock className="h-2.5 w-2.5" />}
+            {c.badge}
+          </span>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-muted">{c.blurb}</p>
+
+      <p className="mt-4 text-[10px] font-bold tracking-wider text-foreground/50 uppercase">
+        {c.listTitle}
+      </p>
+      <ul className="mt-1.5 space-y-1.5">
+        {c.listItems.map((item) => (
+          <li key={item} className="flex gap-2 text-xs leading-relaxed text-muted">
+            <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-primary/40" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* mt-auto pins the prize and team note to the bottom, so the two cards
+          in a row line up however much text sits above them. */}
+      <div className="mt-auto pt-4">
+        <p className="flex gap-2 rounded-xl bg-white/70 px-3 py-2 text-xs leading-relaxed text-foreground">
+          <Trophy className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-yellow" />
+          <span>{c.prize}</span>
+        </p>
+        <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-muted">
+          {c.locked ? <Lock className="h-3 w-3" /> : <Users className="h-3 w-3" />}
+          {c.teamNote}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -21,6 +99,36 @@ function deadlineLabel(iso: string | undefined): string {
  * read the rules and talk to their students — not after.
  */
 export function IscResources({ deadlines }: { deadlines: Record<string, string> }) {
+  const championships: Championship[] = [
+    ...ISC_TRACKS.map((t) => ({
+      key: t.id,
+      name: t.name,
+      blurb: t.brief,
+      icon: t.icon,
+      gradient: t.gradient,
+      wash: t.wash,
+      badge: deadlineLabel(deadlines[t.id]),
+      listTitle: 'What they need ready',
+      listItems: t.prepare,
+      prize: t.prize,
+      teamNote: `On their own or a team of up to ${t.maxTeamSize}`,
+    })),
+    {
+      key: 'puzzle_master',
+      name: PUZZLE_MASTER.name,
+      blurb: PUZZLE_MASTER.tagline,
+      icon: PUZZLE_MASTER.icon,
+      gradient: PUZZLE_MASTER.gradient,
+      wash: PUZZLE_MASTER.wash,
+      badge: PUZZLE_MASTER.note,
+      listTitle: 'How it runs',
+      listItems: [PUZZLE_MASTER.divisions, 'Played live — nothing to submit in advance.'],
+      prize: PUZZLE_MASTER.prize,
+      teamNote: 'Individual only',
+      locked: true,
+    },
+  ]
+
   return (
     <div className="space-y-5">
       <HowItWorks />
@@ -33,75 +141,10 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
           <span className="isc-rule h-1 w-16 shrink-0" />
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {ISC_TRACKS.map((track) => (
-            <div
-              key={track.id}
-              className={`relative overflow-hidden rounded-2xl border border-black/[0.05] bg-gradient-to-br p-4 ${track.wash} to-transparent`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${track.gradient}`}
-                >
-                  <track.icon className="h-4 w-4 text-white" />
-                </span>
-                <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-foreground">
-                  Closes {deadlineLabel(deadlines[track.id])}
-                </span>
-              </div>
-
-              <h3 className="font-display mt-3 font-bold text-foreground">{track.name}</h3>
-              <p className="mt-1 text-xs text-muted">{track.brief}</p>
-
-              <p className="mt-3 text-[11px] font-bold tracking-wide text-foreground/60 uppercase">
-                What they need ready
-              </p>
-              <ul className="mt-1 space-y-1">
-                {track.prepare.map((item) => (
-                  <li key={item} className="flex gap-2 text-xs text-muted">
-                    <span
-                      aria-hidden
-                      className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary/40"
-                    />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-
-              <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-foreground">
-                <span className="font-bold">Prize · </span>
-                {track.prize}
-              </p>
-
-              <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-muted">
-                <Users className="h-3 w-3" />
-                On their own or a team of up to {track.maxTeamSize}
-              </p>
-            </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {championships.map((c) => (
+            <ChampionshipCard key={c.key} c={c} />
           ))}
-
-          <div
-            className={`relative overflow-hidden rounded-2xl border border-black/[0.05] bg-gradient-to-br p-4 ${PUZZLE_MASTER.wash} to-transparent sm:col-span-2`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${PUZZLE_MASTER.gradient}`}
-              >
-                <PUZZLE_MASTER.icon className="h-4 w-4 text-white" />
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-muted">
-                <Lock className="h-3 w-3" />
-                {PUZZLE_MASTER.note}
-              </span>
-            </div>
-            <h3 className="font-display mt-3 font-bold text-foreground">{PUZZLE_MASTER.name}</h3>
-            <p className="mt-1 text-xs text-muted">{PUZZLE_MASTER.tagline}</p>
-            <p className="mt-2 text-xs text-muted">{PUZZLE_MASTER.divisions}</p>
-            <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-foreground">
-              <span className="font-bold">Prize · </span>
-              {PUZZLE_MASTER.prize}
-            </p>
-          </div>
         </div>
       </div>
 
