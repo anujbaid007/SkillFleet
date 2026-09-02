@@ -1,0 +1,1438 @@
+/* ------------------------------------------------------------------ tokens */
+.bw-games-root{/* Safe-area insets matter once this ships inside a Capacitor webview. */
+  --bg-deep: #0d151f;
+  --bg-panel: #14202e;
+  --ink: #f2f6fa;
+  --ink-dim: #9fb0c2;
+  --ink-faint: #62748a;
+
+  --pill: #b9c4cd;
+  --pill-ink: #16202c;
+  --pill-idle: #7d8b98;
+
+  --green: #089820;
+  --green-bright: #3fbf4f;
+  --orange: #ee7b12;
+  --teal: #1ba7a7;
+  --danger: #e5484d;
+
+  --radius: 14px;
+  --shadow-lift: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  --font: 'Nunito Sans', ui-rounded, 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  
+  --pad-top: env(safe-area-inset-top, 0px);
+  --pad-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bw-games-root, .bw-games-root *{
+  box-sizing: border-box;
+}/*
+ * Viewport height on a phone, which is not what it looks like.
+ *
+ * `height: 100%` and `100vh` both resolve against the **large viewport** — the
+ * height the page would have with the browser's URL bar hidden. The bar is
+ * usually showing, so the app came out taller than the visible area and was
+ * clipped at both ends: the HUD sat behind the URL bar, captions behind the
+ * navigation bar, and the last card on the home list could not be scrolled to
+ * because the bottom of the scroll container was off-screen.
+ *
+ * `dvh` is the viewport that is actually visible, and it follows the chrome as
+ * it comes and goes. The plain values stay first as the fallback for browsers
+ * that do not know the unit.
+ */
+
+
+/*
+ * Embedded in BrainWeave rather than owning the page, so the root sizes to its
+ * content — the standalone build's `height: 100dvh` here would have forced a
+ * viewport-tall box below BrainWeave's own header and footer. `.board` still
+ * claims the height it needs for a round; see its own rule below.
+ */
+.bw-games-root{
+  /*
+   * No `margin: 0` here. It came from the standalone app's `html, body` reset,
+   * where it was doing real work; on a div inside BrainWeave it is the browser
+   * default anyway, and — having the same specificity as a Tailwind `-mt-*`
+   * utility while loading after it — it silently won and dropped any margin the
+   * host tried to set on this element.
+   */
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  /* The board owns all gestures; the page itself must never scroll or zoom. */
+  touch-action: manipulation;
+}
+
+.bw-games-root button{
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}/* ------------------------------------------------------------------- shell */
+
+
+.bw-games-root .app{
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * The board's default sizing, used wherever it is not the full-screen play
+ * mode below. Portrait by design: these games were built for a phone, and a
+ * 560px column keeps that shape on a desktop rather than stretching the
+ * playfield into something the artwork was never laid out for.
+ */
+.bw-games-root .board{
+  position: relative;
+  width: min(100vw, 560px);
+  height: min(100vh, 1100px);
+  height: min(100dvh, 1100px);
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-panel);
+  isolation: isolate;
+}
+
+@media (min-width: 680px) and (min-height: 720px) {
+  .bw-games-root .board{
+    height: min(96vh, 1000px);
+    height: min(96dvh, 1000px);
+    border-radius: 22px;
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+.bw-games-root .board canvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}/* --------------------------------------------------------------------- HUD */
+
+
+.bw-games-root .hud{
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(12px + var(--pad-top)) 12px calc(14px + var(--pad-bottom));
+}
+
+.bw-games-root .hud__top{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bw-games-root .hud__stats{
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.bw-games-root .pillgroup{
+  display: flex;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.bw-games-root .stat{
+  background: var(--pill);
+  color: var(--pill-ink);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-games-root .stat + .stat{
+  border-left: 2px solid rgba(20, 32, 46, 0.55);
+}
+
+.bw-games-root .stat__value{
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.bw-games-root .stat--urgent{
+  background: #f2b8b8;
+  animation: urgentPulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes urgentPulse {
+  to {
+    background: #ffdede;
+  }
+}
+
+.bw-games-root .streak{
+  background: var(--pill);
+  border-radius: 5px;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.bw-games-root .streak__dots{
+  display: flex;
+  gap: 4px;
+}
+
+.bw-games-root .streak__dot{
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.bw-games-root .streak__dot--on{
+  background: var(--teal);
+  transform: scale(1.12);
+}
+
+.bw-games-root .streak__mult{
+  color: var(--pill-ink);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.4em;
+  text-align: right;
+}
+
+.bw-games-root .streak__max{
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.bw-games-root .iconbtn{
+  pointer-events: auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(8, 16, 26, 0.55);
+  color: #6fd4e8;
+  display: grid;
+  place-items: center;
+  transition: background 140ms ease;
+}
+
+.bw-games-root .iconbtn:hover{
+  background: rgba(8, 16, 26, 0.8);
+}/* ------------------------------------------------------------- mode pills */
+
+
+.bw-games-root .modes{
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.bw-games-root .mode{
+  flex: 0 1 168px;
+  padding: 9px 4px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  background: var(--pill-idle);
+  color: #1d2733;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background 130ms ease, color 130ms ease, transform 130ms ease;
+}
+
+.bw-games-root .mode--active{
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.bw-games-root .mode--pointing.mode--active{
+  background: var(--green);
+}
+
+.bw-games-root .mode--moving.mode--active{
+  background: var(--orange);
+}/* -------------------------------------------------------------- overlays */
+
+
+.bw-games-root .overlay{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 5;
+}
+
+.bw-games-root .overlay--scrim{
+  background: rgba(8, 14, 22, 0.78);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.bw-games-root .countdown{
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  font-size: 34px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  animation: countPop 0.85s ease-out;
+}
+
+@keyframes countPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  22% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.94);
+    opacity: 0.15;
+  }
+}/* ------------------------------------------------------------- tutorial *//* The caption carries its own backdrop rather than a bottom-anchored scrim.
+   The scrim used to reach 80px BELOW the caption at 92% opacity, which put it
+   straight over the games that draw a NO / YES bar along the bottom — the
+   controls were painted correctly and then covered by the thing explaining
+   how to use them. A backdrop the size of the text cannot reach them. */
+
+
+
+.bw-games-root .tutorial__text{
+  background: rgba(8, 14, 22, 0.82);
+  padding: 10px 16px;
+  border-radius: 12px;
+}
+
+.bw-games-root .tutorial{/* Clear of the NO / YES bar, which is max(72px, 10% of the board) tall and
+     so reaches 110px up on the tallest board we allow. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  
+  bottom: calc(124px + var(--pad-bottom));
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.bw-games-root .tutorial__text{
+  position: relative;
+  max-width: 30ch;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.42;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  animation: fadeUp 320ms ease-out;
+}
+
+.bw-games-root .tutorial__card{
+  position: relative;
+  background: #fff;
+  color: #17222f;
+  padding: 22px 26px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  max-width: 26ch;
+  box-shadow: var(--shadow-lift);
+  animation: fadeUp 320ms ease-out;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.bw-games-root .skip{
+  pointer-events: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6fd4e8;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(8, 16, 26, 0.5);
+}/* --------------------------------------------------------------- panels */
+
+
+.bw-games-root .panel{
+  width: min(88%, 380px);
+  background: #f7f9fb;
+  color: #16202c;
+  border-radius: 18px;
+  padding: 26px 24px 22px;
+  text-align: center;
+  box-shadow: var(--shadow-lift);
+  animation: fadeUp 260ms ease-out;
+}
+
+.bw-games-root .panel h2{
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.bw-games-root .panel p{
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #48586a;
+}
+
+.bw-games-root .btn{
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: #ef5b32;
+  color: #fff;
+  transition: filter 140ms ease, transform 140ms ease;
+}
+
+.bw-games-root .btn:hover{
+  filter: brightness(1.07);
+}
+
+.bw-games-root .btn:active{
+  transform: scale(0.985);
+}
+
+.bw-games-root .btn--ghost{
+  background: transparent;
+  color: #48586a;
+  margin-top: 6px;
+}
+
+.bw-games-root .btn + .btn{
+  margin-top: 8px;
+}/* -------------------------------------------------------------- results */
+
+
+.bw-games-root .result__hero{
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #16202c;
+}
+
+.bw-games-root .result__label{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  margin-bottom: 4px;
+}
+
+.bw-games-root .result__badge{
+  display: inline-block;
+  margin: 10px 0 4px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  background: #e7f7e9;
+  color: #1b7a2c;
+}
+
+.bw-games-root .result__badge--best{
+  background: #fff2d6;
+  color: #96650a;
+}
+
+.bw-games-root .result__grid{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 18px 0 6px;
+}
+
+.bw-games-root .result__cell{
+  background: #eaeff4;
+  border-radius: 10px;
+  padding: 10px 4px;
+}
+
+.bw-games-root .result__cell b{
+  display: block;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-games-root .result__cell span{
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+.bw-games-root .bonus{
+  text-align: center;
+  color: #fff;
+  animation: fadeUp 300ms ease-out;
+}
+
+.bw-games-root .bonus__mult{
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: var(--pill);
+  color: var(--pill-ink);
+  font-size: 22px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.bw-games-root .bonus__title{
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.bw-games-root .bonus__value{
+  font-size: 24px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}/* ----------------------------------------------------------------- home */
+
+
+.bw-games-root .home{
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: calc(28px + var(--pad-top)) 22px calc(28px + var(--pad-bottom));
+  background: radial-gradient(120% 80% at 50% 0%, #1b2c3f 0%, var(--bg-panel) 60%);
+}
+
+.bw-games-root .home__kicker{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--teal);
+}
+
+.bw-games-root .home__title{
+  font-size: 27px;
+  font-weight: 800;
+  margin: 6px 0 22px;
+}
+
+.bw-games-root .category-list{
+  display: grid;
+  gap: 22px;
+}
+
+.bw-games-root .category{
+  display: grid;
+  gap: 9px;
+}
+
+.bw-games-root .category__heading{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bw-games-root .category__heading h2{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #8fe3ff;
+}
+
+.bw-games-root .category__heading span{
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bw-games-root .category__games{
+  display: grid;
+  gap: 10px;
+}
+
+.bw-games-root .card{
+  width: 100%;
+  background: linear-gradient(150deg, #23384f, #1a2a3c);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.bw-games-root .card:hover{
+  transform: translateY(-2px);
+  border-color: rgba(111, 212, 232, 0.4);
+}
+
+.bw-games-root .card__main{
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 16px 4px 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}/* The level control is its own button, so choosing a level and starting the
+   game are separate taps rather than one ambiguous target. */
+
+
+.bw-games-root .card__level{
+  padding: 16px 16px 16px 12px;
+  text-align: right;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  transition: background 140ms ease;
+}
+
+.bw-games-root .card__level:enabled:hover{
+  background: rgba(111, 212, 232, 0.1);
+}
+
+.bw-games-root .card__level:disabled{
+  cursor: default;
+}
+
+.bw-games-root .card__dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.bw-games-root .card__body{
+  flex: 1;
+  min-width: 0;
+}
+
+.bw-games-root .card__title{
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.bw-games-root .card__meta{
+  display: block;
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+
+.bw-games-root .card__level{
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.bw-games-root .card__level b{
+  display: block;
+  font-size: 15px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-games-root .card__level:enabled span{
+  color: #6fd4e8;
+}
+
+.bw-games-root .toggles{
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bw-games-root .toggle{
+  pointer-events: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--ink-dim);
+  transition: all 140ms ease;
+}
+
+.bw-games-root .toggle--on{
+  background: rgba(111, 212, 232, 0.16);
+  border-color: rgba(111, 212, 232, 0.5);
+  color: #8fe3ff;
+}
+
+.bw-games-root .hint{
+  margin-top: 22px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+.bw-games-root .hint kbd{
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bw-games-root, .bw-games-root *,
+.bw-games-root *::before,
+.bw-games-root *::after{
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}/* ------------------------------------------------- station progression grid */
+
+
+.bw-games-root .stations{
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin: 14px 0 4px;
+}
+
+.bw-games-root .stations__slot{
+  aspect-ratio: 1;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #90a0b0;
+  background: #e2e8ee;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.bw-games-root .stations__slot--on{
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.bw-games-root .stations__slot--new{
+  outline: 2.5px solid #16202c;
+  outline-offset: 1.5px;
+}/* ------------------------------------------------------------ level picker */
+
+
+.bw-games-root .levels{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: 7px;
+  margin: 4px 0 16px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.bw-games-root .levels__item{
+  padding: 9px 4px;
+  border-radius: 10px;
+  background: #eaeff4;
+  color: #48586a;
+  border: 2px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.bw-games-root .levels__item:hover{
+  background: #dde6ee;
+}
+
+.bw-games-root .levels__item b{
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: #16202c;
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-games-root .levels__item span{/* Two-word labels like "10 STATIONS" must not wrap, or those tiles grow
+     taller than their neighbours and the grid loses its rhythm. */
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  
+  white-space: nowrap;
+}
+
+.bw-games-root .levels__item--on{
+  border-color: #ef5b32;
+  background: #fff1ec;
+}/* ---------------------------------------------------- Lost in Migration */
+
+
+.bw-games-root .lim-hint{
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 1px 6px rgba(0, 40, 50, 0.35);
+  padding-bottom: 2px;
+}/* ---------------------------------------------------------- River Ranger */
+
+
+.bw-games-root .rr-hint{
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 6px rgba(6, 40, 52, 0.5);
+  padding-bottom: 2px;
+}/* --------------------------------------------------------- Memory Matrix */
+
+
+.bw-games-root .mm-bonus{
+  align-self: flex-end;
+  background: rgba(255, 255, 255, 0.9);
+  color: #2E7D62;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 4px;
+  animation: fadeUp 220ms ease-out;
+}
+
+.bw-games-root .mm-hint{
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 8px rgba(40, 20, 16, 0.6);
+  padding-bottom: 2px;
+}/* ----------------------------------------------------------------- profile */
+
+
+.bw-games-root .home__top{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bw-games-root .home__profile{
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.bw-games-root .home__profile b{
+  font-size: 20px;
+  line-height: 1;
+  color: var(--green-bright);
+}
+.bw-games-root .home__profile span{
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  color: var(--ink-faint);
+}
+.bw-games-root .home__profile:hover{
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.bw-games-root .profile{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(14px + var(--pad-top)) 16px calc(10px + var(--pad-bottom));
+  gap: 12px;
+}
+
+.bw-games-root .profile__bar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bw-games-root .profile__back{
+  font-size: 14px;
+  color: var(--ink-dim);
+  padding: 4px 0;
+}
+.bw-games-root .profile__back:hover{
+  color: var(--ink);
+}
+.bw-games-root .profile__chips{
+  display: flex;
+  gap: 8px;
+}
+.bw-games-root .chip{
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.bw-games-root .chip--index{
+  color: var(--green-bright);
+}
+
+.bw-games-root .profile__title{
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+
+.bw-games-root .tabs{
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.bw-games-root .tabs__tab{
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.bw-games-root .tabs__tab--on{
+  color: var(--ink);
+  border-bottom-color: var(--orange);
+}/* The one scrolling surface in the app: every other screen is a fixed board. */
+
+
+.bw-games-root .profile__scroll{
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.bw-games-root .panel-card{
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.bw-games-root .panel-card--empty{
+  align-items: flex-start;
+  gap: 12px;
+}
+.bw-games-root .panel-card--empty h2{
+  margin: 0;
+  font-size: 18px;
+}
+.bw-games-root .panel-card__head{
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.bw-games-root .row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.bw-games-root .row--overall{
+  font-weight: 800;
+}
+.bw-games-root .row__label{
+  flex: 0 0 33%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bw-games-root .row__rank{
+  flex: 0 0 16px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-align: right;
+}
+.bw-games-root .row__value{
+  flex: 0 0 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bw-games-root .row__grow{
+  margin-left: auto;
+  color: var(--green-bright);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.bw-games-root .dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.bw-games-root .bar{
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.bw-games-root .bar i{
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--green-bright);
+}
+.bw-games-root .bar--teal i{
+  background: var(--teal);
+}
+
+.bw-games-root .footnote{
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding-top: 3px;
+}
+
+.bw-games-root .muted{
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.bw-games-root .muted--small{
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.bw-games-root .select{
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--bg-deep);
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.bw-games-root .chart{
+  width: 100%;
+  height: 92px;
+  display: block;
+}
+.bw-games-root .chart__line{
+  fill: none;
+  stroke: var(--green-bright);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.bw-games-root .chart__fill{
+  fill: rgba(63, 191, 79, 0.14);
+  stroke: none;
+}
+
+.bw-games-root .calendar{
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.bw-games-root .calendar__head{
+  font-size: 9px;
+  text-align: center;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.bw-games-root .calendar__blank{
+  aspect-ratio: 1;
+}
+.bw-games-root .calendar__day{
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.bw-games-root .calendar__day--on{
+  background: var(--green-bright);
+}
+
+.bw-games-root .stat-pair{
+  display: flex;
+  gap: 10px;
+}
+.bw-games-root .stat-pair > div{
+  flex: 1;
+  background: var(--bg-deep);
+  border-radius: 10px;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+.bw-games-root .stat-pair b{
+  font-size: 21px;
+  line-height: 1;
+}
+.bw-games-root .stat-pair span{
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}/* The index, said in words as well as numbers. A bare 286 means nothing until
+   the reader knows where the middle is. */
+
+
+.bw-games-root .hero{
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.bw-games-root .hero__value{
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.bw-games-root .hero__band{
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green-bright);
+}
+.bw-games-root .bar--hero{
+  height: 9px;
+}
+
+.bw-games-root .settling{
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  background: rgba(238, 123, 18, 0.1);
+  border-left: 2px solid var(--orange);
+  padding: 7px 9px;
+  border-radius: 0 8px 8px 0;
+}
+
+.bw-games-root .row__band{/* Wide enough for the longest label, "Starting out", which is exactly the
+     one a new player sees — clipping it would be the worst possible case. */
+  
+  flex: 0 0 88px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: right;
+  overflow: hidden;
+  white-space: nowrap;
+}/* Pause and replay-tutorial sit together at the top-left of the board. */
+
+
+.bw-games-root .hud__controls{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}/* "How this score works" — folded away by default so it informs without
+   crowding the number it explains. */
+
+
+.bw-games-root .explain__head{
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  list-style: none;
+}
+.bw-games-root .explain__head::-webkit-details-marker{
+  display: none;
+}
+.bw-games-root .explain__head::after{
+  content: ' +';
+  color: var(--orange);
+}
+.bw-games-root .explain[open] .explain__head::after{
+  content: ' –';
+}
+.bw-games-root .explain p{
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink-dim);
+}
+.bw-games-root .explain p b{
+  color: var(--ink);
+}/* Night Beat: trial counter and the trial's own draining clock. */
+
+
+.bw-games-root .nb-strip{
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bw-games-root .nb-strip__row{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.bw-games-root .nb-trial,
+.bw-games-root .nb-mode{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+.bw-games-root .nb-mode--race{
+  color: #f07e1c;
+}
+.bw-games-root .nb-bar{
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.bw-games-root .nb-bar__fill{
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #4c90e8;
+}
+.bw-games-root .nb-bar__fill--tight{
+  background: #d8543f;
+}/* Splitting Seeds: pile size, level, and the Submit button. */
+
+
+.bw-games-root .ss-foot{
+  pointer-events: none;
+  display: grid;
+  gap: 9px;
+}
+.bw-games-root .ss-submit{/* The one thing on this screen that must take a press. */
+  
+  pointer-events: auto;
+  width: 100%;
+  padding: 15px 0;
+  border: 0;
+  border-radius: 14px;
+  background: #5FBE7D;
+  color: #0C2A19;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: 0 6px 16px rgba(4, 26, 14, 0.38);
+  cursor: pointer;
+}
+.bw-games-root .ss-submit:active{
+  transform: translateY(1px);
+  background: #54AE70;
+}
+.bw-games-root .ss-submit:disabled{/* Dimmed rather than hidden, so the bar does not jump between trials. */
+  
+  background: rgba(95, 190, 125, 0.28);
+  color: rgba(12, 42, 25, 0.5);
+  box-shadow: none;
+  cursor: default;
+}
+
+.bw-games-root .ss-strip{
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.bw-games-root .ss-seeds,
+.bw-games-root .ss-level{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(232, 245, 236, 0.62);
+}
+
+/* ------------------------------------------------- full-screen play mode */
+
+/*
+ * A round takes over the whole viewport.
+ *
+ * Sizing the board around BrainWeave's chrome was the wrong shape of fix: the
+ * site header is scroll-aware and changes height, so any measurement of the
+ * space "left over" is stale the moment the page moves, and the bottom of the
+ * board — the controls and the tutorial caption — ends up below the fold.
+ *
+ * Covering the page instead means the board answers to nothing but the
+ * viewport, which is also how a game should feel on a phone: full bleed, no
+ * site navigation competing for the screen.
+ */
+.bw-games-root.bw-games-fullscreen{
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-deep);
+  overscroll-behavior: contain;
+}
+
+.bw-games-root .bw-games-topbar{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  margin-top: var(--pad-top);
+}
+
+.bw-games-root .bw-games-exit{
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.bw-games-root .bw-games-exit:hover{
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/*
+ * The board takes the viewport minus that bar. Stated as an explicit height
+ * rather than `flex: 1` because the canvas is absolutely positioned inside the
+ * board and the engine measures it — a height the engine can read on first
+ * paint avoids a resize on the opening frame.
+ */
+.bw-games-root.bw-games-fullscreen .board{
+  height: calc(100vh - 44px);
+  height: calc(100dvh - 44px - var(--pad-top));
+  max-height: none;
+  border-radius: 0;
+}
+
+@media (min-width: 680px) and (min-height: 720px) {
+  .bw-games-root.bw-games-fullscreen .board{
+    height: calc(100dvh - 44px - var(--pad-top));
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/*
+ * Site chrome that floats above the page, hidden for the duration of a round.
+ *
+ * Deliberately NOT scoped to `.bw-games-root` — unlike every other rule in this
+ * file, its whole job is to reach an element outside the games subtree. The
+ * class is put on <body> by BrainGames.tsx while a game is mounted.
+ *
+ * Hiding rather than out-stacking: the theme toggle is z-50 against the play
+ * overlay's z-60 and still paints on top, because an ancestor of the overlay
+ * opens a stacking context that traps it. A z-index high enough to win today
+ * would be a number chosen against the current DOM and quietly wrong after the
+ * next layout change; there is no reason for a floating theme button to sit
+ * over a game in any case.
+ */
+body.bw-playing .theme-toggle-container{
+  display: none;
+}
+
+/* --------------------------------------------------------- Simon Says */
+
+/*
+ * Simon Says renders a Three.js scene rather than the shared canvas, but it
+ * sits in the same `.board` as every other game, so the scene fills the board
+ * exactly the way a game canvas does.
+ */
+.bw-games-root .simon-stage{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 30% 45%, rgba(139, 92, 246, 0.28) 0%, transparent 55%),
+    radial-gradient(circle at 75% 80%, rgba(0, 161, 228, 0.22) 0%, transparent 55%),
+    var(--bg-panel);
+}
+
+.bw-games-root .simon-stage canvas{
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The state line, in the strip the HUD keeps free at the bottom. */
+.bw-games-root .simon-status{
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+}

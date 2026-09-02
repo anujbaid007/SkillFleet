@@ -102,7 +102,8 @@ export default async function IscPage() {
           <TrackCard
             name={PUZZLE_MASTER.name}
             tagline={PUZZLE_MASTER.tagline}
-            state="coming_soon"
+            state="not_started"
+            href={eligible ? `/isc/${PUZZLE_MASTER.slug}` : undefined}
             teamNote="Individual only"
             icon={PUZZLE_MASTER.icon}
             gradient={PUZZLE_MASTER.gradient}
