@@ -14,10 +14,15 @@ export default async function CoordinatorLayout({ children }: { children: ReactN
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('role')
+    .select('role, terms_agreed_at')
     .eq('id', user.id)
     .single()
   if (profile?.role !== 'coordinator') redirect('/')
+
+  // Consent before anything else. The platform layout enforces this for
+  // students; without the same check here a coordinator could go straight to
+  // /coordinator after signing up and never be asked.
+  if (!profile.terms_agreed_at) redirect('/onboarding/consent')
 
   // Being a coordinator is not the same as being an approved one. The roster
   // RPC already refuses unapproved callers, so no student data could leak —

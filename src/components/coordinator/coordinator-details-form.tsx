@@ -51,7 +51,7 @@ export function CoordinatorDetailsForm({
           id="full_name"
           name="full_name"
           required
-          defaultValue={defaultName}
+          defaultValue={state?.values?.full_name ?? defaultName}
           className={INPUT_CLASS}
           placeholder="e.g. Anita Rao"
         />
@@ -68,6 +68,7 @@ export function CoordinatorDetailsForm({
             type="tel"
             inputMode="numeric"
             required
+            defaultValue={state?.values?.phone ?? ''}
             className={INPUT_CLASS}
             placeholder="10-digit WhatsApp number"
           />
@@ -96,7 +97,7 @@ export function CoordinatorDetailsForm({
           id="student_count_range"
           name="student_count_range"
           required
-          defaultValue=""
+          defaultValue={state?.values?.student_count_range ?? ''}
           className={INPUT_CLASS}
         >
           <option value="" disabled>

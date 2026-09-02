@@ -157,7 +157,11 @@ const DRIVE_WALL = [
   'Request access',
   'you need permission',
   'Ask for access',
-  'ServiceLogin',
+  // 'ServiceLogin' was here and must not come back. It is the sign-in link in
+  // the chrome of every Google page, public or private — it only ever failed
+  // to block valid documents because it happened to sit beyond the 60KB scan
+  // window. Caught in review; the four phrases above are specific to the
+  // access-request page itself.
 ]
 
 export function isDriveAccessWall(body: string): boolean {
@@ -214,9 +218,15 @@ export async function checkLink(raw: string): Promise<LinkVerdict> {
 
   if (parsed.kind === 'drive') {
     if (!parsed.id) return { status: 'unknown' }
-    const res = await fetchStatus(`https://drive.google.com/file/d/${parsed.id}/view`, {
-      withBody: true,
-    })
+    /*
+      A native Doc, Sheet or Slides deck is probed at the address the student
+      pasted. Rewriting it to drive.google.com/file/d/<id>/view was wrong for
+      those: that endpoint is for uploaded files, and for a native document it
+      serves a page that does not reflect the document's real sharing state.
+    */
+    const isNativeDoc = /(^|\.)docs\.google\.com$/i.test(new URL(raw.trim()).hostname)
+    const target = isNativeDoc ? raw.trim() : `https://drive.google.com/file/d/${parsed.id}/view`
+    const res = await fetchStatus(target, { withBody: true })
     return res ? interpretDrive(res.status, res.location, res.body) : { status: 'unknown' }
   }
 

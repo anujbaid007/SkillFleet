@@ -48,6 +48,17 @@ function destinationFor(profile: {
   return '/dashboard'
 }
 
+/** A relative path on this origin and nothing else. */
+function isSafeNext(next: string): boolean {
+  return (
+    next.startsWith('/') &&
+    !next.startsWith('//') &&
+    !next.startsWith('/\\') &&
+    !next.includes('@') &&
+    !next.includes(':')
+  )
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -80,8 +91,10 @@ export async function GET(request: NextRequest) {
   }
 
   // An explicit `next` is a deliberate instruction — the password-recovery
-  // mail sets it — so it wins over any profile-shape routing below.
-  if (next) return NextResponse.redirect(`${origin}${next}`)
+  // mail sets it — so it wins over any profile-shape routing below. Only ever
+  // an in-app path: `next=@evil.com` would otherwise become
+  // https://skillfleet.org@evil.com, which a browser reads as host evil.com.
+  if (next && isSafeNext(next)) return NextResponse.redirect(`${origin}${next}`)
 
   const {
     data: { user },

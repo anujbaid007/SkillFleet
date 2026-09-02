@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { SearchableSelect, type SelectOption } from '@/components/ui/searchable-select'
 import { BOARD_OPTIONS as BOARD_VALUES } from '@/lib/coordinator/validate'
 
@@ -29,10 +29,15 @@ export function SchoolBoardField({
   const [customBoard, setCustomBoard] = useState('')
 
   // The picked school changes as the coordinator moves through the cascade;
-  // keep the pre-fill in step with whatever is currently selected.
-  useEffect(() => {
+  // keep the pre-fill in step with whatever is currently selected. Done by
+  // adjusting state during render when the prop changes — React's documented
+  // pattern for this — rather than in an effect, which re-rendered once with
+  // the stale value first.
+  const [seenBoard, setSeenBoard] = useState(knownBoard)
+  if (knownBoard !== seenBoard) {
+    setSeenBoard(knownBoard)
     setBoard(isListed(knownBoard) ? (knownBoard as string) : '')
-  }, [knownBoard])
+  }
 
   const isOther = board === OTHER
 

@@ -81,12 +81,13 @@ export function schoolSlug(name: string): string {
  * The id fragment that makes a link unambiguous.
  *
  * There are ~33,000 schools and plenty of shared names — several "St Johns
- * School" alone — so the readable half cannot identify one on its own. Six hex
- * characters of the id narrow it to one, and the page confirms the match
- * against the slug as well before trusting it.
+ * School" alone — so the readable half cannot identify one on its own. Eight
+ * hex characters of the id narrow it to one (six gave roughly 32 colliding
+ * pairs at this scale, by the birthday bound), and the page still confirms the
+ * match against the slug before trusting it.
  */
 export function joinCode(schoolId: string): string {
-  return schoolId.replace(/-/g, '').slice(0, 6).toLowerCase()
+  return schoolId.replace(/-/g, '').slice(0, 8).toLowerCase()
 }
 
 export function joinPath(schoolId: string, schoolName: string): string {
@@ -108,7 +109,8 @@ export interface ParsedJoinSlug {
 }
 
 const FULL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const TRAILING_CODE = /^(.*)-([0-9a-f]{6})$/i
+// Six was the original length; links already shared carry it, so both parse.
+const TRAILING_CODE = /^(.*)-([0-9a-f]{6,8})$/i
 
 /**
  * Reads either link format.
@@ -136,9 +138,12 @@ export function parseJoinSlug(raw: string): ParsedJoinSlug {
  */
 export function idRangeForCode(code: string): { low: string; high: string } {
   const c = code.toLowerCase()
+  // The first uuid block is eight hex characters; a shorter code covers a
+  // wider range, padded out with the lowest and highest digits.
+  const pad = Math.max(0, 8 - c.length)
   return {
-    low: `${c}00-0000-0000-0000-000000000000`,
-    high: `${c}ff-ffff-ffff-ffff-ffffffffffff`,
+    low: `${c}${'0'.repeat(pad)}-0000-0000-0000-000000000000`,
+    high: `${c}${'f'.repeat(pad)}-ffff-ffff-ffff-ffffffffffff`,
   }
 }
 

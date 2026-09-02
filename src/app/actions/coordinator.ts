@@ -85,7 +85,13 @@ export async function signupCoordinatorAction(
  * Only ever carries an error: a successful application redirects to
  * /coordinator, so there is no success state to render here.
  */
-export type ApplyState = { error?: string } | undefined
+export type ApplyState =
+  | {
+      error?: string
+      /** Echoed back on failure so a rejected field does not empty the form. */
+      values?: Record<string, string>
+    }
+  | undefined
 
 const APPLY_ERR: Record<string, string> = {
   forbidden: 'Only coordinator accounts can apply for a school.',
@@ -99,17 +105,25 @@ export async function applyAsCoordinatorAction(
   _prev: ApplyState,
   formData: FormData
 ): Promise<ApplyState> {
+  const echo = (k: string) => ((formData.get(k) as string) ?? '').trim()
+  const values = {
+    full_name: echo('full_name'),
+    phone: echo('phone'),
+    board: echo('board'),
+    student_count_range: echo('student_count_range'),
+  }
+
   const selection = parseSchoolSelection(formData)
   const selectionError = validateSchoolSelection(selection)
-  if (selectionError) return { error: selectionError }
+  if (selectionError) return { error: selectionError, values }
 
   const board = ((formData.get('board') as string) ?? '').trim()
   const studentCountRange = ((formData.get('student_count_range') as string) ?? '').trim()
   const applicationError = validateCoordinatorApplication(board, studentCountRange)
-  if (applicationError) return { error: applicationError }
+  if (applicationError) return { error: applicationError, values }
 
   const resolved = await resolveSchoolId(selection)
-  if ('error' in resolved) return { error: resolved.error }
+  if ('error' in resolved) return { error: resolved.error, values }
 
   const supabase = await createClient()
 
@@ -119,10 +133,10 @@ export async function applyAsCoordinatorAction(
   const fullName = ((formData.get('full_name') as string) ?? '').trim()
   const phone = ((formData.get('phone') as string) ?? '').trim()
 
-  if (!fullName) return { error: 'Please give your full name.' }
+  if (!fullName) return { error: 'Please give your full name.', values }
   if (phone) {
     const phoneError = validateMobile(phone, 'WhatsApp number')
-    if (phoneError) return { error: phoneError }
+    if (phoneError) return { error: phoneError, values }
   }
 
   const {
@@ -141,11 +155,11 @@ export async function applyAsCoordinatorAction(
     p_student_count_range: studentCountRange,
   })
 
-  if (error) return { error: 'Could not submit your application. Please try again.' }
+  if (error) return { error: 'Could not submit your application. Please try again.', values }
 
   const status = (data as string) ?? ''
   if (status !== 'pending') {
-    return { error: APPLY_ERR[status] ?? 'Could not submit your application. Please try again.' }
+    return { error: APPLY_ERR[status] ?? 'Could not submit your application. Please try again.', values }
   }
 
   revalidatePath('/coordinator')

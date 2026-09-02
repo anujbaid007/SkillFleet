@@ -58,8 +58,11 @@ export default async function IscTrackPage({
         year: 'numeric',
       })
     : null
+  // One instant for the whole render, taken as a value rather than by calling
+  // Date.now() mid-render, which the React compiler treats as impure.
+  const now = new Date()
   const daysLeft = deadline
-    ? Math.ceil((new Date(deadline).getTime() - Date.now()) / 86_400_000)
+    ? Math.ceil((new Date(deadline).getTime() - now.getTime()) / 86_400_000)
     : null
 
   // The form is open either because an entry exists, or because the student

@@ -62,24 +62,21 @@ export function SchoolLocationFields({
   const effectiveDistrict = districtIsManual ? manualDistrict.trim() : district
 
   // Load this state's districts. Also runs on mount when editing a saved profile.
+  // Both the clear and the load happen inside the transition, so the effect
+  // itself never sets state synchronously — that path re-rendered the cascade
+  // once with stale options before the real ones arrived.
   useEffect(() => {
-    if (!state) {
-      setDistricts([])
-      return
-    }
     startTransition(async () => {
-      setDistricts(await getSchoolDistrictsAction(state))
+      setDistricts(state ? await getSchoolDistrictsAction(state) : [])
     })
   }, [state])
 
   // Load the district's schools. Skipped entirely for a typed-in district.
   useEffect(() => {
-    if (!state || !district || districtIsManual) {
-      setSchools([])
-      return
-    }
     startTransition(async () => {
-      setSchools(await getSchoolsAction(state, district))
+      setSchools(
+        !state || !district || districtIsManual ? [] : await getSchoolsAction(state, district)
+      )
     })
   }, [state, district, districtIsManual])
 

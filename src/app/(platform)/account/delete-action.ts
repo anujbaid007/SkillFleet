@@ -35,6 +35,26 @@ export async function deleteMyAccountAction(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  /*
+    Checked here, not left to the layout that hides the button. A server
+    action can be invoked without the page that rendered it, and the platform
+    layout redirecting other roles away from /account is not a control on
+    this function. Students and coordinators are the roles the deletion
+    routine is written and tested for; admin and vendor accounts are tied to
+    offerings and reviews that need a person to handle them.
+  */
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'student' && profile?.role !== 'coordinator') {
+    return {
+      error:
+        'Staff and vendor accounts are removed by SkillFleet directly. Write to contact@skillfleet.org and we will do it for you.',
+    }
+  }
+
   const result = await deleteAccountCompletely(user.id)
   if (!result.ok) {
     return {

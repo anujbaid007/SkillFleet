@@ -12,7 +12,17 @@ import { parseSchoolSelection, validateSchoolSelection } from '@/lib/schools/val
 import { resolveSchoolId } from '@/app/actions/schools'
 import { JOIN_COOKIE } from '@/lib/coordinator/join-link'
 
-export type DetailsFormState = { error?: string } | undefined
+export type DetailsFormState =
+  | {
+      error?: string
+      /**
+       * What was typed, echoed back on failure. React 19 resets a form once
+       * its action resolves, so without this a rejected date of birth wiped
+       * the parent's details and the city along with it.
+       */
+      values?: Record<string, string>
+    }
+  | undefined
 
 export async function saveStudentDetailsAction(
   _prevState: DetailsFormState,
@@ -20,17 +30,27 @@ export async function saveStudentDetailsAction(
 ): Promise<DetailsFormState> {
   const fullName = (formData.get('full_name') as string)?.trim()
   const schoolClass = (formData.get('school_class') as string)?.trim()
+
+  const echo = (k: string) => ((formData.get(k) as string) ?? '').trim()
+  const values = {
+    full_name: echo('full_name'),
+    date_of_birth: echo('date_of_birth'),
+    parent_full_name: echo('parent_full_name'),
+    parent_email: echo('parent_email'),
+    parent_phone: echo('parent_phone'),
+    city: echo('city'),
+  }
   const city = (formData.get('city') as string)?.trim()
   const schoolBranch = (formData.get('school_branch') as string)?.trim() || null
   const selection = parseSchoolSelection(formData)
 
   if (!fullName || !schoolClass || !city) {
-    return { error: 'All fields are required.' }
+    return { error: 'All fields are required.', values }
   }
   const classBranchError = validateClassBranch(schoolClass, schoolBranch)
-  if (classBranchError) return { error: classBranchError }
+  if (classBranchError) return { error: classBranchError, values }
   const schoolError = validateSchoolSelection(selection)
-  if (schoolError) return { error: schoolError }
+  if (schoolError) return { error: schoolError, values }
 
   const supabase = await createClient()
   const {
@@ -62,7 +82,7 @@ export async function saveStudentDetailsAction(
   if (!profile.date_of_birth) {
     const dob = (formData.get('date_of_birth') as string)?.trim()
     const dobError = validateDob(dob ?? '')
-    if (dobError) return { error: dobError }
+    if (dobError) return { error: dobError, values }
     extra.date_of_birth = dob
   }
 
@@ -71,12 +91,12 @@ export async function saveStudentDetailsAction(
     const parentEmail = (formData.get('parent_email') as string)?.trim().toLowerCase()
     const parentPhone = (formData.get('parent_phone') as string)?.trim()
 
-    if (!parentName || !parentEmail) return { error: "Parent's name and email are required." }
+    if (!parentName || !parentEmail) return { error: "Parent's name and email are required.", values }
     if (parentEmail === user.email?.toLowerCase()) {
-      return { error: "The parent's email must be different from the student's sign-in email." }
+      return { error: "The parent's email must be different from the student's sign-in email.", values }
     }
     const phoneError = validateMobile(parentPhone ?? '', 'WhatsApp number')
-    if (phoneError) return { error: phoneError }
+    if (phoneError) return { error: phoneError, values }
 
     /*
       Mirrors the trigger's family logic: an existing family with this parent
@@ -109,7 +129,7 @@ export async function saveStudentDetailsAction(
         .single()
 
       if (familyError || !created) {
-        return { error: 'Could not save your parent details. Please try again.' }
+        return { error: 'Could not save your parent details. Please try again.', values }
       }
       extra.parent_mobile = parentPhone
       await adminClient
@@ -120,7 +140,7 @@ export async function saveStudentDetailsAction(
   }
 
   const resolved = await resolveSchoolId(selection)
-  if ('error' in resolved) return { error: resolved.error }
+  if ('error' in resolved) return { error: resolved.error, values }
 
   // role is intentionally NOT in this update (see security note).
   const { error } = await supabase
@@ -138,7 +158,7 @@ export async function saveStudentDetailsAction(
     })
     .eq('id', user.id)
 
-  if (error) return { error: 'Could not save your details. Please try again.' }
+  if (error) return { error: 'Could not save your details. Please try again.', values }
 
   // The share link has done its job. Left in place it would keep re-filling
   // this form for the next person to use the same browser.

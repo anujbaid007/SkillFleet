@@ -42,7 +42,13 @@ export async function resolveJoinSchool(raw: string): Promise<JoinSchool | null>
   const rows = data ?? []
   if (rows.length <= 1) return rows[0] ?? null
 
-  // Six hex characters across ~33,000 schools makes this vanishingly rare,
-  // but if two ids do share a prefix the readable half still separates them.
-  return rows.find((r) => schoolSlug(r.name) === parsed.slug) ?? null
+  /*
+    Several ids share this prefix. The readable half usually separates them;
+    when it does not — two colliding schools with the same name — refuse rather
+    than guess. A null here sends the student to the ordinary school picker,
+    which is a small inconvenience; silently attaching them to the wrong school
+    would be an error nobody notices.
+  */
+  const named = rows.filter((r) => schoolSlug(r.name) === parsed.slug)
+  return named.length === 1 ? named[0] : null
 }

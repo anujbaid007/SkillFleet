@@ -106,6 +106,45 @@ export async function deleteAccountCompletely(userId: string): Promise<DeleteAcc
 
     if (profile?.family_id) await deleteFamilyIfEmpty(profile.family_id, userId)
 
+    /*
+      A school this person coordinated goes back to being unclaimed.
+
+      schools.coordinator_id is ON DELETE SET NULL, so the id would clear on
+      its own — but coordinator_status would stay 'approved', and the claim RPC
+      treats "approved, owned by nobody" as owned by somebody else:
+
+        IF v_status IN ('pending','approved') AND v_existing IS DISTINCT FROM auth.uid()
+          → 'already_has_coordinator'      -- NULL IS DISTINCT FROM anything
+
+      Verified live: a school left in that state can never be claimed again,
+      and the admin list hides rows with a null coordinator_id, so nobody
+      would even see it. Reset the whole claim, exactly as apply_as_coordinator
+      does when a coordinator moves school.
+    */
+    await adminClient
+      .from('schools')
+      .update({ coordinator_id: null, coordinator_status: 'none', coordinator_notes: null })
+      .eq('coordinator_id', userId)
+
+    /*
+      References that record who reviewed or marked something. These columns
+      have no ON DELETE rule, so left in place they would make the auth delete
+      fail — after everything above had already gone. The history of *what*
+      was reviewed is kept; only the pointer to a person who no longer exists
+      is cleared.
+    */
+    await adminClient.from('schools').update({ reviewed_by: null }).eq('reviewed_by', userId)
+    await adminClient.from('schools').update({ created_by: null }).eq('created_by', userId)
+    await adminClient.from('offerings').update({ reviewed_by: null }).eq('reviewed_by', userId)
+    await adminClient
+      .from('certificate_uploads')
+      .update({ reviewed_by: null })
+      .eq('reviewed_by', userId)
+    await adminClient
+      .from('bookings')
+      .update({ completion_marked_by: null })
+      .eq('completion_marked_by', userId)
+
     // Last: removing the auth user takes user_profiles with it.
     const { error } = await adminClient.auth.admin.deleteUser(userId)
     if (error) return { ok: false, error: error.message }

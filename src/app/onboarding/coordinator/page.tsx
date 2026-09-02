@@ -13,11 +13,13 @@ export default async function CoordinatorOnboardingPage() {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('role, full_name, phone')
+    .select('role, full_name, phone, terms_agreed_at')
     .eq('id', user.id)
     .single()
   if (!profile) redirect('/login')
   if (profile.role !== 'coordinator') redirect('/dashboard')
+  // This page sits outside every layout, so it has to enforce consent itself.
+  if (!profile.terms_agreed_at) redirect('/onboarding/consent')
 
   // A claim that is still pending or already approved is tracked on the
   // dashboard. A rejected one lands here again to be corrected.

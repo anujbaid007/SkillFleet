@@ -60,12 +60,12 @@ describe('schoolSlug', () => {
 })
 
 describe('joinCode', () => {
-  it('takes six hex characters from the id', () => {
-    expect(joinCode('4218493c-7d86-4ab7-97ca-47a80654faeb')).toBe('421849')
+  it('takes eight hex characters from the id', () => {
+    expect(joinCode('4218493c-7d86-4ab7-97ca-47a80654faeb')).toBe('4218493c')
   })
 
   it('is stable and lowercase', () => {
-    expect(joinCode('4218493C-7D86-4AB7-97CA-47A80654FAEB')).toBe('421849')
+    expect(joinCode('4218493C-7D86-4AB7-97CA-47A80654FAEB')).toBe('4218493c')
   })
 })
 
@@ -76,18 +76,26 @@ describe('joinPath', () => {
         '4218493c-7d86-4ab7-97ca-47a80654faeb',
         'Shree Swaminarayan Vidyaveli Gyan Kendra English Medium School'
       )
-    ).toBe('/join/swaminarayan-vidyaveli-421849')
+    ).toBe('/join/swaminarayan-vidyaveli-4218493c')
   })
 
   it('is far shorter than the raw id it replaces', () => {
     const path = joinPath('4218493c-7d86-4ab7-97ca-47a80654faeb', 'St. Johns School')
-    expect(path).toBe('/join/st-johns-421849')
+    expect(path).toBe('/join/st-johns-4218493c')
     expect(path.length).toBeLessThan('/join/4218493c-7d86-4ab7-97ca-47a80654faeb'.length)
   })
 })
 
 describe('parseJoinSlug', () => {
   it('reads the readable form', () => {
+    expect(parseJoinSlug('swaminarayan-vidyaveli-4218493c')).toEqual({
+      slug: 'swaminarayan-vidyaveli',
+      code: '4218493c',
+    })
+  })
+
+  // Links shared before the code grew from six to eight characters.
+  it('still reads a six-character code', () => {
     expect(parseJoinSlug('swaminarayan-vidyaveli-421849')).toEqual({
       slug: 'swaminarayan-vidyaveli',
       code: '421849',
@@ -112,7 +120,13 @@ describe('parseJoinSlug', () => {
 })
 
 describe('idRangeForCode', () => {
-  it('brackets every uuid with that prefix', () => {
+  it('brackets a full eight-character prefix tightly', () => {
+    const { low, high } = idRangeForCode('4218493c')
+    expect(low).toBe('4218493c-0000-0000-0000-000000000000')
+    expect(high).toBe('4218493c-ffff-ffff-ffff-ffffffffffff')
+  })
+
+  it('pads a legacy six-character prefix out to the block', () => {
     const { low, high } = idRangeForCode('421849')
     expect(low).toBe('42184900-0000-0000-0000-000000000000')
     expect(high).toBe('421849ff-ffff-ffff-ffff-ffffffffffff')

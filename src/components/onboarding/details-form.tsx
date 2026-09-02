@@ -53,7 +53,7 @@ export function DetailsForm({
           id="full_name"
           name="full_name"
           required
-          defaultValue={defaultName}
+          defaultValue={state?.values?.full_name ?? defaultName}
           className={INPUT_CLASS}
           placeholder="e.g. Aarav Sharma"
         />
@@ -69,6 +69,7 @@ export function DetailsForm({
             name="date_of_birth"
             type="date"
             required
+            defaultValue={state?.values?.date_of_birth ?? ''}
             max={maxDob}
             className={INPUT_CLASS}
           />
@@ -92,6 +93,7 @@ export function DetailsForm({
               id="parent_full_name"
               name="parent_full_name"
               required
+              defaultValue={state?.values?.parent_full_name ?? ''}
               className={INPUT_CLASS}
               placeholder="e.g. Anita Rao"
             />
@@ -105,6 +107,7 @@ export function DetailsForm({
               name="parent_email"
               type="email"
               required
+              defaultValue={state?.values?.parent_email ?? ''}
               className={INPUT_CLASS}
               placeholder="parent@example.com"
             />
@@ -119,6 +122,7 @@ export function DetailsForm({
               type="tel"
               inputMode="numeric"
               required
+              defaultValue={state?.values?.parent_phone ?? ''}
               className={INPUT_CLASS}
               placeholder="10-digit WhatsApp number"
             />
@@ -154,6 +158,7 @@ export function DetailsForm({
           name="city"
           type="text"
           required
+          defaultValue={state?.values?.city ?? ''}
           className={INPUT_CLASS}
           placeholder="e.g. Pune"
         />
