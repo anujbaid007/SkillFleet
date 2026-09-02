@@ -62,7 +62,8 @@ export default function SignupPage() {
                 <label htmlFor="full_name" className="block text-sm font-medium text-foreground mb-1">
                   Student&apos;s full name
                 </label>
-                <input id="full_name" name="full_name" required className={inputClass} placeholder="Arjun Sharma" />
+                <input id="full_name" name="full_name"
+                  defaultValue={state?.values?.full_name ?? ''} required className={inputClass} placeholder="Arjun Sharma" />
               </div>
 
               <div>
@@ -72,6 +73,7 @@ export default function SignupPage() {
                 <input
                   id="date_of_birth"
                   name="date_of_birth"
+                  defaultValue={state?.values?.date_of_birth ?? ''}
                   type="date"
                   required
                   max={maxDob || undefined}
@@ -86,6 +88,7 @@ export default function SignupPage() {
                 <input
                   id="email"
                   name="email"
+                  defaultValue={state?.values?.email ?? ''}
                   type="email"
                   required
                   autoComplete="email"
@@ -113,6 +116,7 @@ export default function SignupPage() {
                 <input
                   id="parent_full_name"
                   name="parent_full_name"
+                  defaultValue={state?.values?.parent_full_name ?? ''}
                   required
                   className={inputClass}
                   placeholder="Priya Sharma"
@@ -126,6 +130,7 @@ export default function SignupPage() {
                 <input
                   id="parent_email"
                   name="parent_email"
+                  defaultValue={state?.values?.parent_email ?? ''}
                   type="email"
                   required
                   className={inputClass}
@@ -138,16 +143,17 @@ export default function SignupPage() {
 
               <div>
                 <label htmlFor="parent_phone" className="block text-sm font-medium text-foreground mb-1">
-                  Parent&apos;s mobile number
+                  Parent&apos;s WhatsApp number
                 </label>
                 <input
                   id="parent_phone"
                   name="parent_phone"
+                  defaultValue={state?.values?.parent_phone ?? ''}
                   type="tel"
                   inputMode="numeric"
                   required
                   className={inputClass}
-                  placeholder="10-digit mobile number"
+                  placeholder="10-digit WhatsApp number"
                 />
               </div>
             </div>

@@ -27,6 +27,7 @@ export default function LoginPage() {
           <input
             id="email"
             name="email"
+            defaultValue={state?.values?.email ?? ''}
             type="email"
             required
             autoComplete="email"
@@ -36,9 +37,17 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
-            Password
-          </label>
+          <div className="mb-1 flex items-baseline justify-between gap-3">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground">
+              Password
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <input
             id="password"
             name="password"

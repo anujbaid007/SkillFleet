@@ -33,15 +33,19 @@ export async function signupCoordinatorAction(
   const fullName = (formData.get('full_name') as string)?.trim()
   const phone = ((formData.get('phone') as string) ?? '').trim()
 
+  // Echoed back so a rejected submission re-fills the form instead of
+  // emptying it — see AuthFormState.values.
+  const values = { full_name: fullName ?? '', email: email ?? '', phone }
+
   if (!email || !password || !fullName) {
-    return { error: 'Name, email and password are all required.' }
+    return { error: 'Name, email and password are all required.', values }
   }
 
-  const mobileError = validateMobile(phone)
-  if (mobileError) return { error: mobileError }
+  const mobileError = validateMobile(phone, 'WhatsApp number')
+  if (mobileError) return { error: mobileError, values }
 
   const passwordError = validatePassword(password)
-  if (passwordError) return { error: passwordError }
+  if (passwordError) return { error: passwordError, values }
 
   const supabase = await createClient()
 
@@ -54,13 +58,16 @@ export async function signupCoordinatorAction(
     },
   })
 
-  if (error) return { error: error.message }
+  if (error) return { error: error.message, values }
 
   // Must come before the no-session branch below: an already-registered email
   // also returns without a session, and would otherwise be told to go and
   // check an inbox for a mail that is never sent.
   if (isExistingEmailSignup(data)) {
-    return { error: 'An account with this email already exists. Please sign in instead.' }
+    return {
+      error: 'An account with this email already exists. Please sign in instead.',
+      values,
+    }
   }
 
   // With email confirmation enabled there is no session until the link is clicked.
@@ -71,7 +78,7 @@ export async function signupCoordinatorAction(
   }
 
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-  if (signInError) return { error: signInError.message }
+  if (signInError) return { error: signInError.message, values }
 
   redirect(ONBOARDING_PATH)
 }

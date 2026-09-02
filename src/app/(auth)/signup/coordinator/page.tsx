@@ -57,6 +57,7 @@ export default function CoordinatorSignupPage() {
                 id="full_name"
                 name="full_name"
                 required
+                defaultValue={state?.values?.full_name ?? ''}
                 className={inputClass}
                 placeholder="Anita Rao"
               />
@@ -72,6 +73,7 @@ export default function CoordinatorSignupPage() {
                 type="email"
                 required
                 autoComplete="email"
+                defaultValue={state?.values?.email ?? ''}
                 className={inputClass}
                 placeholder="you@school.edu"
               />
@@ -79,7 +81,7 @@ export default function CoordinatorSignupPage() {
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1">
-                Mobile number
+                WhatsApp number
               </label>
               <input
                 id="phone"
@@ -87,8 +89,9 @@ export default function CoordinatorSignupPage() {
                 type="tel"
                 inputMode="numeric"
                 required
+                defaultValue={state?.values?.phone ?? ''}
                 className={inputClass}
-                placeholder="10-digit mobile number"
+                placeholder="10-digit WhatsApp number"
               />
             </div>
 

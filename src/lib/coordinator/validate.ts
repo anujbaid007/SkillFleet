@@ -8,7 +8,31 @@ export const BOARD_OPTIONS = [
   'Other',
 ]
 
-export const STUDENT_COUNT_OPTIONS = ['1-100', '101-300', '301-600', '601-1000', '1000+']
+/**
+ * Ordered by lower bound, so the list still reads as a ladder in the dropdown.
+ *
+ * The open-ended bands from '500+' up overlap each other by design — a 6,000
+ * student school matches both '5000+' and '3000+'. That is how the bands were
+ * specified, so a coordinator picks the one that best describes their school
+ * rather than the one that is arithmetically unique. Every value already saved
+ * against a school is still in this list, so an existing application can be
+ * re-submitted without being rejected.
+ */
+export const STUDENT_COUNT_OPTIONS = [
+  '1-100',
+  '101-300',
+  '301-600',
+  '500+',
+  '601-1000',
+  '1000+',
+  '1500+',
+  '2000-3000',
+  '3000+',
+  '5000+',
+  '7000+',
+  '10000+',
+  '20000+',
+]
 
 /**
  * Board accepts any non-empty string — "Other" reveals a free-text field
