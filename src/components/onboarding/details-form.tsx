@@ -16,9 +16,13 @@ export function DetailsForm({
   needsDob = false,
   needsParent = false,
   maxDob,
+  defaultName = '',
 }: {
   states: string[]
   previousFreeText?: string
+  /** Prefilled from Google where it supplied one, and always editable — a
+      Google display name is often not the name the school knows. */
+  defaultName?: string
   /** Both true for a Google signup — OAuth returns neither, and the email
       signup form asks for both, so this is where the gap is closed. */
   needsDob?: boolean
@@ -38,6 +42,20 @@ export function DetailsForm({
       transition={{ type: 'spring', stiffness: 80, damping: 18 }}
       className="clay-card p-8 space-y-4"
     >
+      <div>
+        <label htmlFor="full_name" className="block text-sm font-medium text-foreground mb-1">
+          Your full name
+        </label>
+        <input
+          id="full_name"
+          name="full_name"
+          required
+          defaultValue={defaultName}
+          className={INPUT_CLASS}
+          placeholder="e.g. Aarav Sharma"
+        />
+      </div>
+
       {needsDob && (
         <div>
           <label htmlFor="date_of_birth" className="block text-sm font-medium text-foreground mb-1">

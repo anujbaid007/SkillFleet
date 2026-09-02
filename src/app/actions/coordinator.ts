@@ -30,19 +30,14 @@ export async function signupCoordinatorAction(
 ): Promise<AuthFormState> {
   const email = (formData.get('email') as string)?.trim().toLowerCase()
   const password = formData.get('password') as string
-  const fullName = (formData.get('full_name') as string)?.trim()
-  const phone = ((formData.get('phone') as string) ?? '').trim()
 
   // Echoed back so a rejected submission re-fills the form instead of
   // emptying it — see AuthFormState.values.
-  const values = { full_name: fullName ?? '', email: email ?? '', phone }
+  const values = { email: email ?? '' }
 
-  if (!email || !password || !fullName) {
-    return { error: 'Name, email and password are all required.', values }
+  if (!email || !password) {
+    return { error: 'Email and password are required.', values }
   }
-
-  const mobileError = validateMobile(phone, 'WhatsApp number')
-  if (mobileError) return { error: mobileError, values }
 
   const passwordError = validatePassword(password)
   if (passwordError) return { error: passwordError, values }
@@ -53,7 +48,10 @@ export async function signupCoordinatorAction(
     email,
     password,
     options: {
-      data: { signup_type: 'coordinator', full_name: fullName, phone },
+      // signup_type still matters: it is the only thing telling
+      // handle_new_user() to build a coordinator profile rather than a
+      // student one. Name and phone now come later, on the onboarding step.
+      data: { signup_type: 'coordinator' },
       emailRedirectTo: buildAuthRedirect(ONBOARDING_PATH),
     },
   })
@@ -118,17 +116,23 @@ export async function applyAsCoordinatorAction(
   // Only present for a coordinator who signed up with Google, where OAuth
   // returned no phone number. Saved before the claim so a failure here cannot
   // leave a school claimed by someone we have no way to contact.
+  const fullName = ((formData.get('full_name') as string) ?? '').trim()
   const phone = ((formData.get('phone') as string) ?? '').trim()
+
+  if (!fullName) return { error: 'Please give your full name.' }
   if (phone) {
     const phoneError = validateMobile(phone, 'WhatsApp number')
     if (phoneError) return { error: phoneError }
+  }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (user) {
-      await supabase.from('user_profiles').update({ phone }).eq('id', user.id)
-    }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user) {
+    await supabase
+      .from('user_profiles')
+      .update(phone ? { full_name: fullName, phone } : { full_name: fullName })
+      .eq('id', user.id)
   }
 
   const { data, error } = await supabase.rpc('apply_as_coordinator', {

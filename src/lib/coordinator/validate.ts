@@ -9,30 +9,30 @@ export const BOARD_OPTIONS = [
 ]
 
 /**
- * Ordered by lower bound, so the list still reads as a ladder in the dropdown.
- *
- * The open-ended bands from '500+' up overlap each other by design — a 6,000
- * student school matches both '5000+' and '3000+'. That is how the bands were
- * specified, so a coordinator picks the one that best describes their school
- * rather than the one that is arithmetically unique. Every value already saved
- * against a school is still in this list, so an existing application can be
- * re-submitted without being rejected.
+ * What the dropdown offers. One open-ended ladder, no closed ranges: a
+ * coordinator picks the floor their school clears.
  */
 export const STUDENT_COUNT_OPTIONS = [
-  '1-100',
-  '101-300',
-  '301-600',
   '500+',
-  '601-1000',
   '1000+',
   '1500+',
-  '2000-3000',
+  '2000+',
   '3000+',
   '5000+',
   '7000+',
   '10000+',
   '20000+',
 ]
+
+/**
+ * Closed ranges the dropdown used to offer. They are no longer shown, but
+ * schools are still stored against them, and rejecting a value a school
+ * already holds would stop that coordinator re-submitting their own
+ * application. Accepted on the way in, never offered.
+ */
+const LEGACY_STUDENT_COUNTS = ['1-100', '101-300', '301-600', '601-1000', '2000-3000']
+
+const ACCEPTED_STUDENT_COUNTS = [...STUDENT_COUNT_OPTIONS, ...LEGACY_STUDENT_COUNTS]
 
 /**
  * Board accepts any non-empty string — "Other" reveals a free-text field
@@ -45,7 +45,7 @@ export function validateCoordinatorApplication(
   studentCountRange: string
 ): string | null {
   if (!board.trim()) return 'Please select your board.'
-  if (!STUDENT_COUNT_OPTIONS.includes(studentCountRange)) {
+  if (!ACCEPTED_STUDENT_COUNTS.includes(studentCountRange)) {
     return 'Please select the number of students.'
   }
   return null

@@ -46,27 +46,13 @@ export default function CoordinatorSignupPage() {
             <h1 className="font-display text-2xl font-bold text-foreground">Coordinator sign-up</h1>
           </div>
           <p className="text-muted text-sm mb-6">
-            You&apos;ll add your school on the next step, once your account is created.
+            Create your account first. We&apos;ll ask about you and your school next.
           </p>
 
           <GoogleButton intent="coordinator" label="Sign up with Google" />
           <AuthDivider />
 
           <form action={action} className="space-y-4">
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-foreground mb-1">
-                Your full name
-              </label>
-              <input
-                id="full_name"
-                name="full_name"
-                required
-                defaultValue={state?.values?.full_name ?? ''}
-                className={inputClass}
-                placeholder="Anita Rao"
-              />
-            </div>
-
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
                 Email <span className="text-muted font-normal">(used to sign in)</span>
@@ -80,22 +66,6 @@ export default function CoordinatorSignupPage() {
                 defaultValue={state?.values?.email ?? ''}
                 className={inputClass}
                 placeholder="you@school.edu"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1">
-                WhatsApp number
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                inputMode="numeric"
-                required
-                defaultValue={state?.values?.phone ?? ''}
-                className={inputClass}
-                placeholder="10-digit WhatsApp number"
               />
             </div>
 

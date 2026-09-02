@@ -38,7 +38,11 @@ export default async function CoordinatorOnboardingPage() {
             We&apos;ll review your application before you can see your school&apos;s roster.
           </p>
         </div>
-        <CoordinatorDetailsForm states={states} needsPhone={!profile.phone} />
+        <CoordinatorDetailsForm
+          states={states}
+          needsPhone={!profile.phone}
+          defaultName={profile.full_name ?? ''}
+        />
       </div>
     </main>
   )

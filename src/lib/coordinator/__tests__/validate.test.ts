@@ -28,32 +28,32 @@ describe('validateCoordinatorApplication', () => {
     )
   })
 
-  it('accepts the large open-ended bands', () => {
-    for (const band of ['500+', '1500+', '2000-3000', '3000+', '5000+', '20000+']) {
+  it('accepts every band the dropdown offers', () => {
+    for (const band of STUDENT_COUNT_OPTIONS) {
       expect(validateCoordinatorApplication('CBSE', band)).toBeNull()
     }
   })
 
-  // Schools already carry these values, so dropping one would reject an
-  // existing coordinator re-submitting their own application.
-  it('still accepts every band that predates the large-school ladder', () => {
-    for (const band of ['1-100', '101-300', '301-600', '601-1000', '1000+']) {
+  // A school in production still holds '301-600'. Rejecting a retired value
+  // would stop that coordinator re-submitting their own application.
+  it('still accepts retired closed ranges that schools are stored against', () => {
+    for (const band of ['1-100', '101-300', '301-600', '601-1000', '2000-3000']) {
       expect(validateCoordinatorApplication('CBSE', band)).toBeNull()
     }
+  })
+
+  it('offers only open-ended bands', () => {
+    for (const band of STUDENT_COUNT_OPTIONS) expect(band).toMatch(/^\d+\+$/)
   })
 
   it('exposes the options the UI renders from', () => {
     expect(BOARD_OPTIONS).toContain('CBSE')
     expect(BOARD_OPTIONS).toContain('Other')
     expect(STUDENT_COUNT_OPTIONS).toEqual([
-      '1-100',
-      '101-300',
-      '301-600',
       '500+',
-      '601-1000',
       '1000+',
       '1500+',
-      '2000-3000',
+      '2000+',
       '3000+',
       '5000+',
       '7000+',

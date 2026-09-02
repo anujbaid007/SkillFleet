@@ -14,8 +14,11 @@ const INPUT_CLASS =
 export function CoordinatorDetailsForm({
   states,
   needsPhone = false,
+  defaultName = '',
 }: {
   states: string[]
+  /** Prefilled from Google where it supplied one, and always editable. */
+  defaultName?: string
   /** True for a Google signup: OAuth returns no phone number, and the email
       form collects one, so this is where that gap is closed. */
   needsPhone?: boolean
@@ -40,6 +43,20 @@ export function CoordinatorDetailsForm({
       transition={{ type: 'spring', stiffness: 80, damping: 18 }}
       className="clay-card p-8 space-y-4"
     >
+      <div>
+        <label htmlFor="full_name" className="block text-sm font-medium text-foreground mb-1">
+          Your full name
+        </label>
+        <input
+          id="full_name"
+          name="full_name"
+          required
+          defaultValue={defaultName}
+          className={INPUT_CLASS}
+          placeholder="e.g. Anita Rao"
+        />
+      </div>
+
       {needsPhone && (
         <div>
           <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1">

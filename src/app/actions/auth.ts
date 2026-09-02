@@ -3,8 +3,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { validatePassword } from '@/lib/validation/password'
-import { validateDob } from '@/lib/validation/dob'
-import { validateMobile } from '@/lib/validation/mobile'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import { clearFamilySessions } from '@/lib/auth/family-sessions'
 import { isExistingEmailSignup } from '@/lib/auth/signup'
@@ -101,44 +99,12 @@ export async function signupAction(
 ): Promise<AuthFormState> {
   const email = (formData.get('email') as string)?.trim().toLowerCase()
   const password = formData.get('password') as string
-  const fullName = (formData.get('full_name') as string)?.trim()
-  const dob = formData.get('date_of_birth') as string // YYYY-MM-DD
 
-  const parentFullName = (formData.get('parent_full_name') as string)?.trim()
-  const parentEmail = (formData.get('parent_email') as string)?.trim().toLowerCase()
-  const parentPhone = (formData.get('parent_phone') as string)?.trim()
+  const values = { email: email ?? '' }
 
-  const values = {
-    full_name: fullName ?? '',
-    email: email ?? '',
-    date_of_birth: dob ?? '',
-    parent_full_name: parentFullName ?? '',
-    parent_email: parentEmail ?? '',
-    parent_phone: parentPhone ?? '',
+  if (!email || !password) {
+    return { error: 'Email and password are required.', values }
   }
-
-  if (!email || !password || !fullName || !dob) {
-    return {
-      error: 'Student name, date of birth, email and password are all required.',
-      values,
-    }
-  }
-  if (!parentFullName || !parentEmail) {
-    return { error: "Parent's name and email are required.", values }
-  }
-  if (parentEmail === email) {
-    return {
-      error: "The parent's email must be different from the student's sign-in email.",
-      values,
-    }
-  }
-
-  // Asked once here, then reused for the whole family.
-  const mobileError = validateMobile(parentPhone ?? '', 'WhatsApp number')
-  if (mobileError) return { error: mobileError, values }
-
-  const dobError = validateDob(dob)
-  if (dobError) return { error: dobError, values }
 
   const passwordError = validatePassword(password)
   if (passwordError) return { error: passwordError, values }
@@ -146,21 +112,19 @@ export async function signupAction(
   const supabase = await createClient()
   const next = '/onboarding/details'
 
-  // The DB trigger reads this metadata: it creates the student profile and
-  // either starts a new family or joins an existing one (pending approval).
+  /*
+    Credentials only.
+
+    Name, date of birth, the parent's details and the school are all collected
+    on /onboarding/details instead. Signing in with Google cannot supply any of
+    them, so asking here would have meant two different signup paths producing
+    two different half-built profiles. One onboarding step now completes every
+    account, however it was created.
+  */
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      data: {
-        full_name: fullName,
-        date_of_birth: dob,
-        parent_full_name: parentFullName,
-        parent_email: parentEmail,
-        parent_phone: parentPhone,
-      },
-      emailRedirectTo: buildAuthRedirect(next),
-    },
+    options: { emailRedirectTo: buildAuthRedirect(next) },
   })
 
   if (error) return { error: error.message, values }

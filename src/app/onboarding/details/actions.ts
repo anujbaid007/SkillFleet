@@ -16,12 +16,13 @@ export async function saveStudentDetailsAction(
   _prevState: DetailsFormState,
   formData: FormData
 ): Promise<DetailsFormState> {
+  const fullName = (formData.get('full_name') as string)?.trim()
   const schoolClass = (formData.get('school_class') as string)?.trim()
   const city = (formData.get('city') as string)?.trim()
   const schoolBranch = (formData.get('school_branch') as string)?.trim() || null
   const selection = parseSchoolSelection(formData)
 
-  if (!schoolClass || !city) {
+  if (!fullName || !schoolClass || !city) {
     return { error: 'All fields are required.' }
   }
   const classBranchError = validateClassBranch(schoolClass, schoolBranch)
@@ -123,6 +124,7 @@ export async function saveStudentDetailsAction(
   const { error } = await supabase
     .from('user_profiles')
     .update({
+      full_name: fullName,
       school_class: schoolClass,
       school_branch: branchToStore(schoolClass, schoolBranch),
       school_id: resolved.schoolId,

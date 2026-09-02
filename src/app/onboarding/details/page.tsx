@@ -51,6 +51,7 @@ export default async function OnboardingDetailsPage() {
         <DetailsForm
           states={states}
           previousFreeText={profile.school_name ?? ''}
+          defaultName={profile.full_name ?? ''}
           needsDob={!profile.date_of_birth}
           needsParent={!profile.family_id}
           maxDob={maxDob}
