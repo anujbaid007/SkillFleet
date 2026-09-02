@@ -22,8 +22,12 @@ const ERR: Record<string, string> = {
   track_closed: 'Entries for this track have closed.',
   not_found: 'That entry could not be found.',
   not_leader: 'Only the team leader can change this entry.',
-  consent_required: 'A parent or guardian must give consent before you submit.',
+  consent_required: 'Agree to the championship terms before you submit.',
   empty_submission: 'Fill in your entry before submitting.',
+  // Raised by the database when a required field is missing or a link is not
+  // http(s). The app checks the same things first, so a student only sees this
+  // if the two ever disagree — and then it says which field.
+  incomplete_submission: 'Something is missing from your entry. Check every field and try again.',
   wrong_school: 'Everyone on the team must be at your school.',
   wrong_group: 'A teammate is in a different group. Remove them before this can be submitted.',
   entry_submitted: 'This entry has already been submitted, so it can no longer be changed.',
@@ -492,6 +496,40 @@ export async function leaveEntryAction(
 
   const r = data as { ok: boolean; error?: string }
   if (!r?.ok) return { error: LEAVE_ERR[r?.error ?? ''] ?? iscError(r?.error) }
+
+  revalidatePath('/isc')
+  if (slug) revalidatePath(`/isc/${slug}`)
+  redirect('/isc')
+}
+
+const LEAVE_TEAM_ERR: Record<string, string> = {
+  is_leader: 'You lead this entry. Use "Leave this championship" below instead.',
+  not_found: 'You are not on this team.',
+  entry_submitted: 'This entry has been submitted, so the team can no longer change.',
+  track_closed: 'Entries for this track have closed.',
+}
+
+/**
+ * A teammate leaves an entry they accepted.
+ *
+ * The leader's route is leaveEntryAction, which deletes the whole entry. This
+ * one removes only the caller's own membership, and the RPC is what decides
+ * whose that is — the entry id from the form only says which entry.
+ */
+export async function leaveTeamAction(
+  _prev: LeaveState,
+  formData: FormData
+): Promise<LeaveState> {
+  const entryId = (formData.get('entry_id') as string)?.trim()
+  const slug = ((formData.get('slug') as string) ?? '').trim()
+  if (!entryId) return { error: 'Missing entry.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('isc_leave_team', { p_entry_id: entryId })
+  if (error) return { error: iscError(undefined) }
+
+  const r = data as { ok: boolean; error?: string }
+  if (!r?.ok) return { error: LEAVE_TEAM_ERR[r?.error ?? ''] ?? iscError(r?.error) }
 
   revalidatePath('/isc')
   if (slug) revalidatePath(`/isc/${slug}`)

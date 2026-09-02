@@ -9,6 +9,7 @@ import { TrackHero } from '@/components/isc/track-hero'
 import { TrackFacts } from '@/components/isc/track-facts'
 import { EnterTrackButton } from '@/components/isc/enter-track-button'
 import { LeaveEntryButton } from '@/components/isc/leave-entry-button'
+import { LeaveTeamButton } from '@/components/isc/leave-team-button'
 import type { IscMember } from '@/app/actions/isc'
 
 export default async function IscTrackPage({
@@ -93,6 +94,10 @@ export default async function IscTrackPage({
     entry.members.length === 1 &&
     !locked
 
+  // A teammate can step off a draft at any time; the leader's own route is
+  // the withdraw button above, which deletes the whole entry.
+  const canLeaveTeam = entry !== null && !entry.isLeader && entry.status === 'draft' && !locked
+
   return (
     <div className="space-y-6">
       <TrackHero
@@ -143,6 +148,7 @@ export default async function IscTrackPage({
           />
 
           {canLeave && entry && <LeaveEntryButton entryId={entry.entryId} slug={track.slug} />}
+          {canLeaveTeam && entry && <LeaveTeamButton entryId={entry.entryId} slug={track.slug} />}
         </>
       )}
     </div>
