@@ -509,7 +509,8 @@ export type ConsentState = { error?: string } | undefined
 
 const CONSENT_ERR: Record<string, string> = {
   not_student: 'Only student accounts can enter ISC.',
-  guardian_name_required: 'Please give your parent or guardian’s name.',
+  // The RPC's key still says guardian; the person consenting is the student.
+  guardian_name_required: 'Please type your full name to confirm.',
 }
 
 export async function giveConsentAction(
@@ -532,6 +533,13 @@ export async function giveConsentAction(
   }
 
   const supabase = await createClient()
+  /*
+    The parameter and the column behind it are still called guardian_name.
+    What goes in is the name of whoever performed the act, and `consented_by`
+    below records which that was. Renaming the column would mean rewriting the
+    RPC that owns eligibility and the one-per-season rule, for no gain that a
+    reader of the row cannot already get from consented_by.
+  */
   const { data, error } = await supabase.rpc('isc_give_consent', {
     p_guardian_name: consentName,
   })
