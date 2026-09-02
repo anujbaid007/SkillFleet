@@ -153,7 +153,7 @@ export function joinShareMessage(schoolName: string, url: string): string {
   return [
     `You're invited to enter the International Skill Championship 2026 with ${schoolName}.`,
     '',
-    'Four championships — AI for Impact, Young Entrepreneurship, Content Creator and Puzzle Master. Open to Classes 5 to 12. School screening is free to enter.',
+    'Four championships — AI for Impact, Young Entrepreneurship, Content Creator and Puzzle Master. Open to Classes 5 to 12. The school level is free to enter.',
     '',
     `Sign up here (your school is already filled in): ${url}`,
   ].join('\n')

@@ -120,8 +120,8 @@ export default function TermsPage() {
               <>
                 <LegalList
                   items={[
-                    'School screening entries are judged centrally by SkillFleet. Judging decisions are final.',
-                    'Progression from school screening to the state round, and from state to the national finals, is on the basis published for each track.',
+                    'School-level entries are judged centrally by SkillFleet. Judging decisions are final.',
+                    'Progression from the school level to the state round, and from state to the national finals, is on the basis published for each track.',
                     'We may disqualify an entry that breaks these terms, is plagiarised, or was submitted by somebody not eligible.',
                     'Prizes are as described for each track. Where a prize is provided by a partner, it is subject to that partner’s own terms.',
                     'Prizes cannot be exchanged for cash unless the prize is itself a cash award or scholarship.',

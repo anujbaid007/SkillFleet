@@ -113,7 +113,7 @@ export default async function IscTrackPage({
             </p>
             <p className="text-sm text-muted mt-1">
               {locked
-                ? 'The screening deadline for this track has passed.'
+                ? 'The school-level deadline for this track has passed.'
                 : 'Opening the form does not enter you — nothing is saved until you press Save draft.'}
             </p>
           </div>

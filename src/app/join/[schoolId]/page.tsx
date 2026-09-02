@@ -58,8 +58,8 @@ export default async function JoinPage({ params }: { params: Promise<{ schoolId:
           <div className="isc-rule mt-4 h-[5px] w-32" />
 
           <p className="mt-4 text-sm text-foreground/75">
-            Four championships, open to Classes 5 to 12. Enter as many as you like — school
-            screening is free.
+            Four championships, open to Classes 5 to 12. Enter as many as you like — the
+            school level is free.
           </p>
 
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">

@@ -1,7 +1,7 @@
 const STAGES = [
   {
     n: '01',
-    title: 'School screening',
+    title: 'School level',
     body: 'Enter online, free. Skill Fleet judges every entry centrally.',
     note: 'Free to enter',
   },

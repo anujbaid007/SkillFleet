@@ -36,7 +36,7 @@ export function IscHero({ groupLabel }: { groupLabel: string | null }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-teal opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-teal" />
             </span>
-            School screening is open
+            School level is open
           </span>
 
           {/*
@@ -67,8 +67,8 @@ export function IscHero({ groupLabel }: { groupLabel: string | null }) {
           </p>
 
           <p className="mt-3 max-w-md text-sm text-foreground/70">
-            Four championships, open to Classes 5 to 12. Enter as many as you like — school
-            screening is free.
+            Four championships, open to Classes 5 to 12. Enter as many as you like — the school
+            level is free.
           </p>
 
           {groupLabel && (

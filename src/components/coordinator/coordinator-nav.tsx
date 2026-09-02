@@ -3,13 +3,34 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, LogOut, Mail } from 'lucide-react'
+import { BarChart3, LayoutDashboard, LogOut, Mail, Share2 } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
 import { createClient } from '@/lib/supabase/client'
 
+/**
+ * `approvedOnly` marks what genuinely needs a claim to have cleared.
+ *
+ * Inviting students does not: a coordinator waiting on review is exactly who
+ * wants to start telling their school to enter, and the share link works
+ * without approval. Analytics does, because it reads the roster.
+ */
 const items = [
   { href: '/coordinator', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { href: '/coordinator/support', label: 'Contact Admin', icon: Mail, exact: false },
+  { href: '/coordinator/invite', label: 'Invite Students', icon: Share2, exact: false },
+  {
+    href: '/coordinator/analytics',
+    label: 'Analytics',
+    icon: BarChart3,
+    exact: false,
+    approvedOnly: true,
+  },
+  {
+    href: '/coordinator/support',
+    label: 'Contact Admin',
+    icon: Mail,
+    exact: false,
+    approvedOnly: true,
+  },
 ]
 
 export function CoordinatorNav({ approved = true }: { approved?: boolean }) {
@@ -99,14 +120,17 @@ export function CoordinatorNav({ approved = true }: { approved?: boolean }) {
   return (
     <nav className="flex flex-col h-full">
       <div className="flex-1 px-3 py-4 space-y-0.5">
-        {/* An unapproved coordinator has nowhere to navigate to yet — showing a
-            Dashboard link that only leads to a waiting screen is a false promise. */}
+        {/* Pending coordinators keep the pages that work without a claim —
+            the rules, the deck and their share link. Only the roster-backed
+            ones wait. */}
         {!approved && (
           <p className="px-3 py-2 text-xs text-muted">
-            Your console opens once an admin approves your school.
+            Your roster and analytics open once an admin approves your school.
           </p>
         )}
-        {(approved ? items : []).map(({ href, label, icon: Icon, exact }) => {
+        {items
+          .filter((item) => approved || !item.approvedOnly)
+          .map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href)
           return (
             <Link
@@ -127,7 +151,7 @@ export function CoordinatorNav({ approved = true }: { approved?: boolean }) {
                 </span>
               )}
             </Link>
-          )
+            )
         })}
       </div>
 

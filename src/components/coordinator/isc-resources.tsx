@@ -2,6 +2,22 @@ import { Download, FileText, Lock, Trophy, Users, type LucideIcon } from 'lucide
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { HowItWorks } from '@/components/isc/how-it-works'
 
+/** The two decks a coordinator hands out, and who each one is for. */
+const DECKS = [
+  {
+    href: '/decks/ISC-Student-Deck.pdf',
+    title: 'Student deck',
+    blurb: 'What ISC is and how to enter, written for students. PDF, 7.5 MB.',
+    gradient: 'from-accent-teal to-primary',
+  },
+  {
+    href: '/decks/ISC-School-Deck.pdf',
+    title: 'School deck',
+    blurb: 'The full programme, for your principal and staff. PDF, 6.6 MB.',
+    gradient: 'from-primary to-primary-light',
+  },
+]
+
 /** dd Mon yyyy, in IST, matching how deadlines read elsewhere. */
 function deadlineLabel(iso: string | undefined): string {
   if (!iso) return 'Date to be announced'
@@ -148,23 +164,28 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
         </div>
       </div>
 
-      <a
-        href="/decks/ISC-School-Deck.pdf"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="clay-card dash-panel-link flex items-center gap-4 p-5 sm:p-6"
-      >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-light">
-          <FileText className="h-5 w-5 text-white" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-display font-bold text-foreground">The ISC school deck</p>
-          <p className="text-xs text-muted">
-            The full programme to share with your principal and staff — PDF, 6.6 MB.
-          </p>
-        </div>
-        <Download className="h-4 w-4 shrink-0 text-muted" />
-      </a>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {DECKS.map((deck) => (
+          <a
+            key={deck.href}
+            href={deck.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="clay-card dash-panel-link flex items-center gap-4 p-5"
+          >
+            <span
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${deck.gradient}`}
+            >
+              <FileText className="h-5 w-5 text-white" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-display font-bold text-foreground">{deck.title}</p>
+              <p className="text-xs text-muted">{deck.blurb}</p>
+            </div>
+            <Download className="h-4 w-4 shrink-0 text-muted" />
+          </a>
+        ))}
+      </div>
     </div>
   )
 }
