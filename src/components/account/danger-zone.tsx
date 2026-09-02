@@ -143,14 +143,14 @@ export function DangerZone() {
                   <label
                     key={w.id}
                     htmlFor={`warn-${w.id}`}
-                    className={`flex cursor-pointer gap-3 rounded-xl border-2 bg-white p-3 transition-colors ${
+                    className={`relative flex cursor-pointer gap-3 rounded-xl border-2 bg-white p-3 transition-colors ${
                       on ? 'border-red-300' : 'border-black/[0.06]'
                     }`}
                   >
                     <input
                       id={`warn-${w.id}`}
                       type="checkbox"
-                      className="sr-only"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       checked={on}
                       onChange={(e) =>
                         setAccepted((a) => ({ ...a, [w.id]: e.target.checked }))

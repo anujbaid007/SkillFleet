@@ -26,9 +26,11 @@ export default async function OnboardingDetailsPage() {
   if (!profile) redirect('/login')
   if (profile.role !== 'student') redirect('/dashboard')
 
-  // Already complete? Skip the gate.
+  // Already complete? Skip the gate. Always to the dashboard: the starter
+  // assessment is optional and offered there as a card, never as a step
+  // standing between somebody and the platform.
   if (isStudentDetailsComplete(profile)) {
-    redirect(profile.onboarding_completed ? '/dashboard' : '/onboarding')
+    redirect('/dashboard')
   }
 
   /*

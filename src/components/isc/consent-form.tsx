@@ -87,7 +87,7 @@ export function ConsentForm({ next }: { next: string }) {
             <label
               key={purpose.id}
               htmlFor={purpose.id}
-              className={`flex cursor-pointer gap-3 rounded-2xl border-2 p-4 transition-colors ${
+              className={`relative flex cursor-pointer gap-3 rounded-2xl border-2 p-4 transition-colors ${
                 on ? 'border-primary/30 bg-primary/[0.04]' : 'border-black/[0.06] bg-white'
               }`}
             >
@@ -95,7 +95,7 @@ export function ConsentForm({ next }: { next: string }) {
                 id={purpose.id}
                 name={purpose.id}
                 type="checkbox"
-                className="sr-only"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                 checked={on}
                 onChange={(e) => setAgreed((a) => ({ ...a, [purpose.id]: e.target.checked }))}
               />
