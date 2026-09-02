@@ -120,12 +120,14 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
       icon: PUZZLE_MASTER.icon,
       gradient: PUZZLE_MASTER.gradient,
       wash: PUZZLE_MASTER.wash,
-      badge: PUZZLE_MASTER.note,
+      // Open, like the other three: it has its own page now. There is no
+      // submission deadline to count down to because it is played live, so
+      // the badge matches what the others show before a date is set.
+      badge: 'Date to be announced',
       listTitle: 'How it runs',
       listItems: [PUZZLE_MASTER.divisions, 'Played live — nothing to submit in advance.'],
       prize: PUZZLE_MASTER.prize,
       teamNote: 'Individual only',
-      locked: true,
     },
   ]
 

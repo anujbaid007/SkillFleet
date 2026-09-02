@@ -8,6 +8,7 @@ export function TrackHero({
   gradient,
   tint,
   maxTeamSize,
+  teamNote,
   deadlineLabel,
   daysLeft,
 }: {
@@ -16,7 +17,10 @@ export function TrackHero({
   icon: LucideIcon
   gradient: string
   tint: string
-  maxTeamSize: number
+  /** Omitted by tracks that are not entered as a team, e.g. Puzzle Master. */
+  maxTeamSize?: number
+  /** Overrides the team line outright, for a track with different rules. */
+  teamNote?: string
   deadlineLabel: string | null
   daysLeft: number | null
 }) {
@@ -55,7 +59,7 @@ export function TrackHero({
           <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-5">
             <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full bg-white/70 text-foreground">
               <Users className="w-3.5 h-3.5" />
-              On your own or a team of up to {maxTeamSize}
+              {teamNote ?? `On your own or a team of up to ${maxTeamSize}`}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full bg-white/70 text-foreground">
               English or Hindi

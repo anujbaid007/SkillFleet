@@ -111,15 +111,18 @@ export const ISC_TRACKS: IscTrack[] = [
 ]
 
 /**
- * Shown on /isc as a fourth card, but not enterable here: Brainweave is
- * expected to design and host the game itself. It still gets full visual
- * identity so the fourth card does not look like a broken version of the
- * other three.
+ * The fourth championship. It has its own page at /isc/puzzle-master, but no
+ * entry form: the rounds are played live and hosted by Brainweave rather than
+ * submitted here, so the page briefs the student and offers the practice games
+ * instead. Kept apart from ISC_TRACKS for exactly that reason — everything
+ * that iterates ISC_TRACKS is entry machinery that does not apply.
  */
 export const PUZZLE_MASTER = {
+  slug: 'puzzle-master',
   name: 'Puzzle Master',
   tagline: 'Logic, speed and nerve — played live.',
-  note: 'Coming soon',
+  brief:
+    'Take on timed logic and reflex puzzles against the clock, played live in rounds. No project to build and nothing to upload — just you, the puzzle and the timer.',
   icon: Puzzle,
   gradient: 'from-accent-yellow to-accent-pink',
   tint: 'from-accent-yellow/[0.08]',
@@ -130,6 +133,11 @@ export const PUZZLE_MASTER = {
   divisions: 'Two divisions: Classes 5–8 and Classes 9–12',
   prize:
     'A shared ₹2 lakh pool across both divisions — ₹1 lakh in gifts or devices and ₹1 lakh in scholarships.',
+  prepare: [
+    'A device with a steady internet connection',
+    'A quiet half hour — rounds are played live and cannot be paused',
+    'Nothing to prepare or upload beforehand: you play on the day',
+  ],
 }
 
 export function trackBySlug(slug: string): IscTrack | null {
