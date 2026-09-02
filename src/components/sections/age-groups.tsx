@@ -55,7 +55,9 @@ const ageGroups = [
       "Innovation Challenges",
       "Career Shadowing",
     ],
-    image: "/images/kid-raising-hand.jpg",
+    // Its own photo rather than the shared one: kid-raising-hand.jpg shows a
+    // child of about five, which is two age bands below this card.
+    image: "/images/students-middle-school.jpg",
   },
   {
     icon: Rocket,

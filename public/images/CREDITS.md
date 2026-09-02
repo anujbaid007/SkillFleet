@@ -6,6 +6,7 @@ Most photography here is Skill Fleet's own. These two come from Pexels.
 |------|--------|
 | `kids-classroom.jpg` | Pexels — photo 31864392 |
 | `kid-raising-hand.jpg` | Pexels — photo 31864414 |
+| `students-middle-school.jpg` | Pexels — photo 3231358 |
 
 **No attribution is required.** The Pexels licence permits free commercial
 use, allows modification, and handles model releases — which matters here,
