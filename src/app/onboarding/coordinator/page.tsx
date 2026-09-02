@@ -13,7 +13,7 @@ export default async function CoordinatorOnboardingPage() {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('role, full_name')
+    .select('role, full_name, phone')
     .eq('id', user.id)
     .single()
   if (!profile) redirect('/login')
@@ -38,7 +38,7 @@ export default async function CoordinatorOnboardingPage() {
             We&apos;ll review your application before you can see your school&apos;s roster.
           </p>
         </div>
-        <CoordinatorDetailsForm states={states} />
+        <CoordinatorDetailsForm states={states} needsPhone={!profile.phone} />
       </div>
     </main>
   )

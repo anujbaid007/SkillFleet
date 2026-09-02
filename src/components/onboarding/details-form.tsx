@@ -13,9 +13,17 @@ const INPUT_CLASS =
 export function DetailsForm({
   states,
   previousFreeText,
+  needsDob = false,
+  needsParent = false,
+  maxDob,
 }: {
   states: string[]
   previousFreeText?: string
+  /** Both true for a Google signup — OAuth returns neither, and the email
+      signup form asks for both, so this is where the gap is closed. */
+  needsDob?: boolean
+  needsParent?: boolean
+  maxDob?: string
 }) {
   const [state, action, pending] = useActionState<DetailsFormState, FormData>(
     saveStudentDetailsAction,
@@ -30,6 +38,73 @@ export function DetailsForm({
       transition={{ type: 'spring', stiffness: 80, damping: 18 }}
       className="clay-card p-8 space-y-4"
     >
+      {needsDob && (
+        <div>
+          <label htmlFor="date_of_birth" className="block text-sm font-medium text-foreground mb-1">
+            Date of birth
+          </label>
+          <input
+            id="date_of_birth"
+            name="date_of_birth"
+            type="date"
+            required
+            max={maxDob}
+            className={INPUT_CLASS}
+          />
+          <p className="mt-1 text-xs text-muted">Used to check which programmes you can join.</p>
+        </div>
+      )}
+
+      {needsParent && (
+        <div className="space-y-4 rounded-2xl bg-primary/[0.04] p-4">
+          <p className="font-display text-sm font-bold text-foreground">
+            A parent or guardian&apos;s details
+          </p>
+          <div>
+            <label
+              htmlFor="parent_full_name"
+              className="block text-sm font-medium text-foreground mb-1"
+            >
+              Parent&apos;s full name
+            </label>
+            <input
+              id="parent_full_name"
+              name="parent_full_name"
+              required
+              className={INPUT_CLASS}
+              placeholder="e.g. Anita Rao"
+            />
+          </div>
+          <div>
+            <label htmlFor="parent_email" className="block text-sm font-medium text-foreground mb-1">
+              Parent&apos;s email
+            </label>
+            <input
+              id="parent_email"
+              name="parent_email"
+              type="email"
+              required
+              className={INPUT_CLASS}
+              placeholder="parent@example.com"
+            />
+          </div>
+          <div>
+            <label htmlFor="parent_phone" className="block text-sm font-medium text-foreground mb-1">
+              Parent&apos;s WhatsApp number
+            </label>
+            <input
+              id="parent_phone"
+              name="parent_phone"
+              type="tel"
+              inputMode="numeric"
+              required
+              className={INPUT_CLASS}
+              placeholder="10-digit WhatsApp number"
+            />
+          </div>
+        </div>
+      )}
+
       <ClassBranchFields className={INPUT_CLASS} />
 
       <SchoolLocationFields

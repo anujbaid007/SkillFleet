@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { motion } from 'motion/react'
 import { loginAction } from '@/app/actions/auth'
 import type { AuthFormState } from '@/app/actions/auth'
+import { AuthDivider, GoogleButton } from '@/components/auth/google-button'
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState<AuthFormState, FormData>(loginAction, undefined)
@@ -18,6 +19,9 @@ export default function LoginPage() {
     >
       <h1 className="font-display text-2xl font-bold text-foreground mb-2">Welcome back</h1>
       <p className="text-muted text-sm mb-6">Sign in to your SkillFleet account</p>
+
+      <GoogleButton intent="student" label="Sign in with Google" />
+      <AuthDivider label="or use your password" />
 
       <form action={action} className="space-y-4">
         <div>

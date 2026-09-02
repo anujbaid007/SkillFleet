@@ -11,7 +11,15 @@ import type { SchoolOption } from '@/app/actions/schools'
 const INPUT_CLASS =
   'w-full h-11 px-4 rounded-xl border-2 border-black/[0.06] bg-white text-foreground placeholder:text-muted/60 focus:outline-none focus:border-primary transition-colors'
 
-export function CoordinatorDetailsForm({ states }: { states: string[] }) {
+export function CoordinatorDetailsForm({
+  states,
+  needsPhone = false,
+}: {
+  states: string[]
+  /** True for a Google signup: OAuth returns no phone number, and the email
+      form collects one, so this is where that gap is closed. */
+  needsPhone?: boolean
+}) {
   const [state, action, pending] = useActionState<ApplyState, FormData>(
     applyAsCoordinatorAction,
     undefined
@@ -32,6 +40,26 @@ export function CoordinatorDetailsForm({ states }: { states: string[] }) {
       transition={{ type: 'spring', stiffness: 80, damping: 18 }}
       className="clay-card p-8 space-y-4"
     >
+      {needsPhone && (
+        <div>
+          <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1">
+            Your WhatsApp number
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            inputMode="numeric"
+            required
+            className={INPUT_CLASS}
+            placeholder="10-digit WhatsApp number"
+          />
+          <p className="mt-1 text-xs text-muted">
+            So we can reach you about your school&apos;s entries.
+          </p>
+        </div>
+      )}
+
       <SchoolLocationFields
         className={INPUT_CLASS}
         states={states}

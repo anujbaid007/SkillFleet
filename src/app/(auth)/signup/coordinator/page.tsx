@@ -9,6 +9,7 @@ import type { AuthFormState } from '@/app/actions/auth'
 import { PasswordField } from '@/components/auth/password-field'
 import { CheckEmailNotice } from '@/components/auth/check-email-notice'
 import { SignupTypeToggle } from '@/components/auth/signup-type-toggle'
+import { AuthDivider, GoogleButton } from '@/components/auth/google-button'
 
 /**
  * Coordinator signup collects the account only. School, board and student
@@ -47,6 +48,9 @@ export default function CoordinatorSignupPage() {
           <p className="text-muted text-sm mb-6">
             You&apos;ll add your school on the next step, once your account is created.
           </p>
+
+          <GoogleButton intent="coordinator" label="Sign up with Google" />
+          <AuthDivider />
 
           <form action={action} className="space-y-4">
             <div>

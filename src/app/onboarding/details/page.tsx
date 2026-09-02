@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import { DetailsForm } from '@/components/onboarding/details-form'
 import { getSchoolStates } from '@/app/actions/schools'
+import { MIN_SIGNUP_AGE } from '@/lib/validation/dob'
 
 export default async function OnboardingDetailsPage() {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export default async function OnboardingDetailsPage() {
   const { data: profile } = await supabase
     .from('user_profiles')
     .select(
-      'full_name, role, onboarding_completed, school_class, school_name, school_state, school_district, city, parent_mobile'
+      'full_name, role, onboarding_completed, school_class, school_name, school_state, school_district, city, parent_mobile, date_of_birth, family_id'
     )
     .eq('id', user.id)
     .single()
@@ -28,6 +29,12 @@ export default async function OnboardingDetailsPage() {
   }
 
   const states = await getSchoolStates()
+
+  // Latest date of birth that still satisfies the minimum signup age. Computed
+  // on the server so the input's `max` is identical on both renders.
+  const cutoff = new Date()
+  cutoff.setFullYear(cutoff.getFullYear() - MIN_SIGNUP_AGE)
+  const maxDob = cutoff.toISOString().split('T')[0]
   const firstName = profile.full_name?.split(' ')[0] ?? 'there'
 
   return (
@@ -41,7 +48,13 @@ export default async function OnboardingDetailsPage() {
             Tell us a little about you so we can personalise your SkillFleet experience.
           </p>
         </div>
-        <DetailsForm states={states} previousFreeText={profile.school_name ?? ''} />
+        <DetailsForm
+          states={states}
+          previousFreeText={profile.school_name ?? ''}
+          needsDob={!profile.date_of_birth}
+          needsParent={!profile.family_id}
+          maxDob={maxDob}
+        />
       </div>
     </main>
   )

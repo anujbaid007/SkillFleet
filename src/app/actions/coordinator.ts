@@ -114,6 +114,23 @@ export async function applyAsCoordinatorAction(
   if ('error' in resolved) return { error: resolved.error }
 
   const supabase = await createClient()
+
+  // Only present for a coordinator who signed up with Google, where OAuth
+  // returned no phone number. Saved before the claim so a failure here cannot
+  // leave a school claimed by someone we have no way to contact.
+  const phone = ((formData.get('phone') as string) ?? '').trim()
+  if (phone) {
+    const phoneError = validateMobile(phone, 'WhatsApp number')
+    if (phoneError) return { error: phoneError }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('user_profiles').update({ phone }).eq('id', user.id)
+    }
+  }
+
   const { data, error } = await supabase.rpc('apply_as_coordinator', {
     p_school_id: resolved.schoolId,
     p_board: board,

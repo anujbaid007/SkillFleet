@@ -9,6 +9,7 @@ import type { AuthFormState } from '@/app/actions/auth'
 import { PasswordField } from '@/components/auth/password-field'
 import { CheckEmailNotice } from '@/components/auth/check-email-notice'
 import { SignupTypeToggle } from '@/components/auth/signup-type-toggle'
+import { AuthDivider, GoogleButton } from '@/components/auth/google-button'
 import { MIN_SIGNUP_AGE } from '@/lib/validation/dob'
 
 /**
@@ -47,6 +48,14 @@ export default function SignupPage() {
           <p className="text-muted text-sm mb-6">
             The student signs in; a parent&apos;s details are added for bookings and approvals.
           </p>
+
+          <GoogleButton intent="student" label="Sign up with Google" />
+          {/*
+            Deliberately an equal option rather than a fallback: Google requires
+            an account holder to be 13, and ISC is open from Class 5, so a large
+            share of these students cannot use the button above at all.
+          */}
+          <AuthDivider />
 
           <form action={action} className="space-y-6">
             {/* Student */}
