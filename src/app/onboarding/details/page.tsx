@@ -1,5 +1,8 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
+import { JOIN_COOKIE } from '@/lib/coordinator/join-link'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import { DetailsForm } from '@/components/onboarding/details-form'
 import { getSchoolStates } from '@/app/actions/schools'
@@ -28,6 +31,20 @@ export default async function OnboardingDetailsPage() {
     redirect(profile.onboarding_completed ? '/dashboard' : '/onboarding')
   }
 
+  /*
+    A coordinator's share link left the school in a cookie. Resolved with the
+    service-role client because the student has no school of their own yet,
+    which is what the RLS policy on `schools` keys off.
+  */
+  const joinSchoolId = (await cookies()).get(JOIN_COOKIE)?.value
+  const { data: joinSchool } = joinSchoolId
+    ? await adminClient
+        .from('schools')
+        .select('id, name, state, district')
+        .eq('id', joinSchoolId)
+        .maybeSingle()
+    : { data: null }
+
   const states = await getSchoolStates()
 
   // Latest date of birth that still satisfies the minimum signup age. Computed
@@ -52,6 +69,7 @@ export default async function OnboardingDetailsPage() {
           states={states}
           previousFreeText={profile.school_name ?? ''}
           defaultName={profile.full_name ?? ''}
+          prefillSchool={joinSchool ?? undefined}
           needsDob={!profile.date_of_birth}
           needsParent={!profile.family_id}
           maxDob={maxDob}

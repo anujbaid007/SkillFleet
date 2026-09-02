@@ -1,5 +1,6 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -9,6 +10,7 @@ import { validateDob } from '@/lib/validation/dob'
 import { validateMobile } from '@/lib/validation/mobile'
 import { parseSchoolSelection, validateSchoolSelection } from '@/lib/schools/validate'
 import { resolveSchoolId } from '@/app/actions/schools'
+import { JOIN_COOKIE } from '@/lib/coordinator/join-link'
 
 export type DetailsFormState = { error?: string } | undefined
 
@@ -137,6 +139,10 @@ export async function saveStudentDetailsAction(
     .eq('id', user.id)
 
   if (error) return { error: 'Could not save your details. Please try again.' }
+
+  // The share link has done its job. Left in place it would keep re-filling
+  // this form for the next person to use the same browser.
+  ;(await cookies()).delete(JOIN_COOKIE)
 
   // The student's school is only known now, so this is the first moment a
   // pending ISC invite can be matched against the same-school rule.

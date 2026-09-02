@@ -17,12 +17,15 @@ export function DetailsForm({
   needsParent = false,
   maxDob,
   defaultName = '',
+  prefillSchool,
 }: {
   states: string[]
   previousFreeText?: string
   /** Prefilled from Google where it supplied one, and always editable — a
       Google display name is often not the name the school knows. */
   defaultName?: string
+  /** From a coordinator's /join/<schoolId> link — preselects the cascade. */
+  prefillSchool?: { id: string; name: string; state: string; district: string }
   /** Both true for a Google signup — OAuth returns neither, and the email
       signup form asks for both, so this is where the gap is closed. */
   needsDob?: boolean
@@ -125,10 +128,21 @@ export function DetailsForm({
 
       <ClassBranchFields className={INPUT_CLASS} />
 
+      {prefillSchool && (
+        <p className="rounded-xl bg-accent-teal/10 px-4 py-3 text-sm text-foreground">
+          Joining <span className="font-semibold">{prefillSchool.name}</span>. Change it below if
+          that is not your school.
+        </p>
+      )}
+
       <SchoolLocationFields
         className={INPUT_CLASS}
         states={states}
         previousFreeText={previousFreeText}
+        initialState={prefillSchool?.state ?? ''}
+        initialDistrict={prefillSchool?.district ?? ''}
+        initialSchoolId={prefillSchool?.id ?? ''}
+        initialSchoolName={prefillSchool?.name ?? ''}
       />
 
       <div>

@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { JOIN_COOKIE, JOIN_COOKIE_MAX_AGE } from '@/lib/coordinator/join-link'
+
+/** /join/<uuid> — a coordinator's prefilled signup link. */
+const JOIN_PATH = /^\/join\/([0-9a-fA-F-]{36})\/?$/
 
 // Routes that require authentication
 const PROTECTED_PREFIXES = [
@@ -60,6 +64,25 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
   if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  /*
+    Remember which school a share link belongs to.
+
+    This has to happen here rather than in the /join page itself: Next only
+    allows cookies to be written from a Server Action, a Route Handler or
+    middleware, never during a Server Component render. /onboarding/details
+    reads it back to preselect the school, and clears it once used.
+  */
+  const join = pathname.match(JOIN_PATH)
+  if (join) {
+    supabaseResponse.cookies.set(JOIN_COOKIE, join[1], {
+      maxAge: JOIN_COOKIE_MAX_AGE,
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+    })
   }
 
   // Unauthenticated users visiting protected routes → send to login
