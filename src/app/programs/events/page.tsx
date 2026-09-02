@@ -366,7 +366,14 @@ export default function EventsPage() {
             {/* Spanning CTA card */}
             <motion.div
               {...fadeUp(eventTypes.length * 0.08)}
-              className="clay-card p-8 flex flex-col items-center justify-center text-center sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-accent-teal/5 to-accent-purple/5"
+              className="clay-card p-8 flex flex-col items-center justify-center text-center sm:col-span-2 lg:col-span-1"
+              /* Inline, for the reason given on the workshops page: the card's
+                 `background` shorthand wipes a gradient set beside it. The
+                 white is restated under the tint, which is only 5% opaque. */
+              style={{
+                background:
+                  "linear-gradient(to bottom right, rgba(20,184,166,0.05), rgba(147,51,234,0.05)), #ffffff",
+              }}
             >
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-teal to-accent-purple flex items-center justify-center mb-5">
                 <Calendar className="w-7 h-7 text-white" />
