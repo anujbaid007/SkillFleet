@@ -166,6 +166,14 @@ export function EntryForm({
       {state?.ok && (
         <p className="text-sm text-green-700 bg-green-50 rounded-xl px-4 py-3">{state.ok}</p>
       )}
+      {/* Saved, but a judge could not open one of the links. Deliberately not
+          an error: the work is safe, and this is only a problem at submit. */}
+      {state?.warning && (
+        <p className="text-sm text-[#8a5a00] bg-accent-yellow/15 rounded-xl px-4 py-3 flex gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{state.warning}</span>
+        </p>
+      )}
 
       {readOnly ? (
         <p className="text-sm text-muted inline-flex items-center gap-1.5">

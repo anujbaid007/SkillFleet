@@ -3,9 +3,10 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
+import { TRACK_FIELDS, trackById, trackBySlug, type IscTrackId } from '@/lib/isc/tracks'
 import { readSubmission } from '@/lib/isc/submission'
 import { firstInvalidField } from '@/lib/isc/validate'
+import { checkLink } from '@/lib/isc/link-check'
 
 const ERR: Record<string, string> = {
   not_student: 'Only student accounts can enter ISC.',
@@ -179,6 +180,12 @@ export type EntryFormState =
       ok?: string
       /** Which field the error is about, so the form can focus it. */
       field?: string
+      /**
+       * A link that saved fine but nobody else can open. Shown on a draft
+       * save, where blocking would cost the student their typed work; the
+       * same finding becomes a hard error on submit.
+       */
+      warning?: string
     }
   | undefined
 
@@ -187,6 +194,33 @@ export type EntryFormState =
  * useActionState hooks cannot express "whichever ran most recently", so a
  * failed submit would permanently mask a later successful save.
  */
+/**
+ * The first link in a submission that a stranger could not open.
+ *
+ * Every URL field is checked at once rather than one after another: an entry
+ * has at most three, and a student waiting on a submit should not pay for them
+ * serially. A link we cannot judge — a deployed app, a personal site — is left
+ * alone, since fetching it would prove nothing about whether the work is
+ * visible.
+ */
+async function firstUnopenableLink(
+  track: IscTrackId,
+  submission: Record<string, unknown>
+): Promise<{ key: string; message: string } | null> {
+  const urlFields = TRACK_FIELDS[track].filter((spec) => spec.kind === 'url')
+
+  const verdicts = await Promise.all(
+    urlFields.map(async (spec) => {
+      const value = submission?.[spec.key]
+      if (typeof value !== 'string' || !value.trim()) return null
+      const verdict = await checkLink(value)
+      return verdict.status === 'blocked' ? { key: spec.key, message: verdict.message } : null
+    })
+  )
+
+  return verdicts.find(Boolean) ?? null
+}
+
 export async function entryFormAction(
   _prev: EntryFormState,
   formData: FormData
@@ -221,7 +255,10 @@ export async function entryFormAction(
   if (intent !== 'submit') {
     revalidatePath(`/isc/${track.slug}`)
     revalidatePath('/isc')
-    return { ok: 'Draft saved.' }
+    // Warn, never block. A draft is where a student parks work in progress,
+    // and a link they have not shared yet is a normal thing to have here.
+    const problem = await firstUnopenableLink(track.id, submission)
+    return problem ? { ok: 'Draft saved.', warning: problem.message } : { ok: 'Draft saved.' }
   }
 
   // Field rules live in TypeScript; the RPC owns authorisation and consent.
@@ -230,6 +267,20 @@ export async function entryFormAction(
     // Revalidate so the re-render shows the work we just saved.
     revalidatePath(`/isc/${track.slug}`)
     return { error: invalid.message, field: invalid.key }
+  }
+
+  /*
+    Last gate before it counts: is the work actually openable?
+
+    A private video or a restricted Drive file opens perfectly for the student
+    who made it and not at all for a judge, so this is the failure they are
+    least likely to catch themselves. Checked only on submit — the network
+    calls have no business slowing down a draft save.
+  */
+  const unopenable = await firstUnopenableLink(track.id, submission)
+  if (unopenable) {
+    revalidatePath(`/isc/${track.slug}`)
+    return { error: unopenable.message, field: unopenable.key }
   }
 
   const { data, error } = await supabase.rpc('isc_submit_entry', {
