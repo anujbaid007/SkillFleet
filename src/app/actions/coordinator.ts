@@ -16,7 +16,7 @@ function buildAuthRedirect(next: string) {
   return `${base}/auth/callback?next=${encodeURIComponent(next)}`
 }
 
-const ONBOARDING_PATH = '/onboarding/coordinator'
+const ONBOARDING_PATH = '/onboarding/consent'
 
 /**
  * Step 1 of coordinator signup: the account only. School selection happens

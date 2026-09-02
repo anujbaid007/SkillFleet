@@ -148,10 +148,8 @@ export async function saveStudentDetailsAction(
   // pending ISC invite can be matched against the same-school rule.
   await supabase.rpc('isc_claim_invites')
 
-  // New students continue to the questionnaire; returning students go to the dashboard.
-  if (!profile.onboarding_completed) {
-    redirect('/onboarding')
-  }
+  // Straight to the dashboard. The starter assessment is offered there as a
+  // card rather than as a fourth screen between signing up and seeing anything.
   revalidatePath('/dashboard')
   redirect('/dashboard')
 }

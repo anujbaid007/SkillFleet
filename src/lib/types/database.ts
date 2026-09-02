@@ -1563,6 +1563,10 @@ export type Database = {
           school_branch: string | null
           school_class: string | null
           school_district: string | null
+          terms_agreed_at: string | null
+          terms_version: string | null
+          marketing_skillfleet: boolean | null
+          marketing_brainweave: boolean | null
           school_id: string | null
           school_name: string | null
           school_state: string | null
@@ -1584,6 +1588,10 @@ export type Database = {
           school_branch?: string | null
           school_class?: string | null
           school_district?: string | null
+          terms_agreed_at?: string | null
+          terms_version?: string | null
+          marketing_skillfleet?: boolean | null
+          marketing_brainweave?: boolean | null
           school_id?: string | null
           school_name?: string | null
           school_state?: string | null
@@ -1605,6 +1613,10 @@ export type Database = {
           school_branch?: string | null
           school_class?: string | null
           school_district?: string | null
+          terms_agreed_at?: string | null
+          terms_version?: string | null
+          marketing_skillfleet?: boolean | null
+          marketing_brainweave?: boolean | null
           school_id?: string | null
           school_name?: string | null
           school_state?: string | null

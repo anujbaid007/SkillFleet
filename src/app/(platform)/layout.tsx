@@ -20,6 +20,10 @@ export default async function PlatformLayout({ children }: { children: ReactNode
   if (profile.role === 'vendor') redirect('/vendor')
   if (profile.role === 'coordinator') redirect('/coordinator')
 
+  // Consent comes before anything else: an account that has not agreed has no
+  // basis for us to be processing what the details form is about to collect.
+  if (!profile.terms_agreed_at) redirect('/onboarding/consent')
+
   // Students must give their required details before using the platform.
   if (profile.role === 'student' && !isStudentDetailsComplete(profile)) {
     redirect('/onboarding/details')

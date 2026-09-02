@@ -9,6 +9,9 @@ import { isStudentDetailsComplete } from '@/lib/profile/details'
 /**
  * Where a signed-in user belongs, given how complete their profile is.
  *
+ * Only ever the steps that are genuinely required. The starter assessment is
+ * not one of them — the dashboard already carries a card for it.
+ *
  * Google hands back a name, an email and a picture — nothing else. So a
  * student who arrives this way has no date of birth and no parent on record,
  * and a coordinator has no phone number, even though both are asked for on the
@@ -17,6 +20,7 @@ import { isStudentDetailsComplete } from '@/lib/profile/details'
  */
 function destinationFor(profile: {
   role: string | null
+  terms_agreed_at: string | null
   onboarding_completed: boolean | null
   date_of_birth: string | null
   family_id: string | null
@@ -29,6 +33,10 @@ function destinationFor(profile: {
 }): string {
   if (profile.role === 'admin') return '/admin'
   if (profile.role === 'vendor') return '/vendor'
+
+  // Nobody gets past this without having agreed, whichever way they signed up.
+  if (!profile.terms_agreed_at) return '/onboarding/consent'
+
   if (profile.role === 'coordinator') {
     return profile.phone ? '/coordinator' : '/onboarding/coordinator'
   }
@@ -36,7 +44,7 @@ function destinationFor(profile: {
   // Students: details first, then the questionnaire.
   const missingSignupFields = !profile.date_of_birth || !profile.family_id
   if (missingSignupFields || !isStudentDetailsComplete(profile)) return '/onboarding/details'
-  if (!profile.onboarding_completed) return '/onboarding'
+  // The starter assessment is offered on the dashboard rather than forced here.
   return '/dashboard'
 }
 
@@ -81,7 +89,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
 
   const columns =
-    'role, onboarding_completed, date_of_birth, family_id, phone, school_class, school_name, school_state, school_district, city'
+    'role, onboarding_completed, terms_agreed_at, date_of_birth, family_id, phone, school_class, school_name, school_state, school_district, city'
 
   const { data: profile } = await supabase
     .from('user_profiles')

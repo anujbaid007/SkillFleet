@@ -80,9 +80,11 @@ export async function loginAction(
       .single()
 
     if (profile?.role === 'admin') redirect('/admin')
-    if (profile?.role === 'student') {
-      if (!isStudentDetailsComplete(profile)) redirect('/onboarding/details')
-      if (!profile.onboarding_completed) redirect('/onboarding')
+    // The starter assessment is offered from the dashboard, not forced on the
+    // way in: it is optional, it already has a "Skip for now", and a student
+    // signing in to check a deadline should not have to get past it first.
+    if (profile?.role === 'student' && !isStudentDetailsComplete(profile)) {
+      redirect('/onboarding/details')
     }
   }
 
@@ -110,7 +112,9 @@ export async function signupAction(
   if (passwordError) return { error: passwordError, values }
 
   const supabase = await createClient()
-  const next = '/onboarding/details'
+  // Consent first: /onboarding/details is where a date of birth, a school and
+  // a parent's contact details are actually collected.
+  const next = '/onboarding/consent'
 
   /*
     Credentials only.
