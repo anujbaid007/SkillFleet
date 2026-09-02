@@ -509,17 +509,16 @@ export type ConsentState = { error?: string } | undefined
 
 const CONSENT_ERR: Record<string, string> = {
   not_student: 'Only student accounts can enter ISC.',
-  // The RPC's key still says guardian; the person consenting is the student.
-  guardian_name_required: 'Please type your full name to confirm.',
+  // Only reachable if a profile somehow has no name by the time it reaches
+  // ISC, which onboarding should already have prevented.
+  name_missing: 'Please add your full name to your profile before entering.',
 }
 
 export async function giveConsentAction(
   _prev: ConsentState,
   formData: FormData
 ): Promise<ConsentState> {
-  const consentName = ((formData.get('consent_name') as string) ?? '').trim()
   const next = ((formData.get('next') as string) ?? '/isc').trim()
-  if (!consentName) return { error: CONSENT_ERR.guardian_name_required }
 
   /*
     Each purpose is read separately, and the required one is checked here as
@@ -533,13 +532,35 @@ export async function giveConsentAction(
   }
 
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
   /*
+    The name is read from the profile rather than typed into the form.
+
+    The student is already signed in, so asking them to type their own name
+    proved nothing: student_id, the timestamp and the consent version are
+    stronger evidence than a string the same person could put anything into.
+    Taking it from the profile also means no part of the record is
+    self-reported at the moment of consent.
+
     The parameter and the column behind it are still called guardian_name.
     What goes in is the name of whoever performed the act, and `consented_by`
     below records which that was. Renaming the column would mean rewriting the
     RPC that owns eligibility and the one-per-season rule, for no gain that a
     reader of the row cannot already get from consented_by.
   */
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  const consentName = profile?.full_name?.trim()
+  if (!consentName) return { error: CONSENT_ERR.name_missing }
+
   const { data, error } = await supabase.rpc('isc_give_consent', {
     p_guardian_name: consentName,
   })
@@ -561,21 +582,16 @@ export async function giveConsentAction(
     missing detail row is a reporting gap, not grounds to send a student back
     round a form they have already completed.
   */
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (user) {
-    await supabase
-      .from('isc_consent')
-      .update({
-        consented_by: 'student',
-        consent_version: CONSENT_VERSION,
-        brainweave_sharing: agreed('brainweave_sharing'),
-        promo_use: agreed('promo_use'),
-      })
-      .eq('student_id', user.id)
-      .eq('season', ISC_SEASON)
-  }
+  await supabase
+    .from('isc_consent')
+    .update({
+      consented_by: 'student',
+      consent_version: CONSENT_VERSION,
+      brainweave_sharing: agreed('brainweave_sharing'),
+      promo_use: agreed('promo_use'),
+    })
+    .eq('student_id', user.id)
+    .eq('season', ISC_SEASON)
 
   revalidatePath('/isc')
   // Only ever an internal path: `next` comes from our own links, but refuse

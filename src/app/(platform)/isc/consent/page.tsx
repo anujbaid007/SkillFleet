@@ -20,7 +20,7 @@ export default async function IscConsentPage({
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('school_class, full_name')
+    .select('school_class')
     .eq('id', user.id)
     .single()
   if (!isEligibleClass(profile?.school_class)) redirect('/isc')
@@ -30,7 +30,7 @@ export default async function IscConsentPage({
 
   return (
     <div className="max-w-xl mx-auto">
-      <ConsentForm studentName={profile?.full_name ?? ''} next={target} />
+      <ConsentForm next={target} />
     </div>
   )
 }

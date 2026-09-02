@@ -19,7 +19,7 @@ import {
  * optional — refusing either still lets a student enter and win, which is what
  * makes the required one freely given rather than the price of admission.
  */
-export function ConsentForm({ studentName, next }: { studentName: string; next: string }) {
+export function ConsentForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState<ConsentState, FormData>(
     giveConsentAction,
     undefined
@@ -123,19 +123,6 @@ export function ConsentForm({ studentName, next }: { studentName: string; next: 
             </label>
           )
         })}
-      </div>
-
-      <div>
-        <label htmlFor="consent_name" className="mb-1 block text-sm font-medium text-foreground">
-          Type your full name to confirm
-        </label>
-        <input
-          id="consent_name"
-          name="consent_name"
-          required
-          defaultValue={studentName}
-          className="h-11 w-full rounded-xl border-2 border-black/[0.06] bg-white px-4 text-foreground transition-colors focus:border-primary focus:outline-none"
-        />
       </div>
 
       {/* s.6(4) and s.13: withdrawal and complaint routes belong with the ask,
