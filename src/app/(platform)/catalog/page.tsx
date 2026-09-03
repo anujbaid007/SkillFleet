@@ -1,45 +1,30 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import { Compass, Bell } from 'lucide-react'
-import { CatalogStatusFilter } from '@/components/catalog/status-filter'
-import { catalogViewFor } from '@/lib/commerce/catalog-view'
+import { Compass } from 'lucide-react'
 import { BOOKINGS_COMING_SOON } from '@/lib/launch'
-import { CatalogCardLink } from '@/components/catalog/coming-soon'
 import { PageHeader } from '@/components/ui/page-header'
-import { Reveal } from '@/components/ui/reveal'
-import { OFFERING_TYPE_META, OFFERING_STATUS_META } from '@/lib/offering-meta'
+import { CatalogExplorer, type ExplorerOffering } from '@/components/catalog/catalog-explorer'
 import { calculateAge, isAgeEligible } from '@/lib/utils/age'
+import { requestNowMs } from '@/lib/utils/request-time'
 
-interface RawOffering {
-  id: string
-  title: string
-  description: string | null
-  type: string
-  status: string
-  price_paise: number
-  min_age: number | null
-  max_age: number | null
-  scheduled_at: string | null
-  image_url: string | null
-  interest_count: number
-  topics: { id: string; name: string; category_id: string; categories: { id: string; name: string } | null } | null
-}
+type RawOffering = Omit<ExplorerOffering, 'bookable'>
 
 interface RawCategory {
   id: string
   name: string
 }
 
-function formatPrice(pricePaise: number) {
-  return pricePaise === 0 ? 'Free' : `₹${(pricePaise / 100).toLocaleString('en-IN')}`
-}
-
+/*
+  Loads the catalogue and decides, per offering, whether anyone in this family
+  could still book it. That judgement needs ages and paid bookings, which stay
+  on the server; the browser only ever receives the yes/no. Filtering itself
+  happens in CatalogExplorer so the chips respond instantly.
+*/
 export default async function CatalogPage({
   searchParams,
 }: {
   searchParams: Promise<{ category?: string; type?: string; status?: string }>
 }) {
-  const { category: categoryFilter, type: typeFilter, status: statusFilter } = await searchParams
+  const { category, type, status } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -102,33 +87,7 @@ export default async function CatalogPage({
     })
   }
 
-  const nowMs = Date.now()
-  const isUpcoming = (o: RawOffering) =>
-    o.scheduled_at == null || new Date(o.scheduled_at).getTime() >= nowMs
-
-  let rows = offerings ?? []
-  if (typeFilter) rows = rows.filter((o) => o.type === typeFilter)
-  if (categoryFilter) rows = rows.filter((o) => o.topics?.category_id === categoryFilter)
-
-  const view = catalogViewFor(statusFilter)
-  if (view === 'planned' || view === 'completed') {
-    rows = rows.filter((o) => o.status === view)
-  } else if (view === 'bookable') {
-    // Only what this family can actually book right now.
-    rows = rows.filter((o) => o.status === 'live' && isUpcoming(o) && bookableBySomeone(o))
-  }
-  // 'everything' is the default: the whole catalogue, unfiltered.
-
-  const buildHref = (o: { type?: string | null; category?: string | null }) => {
-    const params = new URLSearchParams()
-    const t = 'type' in o ? o.type : typeFilter
-    const c = 'category' in o ? o.category : categoryFilter
-    if (t) params.set('type', t)
-    if (c) params.set('category', c)
-    if (statusFilter) params.set('status', statusFilter)
-    const qs = params.toString()
-    return `/catalog${qs ? `?${qs}` : ''}`
-  }
+  const list: ExplorerOffering[] = (offerings ?? []).map((o) => ({ ...o, bookable: bookableBySomeone(o) }))
 
   return (
     <div className="space-y-6">
@@ -139,135 +98,13 @@ export default async function CatalogPage({
         subtitle="Workshops, trips, events, competitions, and internships that grow real skills."
       />
 
-      <Reveal delay={0.05}>
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={buildHref({ type: null })}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${!typeFilter ? 'bg-primary text-white' : 'bg-white text-muted border border-black/10 hover:text-foreground'}`}
-            >
-              All types
-            </Link>
-            {Object.entries(OFFERING_TYPE_META).map(([value, meta]) => (
-              <Link
-                key={value}
-                href={buildHref({ type: value })}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${typeFilter === value ? 'bg-primary text-white' : 'bg-white text-muted border border-black/10 hover:text-foreground'}`}
-              >
-                {meta.label}
-              </Link>
-            ))}
-            <div className="ml-auto">
-              <CatalogStatusFilter status={statusFilter} type={typeFilter} category={categoryFilter} />
-            </div>
-          </div>
-
-          {(categories ?? []).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={buildHref({ category: null })}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${!categoryFilter ? 'border-primary text-primary bg-primary/5' : 'border-black/10 text-muted hover:text-foreground'}`}
-              >
-                All categories
-              </Link>
-              {(categories ?? []).map((c) => (
-                <Link
-                  key={c.id}
-                  href={buildHref({ category: c.id })}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${categoryFilter === c.id ? 'border-primary text-primary bg-primary/5' : 'border-black/10 text-muted hover:text-foreground'}`}
-                >
-                  {c.name}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </Reveal>
-
-      {rows.length === 0 ? (
-        <Reveal delay={0.1}>
-          <div className="clay-card p-12 text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-              <Compass className="w-7 h-7 text-primary" />
-            </div>
-            <p className="font-display font-bold text-foreground">Nothing here yet</p>
-            <p className="text-muted text-sm max-w-md mx-auto">
-              {view === 'bookable'
-                ? 'Nothing left to book here right now. Activities already booked, or outside your child’s age range, are hidden — switch to “Show everything” to see the full catalogue.'
-                : 'No activities match these filters — try a different type or category.'}
-            </p>
-          </div>
-        </Reveal>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rows.map((o, i) => {
-            const meta = OFFERING_TYPE_META[o.type]
-            const Icon = meta?.icon
-            const status = OFFERING_STATUS_META[o.status]
-            return (
-              <Reveal key={o.id} delay={Math.min(i * 0.05, 0.4)}>
-                <CatalogCardLink
-                  href={`/catalog/${o.id}`}
-                  comingSoon={BOOKINGS_COMING_SOON}
-                  className="clay-card p-0 flex flex-col h-full group overflow-hidden"
-                >
-                  {/* Cover image (or a type-coded gradient fallback). Rendered as a
-                      background so it always fills the box, matching the fallback exactly.
-                      shrink-0 guarantees the 40-tall image never compresses in the flex column. */}
-                  <div className="relative h-40 w-full shrink-0 overflow-hidden">
-                    {o.image_url ? (
-                      <div
-                        role="img"
-                        aria-label={o.title}
-                        className="absolute inset-0 group-hover:scale-105 transition-transform duration-300"
-                        style={{ backgroundImage: `url("${o.image_url}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-                      />
-                    ) : (
-                      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${meta?.gradient ?? 'from-primary to-primary-light'}`}>
-                        {Icon && <Icon className="w-10 h-10 text-white/90" />}
-                      </div>
-                    )}
-                    {/* Consistent hairline frame so cover-image and gradient cards read with equal weight */}
-                    <div className="absolute inset-0 ring-1 ring-inset ring-black/[0.07] pointer-events-none" />
-                    {/* Type chip (top-left) + status (top-right) overlays */}
-                    <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-foreground backdrop-blur-sm">
-                      {Icon && <Icon className="w-3 h-3" />} {meta?.label ?? o.type}
-                    </span>
-                    {status && (
-                      <span className={`absolute top-2.5 right-2.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${status.badge}`}>
-                        {status.label}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Info below */}
-                  <div className="flex flex-col flex-1 p-5">
-                    {o.topics?.categories && (
-                      <span className="text-xs text-muted truncate mb-1">{o.topics.categories.name}</span>
-                    )}
-                    <h2 className="font-display font-bold text-foreground leading-snug">{o.title}</h2>
-                    {o.description && <p className="text-xs text-muted line-clamp-2 mt-1">{o.description}</p>}
-                    <div className="flex items-center justify-between pt-3 mt-auto">
-                      <span className="font-display text-lg font-bold text-foreground">{formatPrice(o.price_paise)}</span>
-                      {o.status === 'planned' ? (
-                        <span className="text-xs text-accent-yellow font-semibold inline-flex items-center gap-1">
-                          <Bell className="w-3 h-3" /> {o.interest_count} interested
-                        </span>
-                      ) : (
-                        (o.min_age || o.max_age) && (
-                          <span className="text-xs text-muted font-medium">
-                            Ages {o.min_age ?? '0'}–{o.max_age ?? '18+'}
-                          </span>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </CatalogCardLink>
-              </Reveal>
-            )
-          })}
-        </div>
-      )}
+      <CatalogExplorer
+        offerings={list}
+        categories={categories ?? []}
+        initial={{ type, category, status }}
+        nowMs={requestNowMs()}
+        comingSoon={BOOKINGS_COMING_SOON}
+      />
     </div>
   )
 }
