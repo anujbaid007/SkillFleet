@@ -6,6 +6,7 @@ import {
   JOIN_COOKIE_MAX_AGE,
   parseJoinSlug,
 } from '@/lib/coordinator/join-link'
+import { LANDING_AFTER_LOGIN } from '@/lib/launch'
 
 /** /join/<school-name>-<code>, or the original /join/<uuid>. */
 const JOIN_PATH = /^\/join\/([^/]+)\/?$/
@@ -64,10 +65,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
 
-  // Authenticated users visiting auth pages → send to dashboard.
+  // Authenticated users visiting auth pages → send them where a sign-in lands.
   const isAuthPage = AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
   if (user && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL(LANDING_AFTER_LOGIN, request.url))
   }
 
   /*

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { validatePassword } from '@/lib/validation/password'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
+import { LANDING_AFTER_LOGIN } from '@/lib/launch'
 import { clearFamilySessions } from '@/lib/auth/family-sessions'
 import { isExistingEmailSignup } from '@/lib/auth/signup'
 
@@ -88,7 +89,7 @@ export async function loginAction(
     }
   }
 
-  redirect('/dashboard')
+  redirect(LANDING_AFTER_LOGIN)
 }
 
 // -------------------------------------------------------
@@ -234,5 +235,6 @@ export async function updatePasswordAction(
   const { error } = await supabase.auth.updateUser({ password })
   if (error) return { error: error.message }
 
-  redirect('/dashboard')
+  // A finished reset is a sign-in, so it lands where a sign-in lands.
+  redirect(LANDING_AFTER_LOGIN)
 }

@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server'
 import { adminClient } from '@/lib/supabase/admin'
 import type { Database } from '@/lib/types/database'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
+import { LANDING_AFTER_LOGIN } from '@/lib/launch'
 
 /**
  * Where a signed-in user belongs, given how complete their profile is.
@@ -45,7 +46,7 @@ function destinationFor(profile: {
   const missingSignupFields = !profile.date_of_birth || !profile.family_id
   if (missingSignupFields || !isStudentDetailsComplete(profile)) return '/onboarding/details'
   // The starter assessment is offered on the dashboard rather than forced here.
-  return '/dashboard'
+  return LANDING_AFTER_LOGIN
 }
 
 /** A relative path on this origin and nothing else. */
