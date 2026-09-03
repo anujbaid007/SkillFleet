@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { ArrowRight, Cpu, Puzzle, Rocket, Trophy, Video, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -103,69 +103,6 @@ const PROMISE = [
   { word: "Lead", dot: "text-accent-yellow" },
 ];
 
-/*
-  Scattered campaign props.
-
-  These are the same four 3D clusters the track cards already use, so the
-  section costs no new artwork and no new bytes — a visitor who has seen /isc
-  has them cached. Each instance takes its own position, size, rotation and
-  drift, so the four sources read as a dozen different pieces of confetti
-  rather than a repeated motif.
-
-  Everything here is decorative: the layer is aria-hidden and sits behind the
-  content, so nothing it does can obscure or be mistaken for the copy.
-*/
-interface Prop {
-  src: string;
-  /*
-    Position and size. Edge-anchored and clear of the text column — and
-    never above ~12% from the top, because the section's own top padding is
-    the gap the fixed navbar sits in, so anything higher shows through behind
-    the nav links.
-
-    Anything in the upper half is also hidden below `sm`: the phone layout
-    is one full-width column with no side margin to sit in, so a prop up
-    there lands on the wordmark instead of beside it.
-  */
-  className: string;
-  rotate: number;
-  /** Seconds for one drift cycle — all different, so they never march in step. */
-  duration: number;
-  delay: number;
-  opacity: number;
-}
-
-const CONFETTI: Prop[] = [
-  { src: "/isc/2026/venture.webp", className: "hidden sm:block left-[1%] top-[13%] w-14 lg:w-24", rotate: -14, duration: 9, delay: 0, opacity: 0.9 },
-  { src: "/isc/2026/puzzle.webp", className: "hidden lg:block left-[43%] top-[17%] w-16", rotate: 12, duration: 11, delay: 1.2, opacity: 0.75 },
-  { src: "/isc/2026/content.webp", className: "hidden sm:block right-[0.5%] top-[22%] w-16 lg:w-20", rotate: -8, duration: 8, delay: 0.6, opacity: 0.7 },
-  { src: "/isc/2026/ai.webp", className: "hidden lg:block left-[-1%] bottom-[16%] w-24", rotate: 9, duration: 12, delay: 0.3, opacity: 0.85 },
-  { src: "/isc/2026/puzzle.webp", className: "left-[30%] bottom-[2%] w-12 lg:w-20", rotate: -20, duration: 10, delay: 1.8, opacity: 0.8 },
-  { src: "/isc/2026/venture.webp", className: "hidden lg:block right-[46%] top-[47%] w-14", rotate: 24, duration: 13, delay: 0.9, opacity: 0.6 },
-  { src: "/isc/2026/ai.webp", className: "hidden sm:block right-[1%] bottom-[4%] w-16 lg:w-24", rotate: -11, duration: 9.5, delay: 1.5, opacity: 0.8 },
-  { src: "/isc/2026/content.webp", className: "hidden lg:block left-[46%] bottom-[12%] w-12", rotate: 17, duration: 14, delay: 2.1, opacity: 0.65 },
-];
-
-function Confetti() {
-  const still = useReducedMotion();
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      {CONFETTI.map((p, i) => (
-        <motion.div
-          key={i}
-          className={`absolute ${p.className}`}
-          style={{ opacity: p.opacity }}
-          initial={{ rotate: p.rotate }}
-          animate={still ? { rotate: p.rotate } : { y: [0, -14, 0], rotate: [p.rotate, p.rotate + 6, p.rotate] }}
-          transition={still ? undefined : { duration: p.duration, delay: p.delay, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Image src={p.src} alt="" width={160} height={160} className="h-auto w-full drop-shadow-sm" />
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
 export default function Isc2026Hero() {
   return (
     <section
@@ -186,7 +123,6 @@ export default function Isc2026Hero() {
         }}
       />
 
-      <Confetti />
 
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-8 lg:px-8">
         {/* ---------------------------------------------------------- copy */}
