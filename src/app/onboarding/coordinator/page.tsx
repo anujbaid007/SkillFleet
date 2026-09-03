@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { RegistrationConsentGate } from '@/components/onboarding/registration-consent-gate'
 import { createClient } from '@/lib/supabase/server'
 import { getSchoolStates } from '@/app/actions/schools'
 import { getMyCoordinatorSchool } from '@/app/actions/coordinator'
@@ -18,8 +19,7 @@ export default async function CoordinatorOnboardingPage() {
     .single()
   if (!profile) redirect('/login')
   if (profile.role !== 'coordinator') redirect('/dashboard')
-  // This page sits outside every layout, so it has to enforce consent itself.
-  if (!profile.terms_agreed_at) redirect('/onboarding/consent')
+  // This page sits outside every layout, so it shows the consent card itself.
 
   // A claim that is still pending or already approved is tracked on the
   // dashboard. A rejected one lands here again to be corrected.
@@ -31,6 +31,7 @@ export default async function CoordinatorOnboardingPage() {
 
   return (
     <main className="min-h-screen bg-background py-10 px-4">
+      <RegistrationConsentGate agreed={!!profile.terms_agreed_at} isCoordinator />
       <div className="max-w-lg mx-auto">
         <div className="mb-8 text-center">
           <h1 className="font-display text-3xl font-bold text-foreground">

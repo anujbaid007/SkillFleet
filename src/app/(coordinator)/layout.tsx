@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { RegistrationConsentGate } from '@/components/onboarding/registration-consent-gate'
 import Image from 'next/image'
 import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
@@ -19,10 +20,9 @@ export default async function CoordinatorLayout({ children }: { children: ReactN
     .single()
   if (profile?.role !== 'coordinator') redirect('/')
 
-  // Consent before anything else. The platform layout enforces this for
-  // students; without the same check here a coordinator could go straight to
-  // /coordinator after signing up and never be asked.
-  if (!profile.terms_agreed_at) redirect('/onboarding/consent')
+  // Consent before anything else: asked as a card over the console (see
+  // RegistrationConsentGate below), so a coordinator who comes straight here
+  // after signing up is still asked.
 
   // Being a coordinator is not the same as being an approved one. The roster
   // RPC already refuses unapproved callers, so no student data could leak —
@@ -40,6 +40,8 @@ export default async function CoordinatorLayout({ children }: { children: ReactN
           'radial-gradient(1100px 550px at 100% 0%, rgba(116,71,225,0.05), transparent 60%), radial-gradient(900px 500px at 0% 100%, rgba(20,184,166,0.04), transparent 60%), #F8FAFC',
       }}
     >
+      <RegistrationConsentGate agreed={!!profile.terms_agreed_at} isCoordinator />
+
       <aside className="hidden md:flex w-60 flex-col bg-white border-r border-black/[0.06]">
         <div className="px-4 py-5 border-b border-black/[0.06]">
           <Image

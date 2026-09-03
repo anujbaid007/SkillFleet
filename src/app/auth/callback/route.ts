@@ -35,8 +35,7 @@ function destinationFor(profile: {
   if (profile.role === 'admin') return '/admin'
   if (profile.role === 'vendor') return '/vendor'
 
-  // Nobody gets past this without having agreed, whichever way they signed up.
-  if (!profile.terms_agreed_at) return '/onboarding/consent'
+  // Consent is asked as a card on whichever page they land on next.
 
   if (profile.role === 'coordinator') {
     return profile.phone ? '/coordinator' : '/onboarding/coordinator'

@@ -8,6 +8,7 @@ import { MobileNavDrawer } from '@/components/mobile-nav-drawer'
 import { ChatWidget } from '@/components/chat/chat-widget'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
 import type { SwitchTarget } from '@/app/actions/switch'
+import { RegistrationConsentGate } from '@/components/onboarding/registration-consent-gate'
 
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
   // Shared with the page below via React's per-request cache, so the two do
@@ -20,9 +21,8 @@ export default async function PlatformLayout({ children }: { children: ReactNode
   if (profile.role === 'vendor') redirect('/vendor')
   if (profile.role === 'coordinator') redirect('/coordinator')
 
-  // Consent comes before anything else: an account that has not agreed has no
-  // basis for us to be processing what the details form is about to collect.
-  if (!profile.terms_agreed_at) redirect('/onboarding/consent')
+  // Consent comes before anything else. It is asked as a card over the page
+  // (see RegistrationConsentGate below) rather than on a page of its own.
 
   // Students must give their required details before using the platform.
   if (profile.role === 'student' && !isStudentDetailsComplete(profile)) {
@@ -61,6 +61,8 @@ export default async function PlatformLayout({ children }: { children: ReactNode
           'radial-gradient(1100px 550px at 100% 0%, rgba(116,71,225,0.06), transparent 60%), radial-gradient(900px 500px at 0% 100%, rgba(20,184,166,0.05), transparent 60%), #F8FAFC',
       }}
     >
+      <RegistrationConsentGate agreed={!!profile.terms_agreed_at} isCoordinator={false} />
+
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-60 flex-col clay-card m-3 rounded-2xl overflow-hidden">
         <div className="px-4 py-5 border-b border-black/[0.06]">
