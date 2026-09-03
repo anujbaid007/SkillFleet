@@ -66,7 +66,21 @@
   touch-action: manipulation;
 }
 
-.bw-games-root button{
+/*
+ * The ported button reset, deliberately at :where() specificity.
+ *
+ * As a plain `.bw-games-root button` this is (0,1,1) — higher than any single
+ * utility class — so it silently beat every Tailwind `text-*` and `bg-*` on a
+ * button inside the games section. The "Levels" link on each catalogue card was
+ * the visible casualty: it computed to the games palette's near-white instead
+ * of cyan, which is invisible on the light theme and merely looked deliberate
+ * on the dark one.
+ *
+ * `:where()` drops it to (0,0,1), below any class. Ported buttons that carry no
+ * colour of their own still inherit as before, `.btn` and friends still win on
+ * their own specificity, and BrainWeave's utilities now win on theirs.
+ */
+:where(.bw-games-root) button{
   font-family: inherit;
   cursor: pointer;
   border: none;
@@ -447,6 +461,27 @@
 
 .bw-games-root .btn + .btn{
   margin-top: 8px;
+}
+
+/*
+ * The third and quietest exit on a results card.
+ *
+ * Two identical ghost buttons stacked read as one control split in half, so
+ * leaving Brain Games sits a step below going back to the catalogue: smaller
+ * type, lighter colour, no extra gap above it.
+ */
+.bw-games-root .btn--quiet{
+  background: transparent;
+  color: #8494a6;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px;
+  margin-top: 0;
+}
+
+.bw-games-root .btn--quiet:hover{
+  color: #48586a;
+  filter: none;
 }/* -------------------------------------------------------------- results */
 
 
@@ -1435,4 +1470,87 @@ body.bw-playing .theme-toggle-container{
   font-weight: 800;
   letter-spacing: 0.14em;
   color: var(--ink-dim);
+}
+
+/* ----------------------------------------------- unlock progress on results */
+
+/*
+ * How close the round came to the next level.
+ *
+ * Two bars rather than one, because the gate is two conditions — accuracy and
+ * a minimum number of correct answers — and a single merged bar would hide
+ * which of them a player actually missed, which is the only part they can act
+ * on. A met condition turns green and stays visible next to the unmet one.
+ */
+.bw-games-root .unlock{
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(22, 32, 44, 0.06);
+  text-align: left;
+}
+
+.bw-games-root .unlock__row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.bw-games-root .unlock__label{
+  flex: 0 0 62px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #6a7787;
+}
+
+.bw-games-root .unlock__track{
+  flex: 1 1 auto;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(22, 32, 44, 0.14);
+  overflow: hidden;
+}
+
+.bw-games-root .unlock__track i{
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #ef5b32;
+  transition: width 420ms ease-out;
+}
+
+.bw-games-root .unlock__track i.is-met{
+  background: #2f9e59;
+}
+
+.bw-games-root .unlock__row b{
+  flex: 0 0 auto;
+  min-width: 58px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #16202c;
+}
+
+.bw-games-root .unlock__met{
+  color: #2f9e59;
+}
+
+.bw-games-root .unlock__hint{
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #55606e;
+}
+
+.bw-games-root .result__badge--up{
+  background: #2f9e59;
+  color: #fff;
+}
+
+.bw-games-root .result__badge--locked{
+  background: rgba(22, 32, 44, 0.1);
+  color: #55606e;
 }

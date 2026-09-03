@@ -2,6 +2,7 @@
 
 import LoadingScreen from "@/components/loading-screen";
 import Navbar from "@/components/sections/navbar";
+import Isc2026Hero from "@/components/sections/isc-2026-hero";
 import Hero from "@/components/sections/hero";
 import Programs from "@/components/sections/programs";
 import AIWorkshops from "@/components/sections/ai-workshops";
@@ -21,6 +22,7 @@ export default function Home() {
       <LoadingScreen />
       <Navbar />
       <main>
+        <Isc2026Hero />
         <Hero />
         <Programs />
         <AIWorkshops />

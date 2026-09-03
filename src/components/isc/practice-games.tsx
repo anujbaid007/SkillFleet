@@ -14,13 +14,17 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { GameHost } from '@/components/brain-games/app/screens/GameHost'
+import { LevelPicker } from '@/components/brain-games/ui/LevelPicker'
 import {
   CATALOGUE,
+  CATEGORY_LABEL,
   type CatalogueEntry,
   type GameEntry,
 } from '@/components/brain-games/games/registry'
 import {
+  getProgress,
   getSettings,
+  saveProgress,
   saveSettings,
   type Settings,
 } from '@/components/brain-games/core/progress/Storage'
@@ -62,6 +66,8 @@ function levelNote({ meta }: CatalogueEntry): string {
 export function PracticeGames() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [active, setActive] = useState<GameEntry | null>(null)
+  /** The game whose level ladder is open, if any. */
+  const [picking, setPicking] = useState<CatalogueEntry | null>(null)
   /** Id of the game whose engine is downloading, and of one that failed to. */
   const [pending, setPending] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
@@ -115,6 +121,22 @@ export function PracticeGames() {
   }, [])
 
   const exit = useCallback(() => setActive(null), [])
+
+  /*
+    Choosing a level, the way BrainWeave's own home screen does it: the choice
+    is written to storage, and GameHost reads it back through `startLevel`,
+    which caps it by what the player has actually unlocked. Nothing is passed
+    down as a prop, so a chosen level survives a replay without the host
+    having to carry it.
+  */
+  const chooseLevel = useCallback(
+    (item: CatalogueEntry, level: number) => {
+      saveProgress(item.meta.id, { ...getProgress(item.meta.id), level })
+      setPicking(null)
+      void launch(item)
+    },
+    [launch]
+  )
 
   /*
     A round is rendered into <body> rather than in place. `position: fixed`
@@ -200,7 +222,7 @@ export function PracticeGames() {
                   style={{ background: meta.accent }}
                 >
                   {Icon && <Icon className="h-3 w-3" />}
-                  category-{meta.category}
+                  {CATEGORY_LABEL[meta.category]}
                 </span>
               </div>
 
@@ -241,6 +263,15 @@ export function PracticeGames() {
                   {loading ? 'Loading…' : `Play ${meta.title}`}
                 </button>
 
+                {meta.maxLevel !== undefined && (
+                  <button
+                    onClick={() => setPicking(item)}
+                    className="mt-2 w-full rounded-xl border border-black/10 px-4 py-2 text-xs font-bold text-foreground/70 transition-colors hover:border-black/25 hover:text-foreground"
+                  >
+                    Choose level
+                  </button>
+                )}
+
                 {failed === meta.id && (
                   <p className="mt-2 text-xs text-red-600">
                     That did not load. Check your connection and try again.
@@ -252,6 +283,15 @@ export function PracticeGames() {
         })}
       </div>
 
+      {picking &&
+        createPortal(
+          <LevelPicker
+            game={picking}
+            onClose={() => setPicking(null)}
+            onChoose={(level) => chooseLevel(picking, level)}
+          />,
+          document.body
+        )}
       {round}
     </section>
   )

@@ -80,6 +80,16 @@ export interface RoundResult {
   maxMultiplier: number;
   /** Level the player finished the round on. */
   level: number;
+  /**
+   * What the next level asked of this round, so the results card can say how
+   * close it came rather than only whether it cleared.
+   *
+   * Optional because not every game gates on performance: Tile Trace, Tide Pool
+   * and River Watch measure a level rather than award one — the level *is* how
+   * far you got — so there is no bar to fall short of.
+   */
+  needAccuracy?: number;
+  needCorrect?: number;
   levelBefore: number;
   leveledUp: boolean;
   newBest: boolean;

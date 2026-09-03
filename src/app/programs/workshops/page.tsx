@@ -384,7 +384,21 @@ export default function WorkshopsPage() {
                       sizes="(max-width: 1024px) 50vw, 25vw"
                     />
                   </div>
-                  <div className="clay-card overflow-hidden h-52 relative bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center">
+                  {/*
+                    The gradient goes on a layer inside the card, not on the
+                    card itself: .clay-card sets `background` as a shorthand,
+                    which resets background-image and silently drops any
+                    bg-gradient-* applied alongside it — leaving white text on
+                    a white card. An inline style wins against the class, the
+                    way PageBanner sets its own gradient.
+                  */}
+                  <div
+                    className="clay-card overflow-hidden h-52 relative flex items-center justify-center"
+                    style={{
+                      background:
+                        "linear-gradient(to bottom right, var(--color-primary), var(--color-accent-purple))",
+                    }}
+                  >
                     <div className="text-center text-white p-6">
                       <div className="font-display text-5xl font-bold mb-1">20+</div>
                       <div className="text-white/80 text-sm font-medium">Workshop Topics</div>

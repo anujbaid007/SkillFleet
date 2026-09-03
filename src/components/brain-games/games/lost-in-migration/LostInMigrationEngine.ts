@@ -14,9 +14,12 @@ import * as Sfx from '../../core/audio/Sfx';
 import { Sky } from './sky';
 import { drawBird, extentOf, layoutOf, TARGET_INDEX, type FlockShape } from './flock';
 import {
+  LEVEL_UP_ACCURACY,
+  MAX_LEVEL,
+  MIN_LEVEL,
+  REQUIRED_CORRECT,
   difficultyIndex,
   knobsFor,
-  MAX_DIFFICULTY,
   shouldLevelDown,
   shouldLevelUp,
   type Knobs,
@@ -401,7 +404,11 @@ export class LostInMigrationEngine extends GameEngine {
     }
 
     if (this.tutStep === 1) {
-      this.setCaption({ text: 'Now you try — ignore the birds around it.', showModes: true });
+      // No `showModes` here: POINTING / MOVING is Leaf Logic's rule pair, where
+      // the leaf can point one way and drift another. Lead Bird is a flanker
+      // task with one rule — answer the middle bird — so those pills described
+      // a choice this game never offers.
+      this.setCaption({ text: 'Now you try — ignore the birds around it.' });
       if (!this.flock) {
         this.gap -= dt;
         if (this.gap <= 0) {
@@ -652,8 +659,8 @@ export class LostInMigrationEngine extends GameEngine {
 
     const levelBefore = this.opts.level;
     let level = levelBefore;
-    if (shouldLevelUp(accuracy, this.correct)) level = Math.min(MAX_DIFFICULTY, levelBefore + 1);
-    else if (shouldLevelDown(accuracy, answered)) level = Math.max(1, levelBefore - 1);
+    if (shouldLevelUp(accuracy, this.correct)) level = Math.min(MAX_LEVEL, levelBefore + 1);
+    else if (shouldLevelDown(accuracy, answered)) level = Math.max(MIN_LEVEL, levelBefore - 1);
 
     Sfx.play('finish');
 
@@ -668,6 +675,8 @@ export class LostInMigrationEngine extends GameEngine {
       level,
       levelBefore,
       leveledUp: level > levelBefore,
+      needAccuracy: LEVEL_UP_ACCURACY,
+      needCorrect: REQUIRED_CORRECT,
       newBest: total > this.opts.best,
       best: Math.max(total, this.opts.best),
     };

@@ -1,7 +1,16 @@
 import type { GameResultProps } from '../../core/ui/HudFrame';
+import { ResultActions } from '../../core/ui/ResultActions';
 
 /** The reference's card leads with the largest pattern held, not the score. */
-export function MmResult({ result, title, skill, debrief, onReplay, onExit }: GameResultProps) {
+export function MmResult({
+  result,
+  title,
+  skill,
+  debrief,
+  onReplay,
+  onExit,
+  onHome,
+}: GameResultProps) {
   const tiles = result.maxMultiplier;
 
   return (
@@ -34,12 +43,12 @@ export function MmResult({ result, title, skill, debrief, onReplay, onExit }: Ga
       </h2>
       <p>{debrief}</p>
 
-      <button className="btn" onClick={onReplay}>
-        Play again
-      </button>
-      <button className="btn btn--ghost" onClick={onExit}>
-        Back to games
-      </button>
+      <ResultActions
+        replay="Play again"
+        onReplay={onReplay}
+        onExit={onExit}
+        onHome={onHome}
+      />
     </div>
   );
 }

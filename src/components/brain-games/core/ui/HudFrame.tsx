@@ -16,7 +16,13 @@ export interface GameResultProps {
   skill: string;
   debrief: string;
   onReplay: () => void;
+  /** Back to the Brain Games catalogue. */
   onExit: () => void;
+  /**
+   * Out of Brain Games entirely. Optional so a host that has nowhere further
+   * to send the player renders no button rather than a dead one.
+   */
+  onHome?: () => void;
 }
 
 export function formatClock(seconds: number): string {
@@ -34,6 +40,28 @@ export function formatClock(seconds: number): string {
  * shared chrome pick it up.
  */
 const ReplayTutorial = createContext<(() => void) | null>(null);
+
+/**
+ * The level the round is being played at, offered to the shared HUD.
+ *
+ * Same reasoning as the tutorial control above: only three of sixteen HUDs
+ * showed a level, and adding it to the other thirteen by hand would put the
+ * same line in thirteen files and invite one of them to be missed — or to
+ * drift, since several of these games number their levels differently from
+ * their internal difficulty. The host knows the round's level; the shared
+ * chrome picks it up.
+ */
+const RoundLevel = createContext<string | null>(null);
+
+export function RoundLevelBadge({
+  level,
+  children,
+}: {
+  level: string | null;
+  children: ReactNode;
+}) {
+  return <RoundLevel.Provider value={level}>{children}</RoundLevel.Provider>;
+}
 
 export function TutorialControl({
   onReplay,
@@ -59,6 +87,7 @@ export function HudFrame({
   bottom?: ReactNode;
 }) {
   const replayTutorial = useContext(ReplayTutorial);
+  const level = useContext(RoundLevel);
   return (
     <div className="hud">
       <div className="hud__top">
@@ -89,7 +118,17 @@ export function HudFrame({
             </button>
           )}
         </div>
-        <div className="hud__stats">{stats}</div>
+        <div className="hud__stats">
+          {level !== null && (
+            <div className="pillgroup">
+              <div className="stat">
+                <span>LEVEL</span>
+                <span className="stat__value">{level}</span>
+              </div>
+            </div>
+          )}
+          {stats}
+        </div>
       </div>
       {bottom ?? <div />}
     </div>
