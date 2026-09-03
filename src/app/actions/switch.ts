@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { LANDING_AFTER_LOGIN } from '@/lib/launch'
 import { createClient } from '@/lib/supabase/server'
 import { readFamilySessions, writeFamilySessions, clearFamilySessions } from '@/lib/auth/family-sessions'
 
@@ -42,7 +43,7 @@ export async function switchAccountAction(formData: FormData) {
   // Refuse anything that isn't a genuine same-family link, before touching the
   // session. Cheap, and means we never have to unwind a bad swap.
   const { data: linked } = await supabase.rpc('accounts_are_linked', { p_a: user.id, p_b: targetId })
-  if (!linked) redirect('/dashboard')
+  if (!linked) redirect(LANDING_AFTER_LOGIN)
 
   const {
     data: { session },
@@ -71,7 +72,7 @@ export async function switchAccountAction(formData: FormData) {
   if (currentRefresh) stored[currentId] = currentRefresh
   await writeFamilySessions(stored)
 
-  redirect('/dashboard')
+  redirect(LANDING_AFTER_LOGIN)
 }
 
 /**
@@ -115,7 +116,7 @@ export async function bootstrapSwitchAction(_prev: SwitchState, formData: FormDa
   if (currentRefresh) stored[currentId] = currentRefresh
   await writeFamilySessions(stored)
 
-  redirect('/dashboard')
+  redirect(LANDING_AFTER_LOGIN)
 }
 
 /** Sign out everywhere on this device, including the stored family sessions. */

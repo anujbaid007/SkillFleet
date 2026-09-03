@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard'
 import { isStudentDetailsComplete } from '@/lib/profile/details'
-import { ASSESSMENT_COMING_SOON } from '@/lib/launch'
+import { ASSESSMENT_COMING_SOON, LANDING_AFTER_LOGIN } from '@/lib/launch'
 
 // Local types for the nested Supabase selects.
 // The generated database.ts does not include nested relation shapes,
@@ -49,7 +49,7 @@ export default async function OnboardingPage() {
   if (!user) redirect('/login')
   // Held back for launch: the buttons that lead here are pills, and this
   // covers anyone arriving by URL.
-  if (ASSESSMENT_COMING_SOON) redirect('/dashboard')
+  if (ASSESSMENT_COMING_SOON) redirect(LANDING_AFTER_LOGIN)
 
   const { data: profile } = await supabase
     .from('user_profiles')
@@ -63,7 +63,7 @@ export default async function OnboardingPage() {
   if (profile.role !== 'student') redirect('/dashboard')
   // Details gate comes before the questionnaire.
   if (!isStudentDetailsComplete(profile)) redirect('/onboarding/details')
-  if (profile.onboarding_completed) redirect('/dashboard')
+  if (profile.onboarding_completed) redirect(LANDING_AFTER_LOGIN)
 
   const firstName = profile.full_name?.split(' ')[0] ?? 'there'
 

@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { LANDING_AFTER_LOGIN } from '@/lib/launch'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -170,6 +171,6 @@ export async function saveStudentDetailsAction(
 
   // Straight to the dashboard. The starter assessment is offered there as a
   // card rather than as a fourth screen between signing up and seeing anything.
-  revalidatePath('/dashboard')
-  redirect('/dashboard')
+  revalidatePath(LANDING_AFTER_LOGIN)
+  redirect(LANDING_AFTER_LOGIN)
 }

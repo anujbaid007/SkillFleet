@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { LANDING_AFTER_LOGIN } from '@/lib/launch'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
@@ -39,15 +40,15 @@ export async function submitOnboardingAction(
   }
 
   if (status === 'already_completed') {
-    redirect('/dashboard')
+    redirect(LANDING_AFTER_LOGIN)
   }
 
   if (status !== 'ok') {
     return { error: `Unexpected error (${status}). Please try again.` }
   }
 
-  revalidatePath('/dashboard')
-  redirect('/dashboard')
+  revalidatePath(LANDING_AFTER_LOGIN)
+  redirect(LANDING_AFTER_LOGIN)
 }
 
 export async function saveCertRecordAction(
