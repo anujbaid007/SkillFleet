@@ -6,6 +6,8 @@ import { scoreLevelFor, internalToDisplay } from '@/lib/scoring'
 import type { ScoreLevel } from '@/lib/scoring/types'
 import { SkillLadder, SkillHighlights, type SkillRow } from '@/components/profile/skill-ladder'
 import { ProgressRing } from '@/components/dashboard/progress-ring'
+import { ASSESSMENT_COMING_SOON } from '@/lib/launch'
+import { ComingSoonPill } from '@/components/ui/coming-soon-pill'
 import { Reveal } from '@/components/ui/reveal'
 import { GradientCard } from '@/components/ui/gradient-card'
 import { RankCard, type RankInfo } from '@/components/dashboard/rank-card'
@@ -123,12 +125,16 @@ export default async function ProfilePage() {
                   : 'Take the starter assessment to set a baseline, or just book an activity — finishing one adds points here either way.'}
               </p>
             </div>
-            <Link
-              href="/onboarding"
-              className="clay-button bg-cta text-white px-5 h-10 text-sm font-semibold inline-flex items-center gap-1.5 shrink-0"
-            >
-              Start the assessment <ArrowRight className="w-4 h-4" />
-            </Link>
+            {ASSESSMENT_COMING_SOON ? (
+              <ComingSoonPill onLight className="shrink-0" />
+            ) : (
+              <Link
+                href="/onboarding"
+                className="clay-button bg-cta text-white px-5 h-10 text-sm font-semibold inline-flex items-center gap-1.5 shrink-0"
+              >
+                Start the assessment <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
           </div>
         </Reveal>
       )}

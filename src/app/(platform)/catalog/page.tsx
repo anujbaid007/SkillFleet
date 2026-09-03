@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Compass, Bell } from 'lucide-react'
 import { CatalogStatusFilter } from '@/components/catalog/status-filter'
 import { catalogViewFor } from '@/lib/commerce/catalog-view'
+import { BOOKINGS_COMING_SOON } from '@/lib/launch'
+import { CatalogCardLink } from '@/components/catalog/coming-soon'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, OFFERING_STATUS_META } from '@/lib/offering-meta'
@@ -204,7 +206,11 @@ export default async function CatalogPage({
             const status = OFFERING_STATUS_META[o.status]
             return (
               <Reveal key={o.id} delay={Math.min(i * 0.05, 0.4)}>
-                <Link href={`/catalog/${o.id}`} className="clay-card p-0 flex flex-col h-full group overflow-hidden">
+                <CatalogCardLink
+                  href={`/catalog/${o.id}`}
+                  comingSoon={BOOKINGS_COMING_SOON}
+                  className="clay-card p-0 flex flex-col h-full group overflow-hidden"
+                >
                   {/* Cover image (or a type-coded gradient fallback). Rendered as a
                       background so it always fills the box, matching the fallback exactly.
                       shrink-0 guarantees the 40-tall image never compresses in the flex column. */}
@@ -256,7 +262,7 @@ export default async function CatalogPage({
                       )}
                     </div>
                   </div>
-                </Link>
+                </CatalogCardLink>
               </Reveal>
             )
           })}

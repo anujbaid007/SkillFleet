@@ -19,6 +19,8 @@ import type { ScoreLevel } from '@/lib/scoring/types'
 import { ParameterCard } from '@/components/dashboard/parameter-card'
 import { ProgressRing } from '@/components/dashboard/progress-ring'
 import { Reveal } from '@/components/ui/reveal'
+import { ASSESSMENT_COMING_SOON } from '@/lib/launch'
+import { ComingSoonPill } from '@/components/ui/coming-soon-pill'
 import { GradientCard } from '@/components/ui/gradient-card'
 import { OFFERING_TYPE_META } from '@/lib/offering-meta'
 import { removeFromShortlistAction } from '@/app/actions/shortlist'
@@ -117,12 +119,16 @@ export default async function DashboardPage() {
               A quick 3-step assessment sets your baseline scores across every skill. It only takes
               about 5 minutes.
             </p>
-            <Link
-              href="/onboarding"
-              className="inline-flex items-center gap-1.5 mt-5 bg-white text-primary px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-white/90 transition-colors"
-            >
-              Start now <ArrowRight className="w-4 h-4" />
-            </Link>
+            {ASSESSMENT_COMING_SOON ? (
+              <ComingSoonPill className="mt-5" />
+            ) : (
+              <Link
+                href="/onboarding"
+                className="inline-flex items-center gap-1.5 mt-5 bg-white text-primary px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-white/90 transition-colors"
+              >
+                Start now <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
           </GradientCard>
         </Reveal>
 

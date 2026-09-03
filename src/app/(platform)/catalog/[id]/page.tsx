@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { ArrowLeft, Store } from 'lucide-react'
 import { AddToCartForm } from '@/components/cart/add-to-cart-form'
 import { NotifyMeButton } from '@/components/requests/notify-me-button'
+import { BOOKINGS_COMING_SOON } from '@/lib/launch'
+import { ComingSoonNotice } from '@/components/catalog/coming-soon'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, OFFERING_STATUS_META, MODE_LABEL } from '@/lib/offering-meta'
 
@@ -231,7 +233,9 @@ export default async function OfferingDetailPage({
         </div>
       </Reveal>
 
-      {offering.status === 'planned' ? (
+      {BOOKINGS_COMING_SOON ? (
+        <ComingSoonNotice />
+      ) : offering.status === 'planned' ? (
         <Reveal delay={0.1}>
           <div className="clay-card p-6 space-y-4 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-accent-yellow/[0.08] to-transparent pointer-events-none" />
