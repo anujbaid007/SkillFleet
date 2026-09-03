@@ -23,9 +23,12 @@ import {
 } from '../_shared/cardTable';
 import { INK, INK_CB, makeTrial, NEUTRAL, type Trial } from './words';
 import {
+  LEVEL_UP_ACCURACY,
+  MAX_LEVEL,
+  MIN_LEVEL,
+  REQUIRED_CORRECT,
   difficultyIndex,
   knobsFor,
-  MAX_DIFFICULTY,
   shouldLevelDown,
   shouldLevelUp,
   type Knobs,
@@ -431,8 +434,8 @@ export class ColorMatchEngine extends GameEngine {
 
     const levelBefore = this.opts.level;
     let level = levelBefore;
-    if (shouldLevelUp(accuracy, this.correct)) level = Math.min(MAX_DIFFICULTY, levelBefore + 1);
-    else if (shouldLevelDown(accuracy, answered)) level = Math.max(1, levelBefore - 1);
+    if (shouldLevelUp(accuracy, this.correct)) level = Math.min(MAX_LEVEL, levelBefore + 1);
+    else if (shouldLevelDown(accuracy, answered)) level = Math.max(MIN_LEVEL, levelBefore - 1);
 
     Sfx.play('finish');
 
@@ -447,6 +450,8 @@ export class ColorMatchEngine extends GameEngine {
       level,
       levelBefore,
       leveledUp: level > levelBefore,
+      needAccuracy: LEVEL_UP_ACCURACY,
+      needCorrect: REQUIRED_CORRECT,
       newBest: total > this.opts.best,
       best: Math.max(total, this.opts.best),
     };

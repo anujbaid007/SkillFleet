@@ -1,4 +1,5 @@
 import type { GameMeta } from '../../core/types';
+import { MAX_LEVEL, MIN_LEVEL } from './difficulty';
 
 export const meta: GameMeta = {
   id: 'color-match',
@@ -7,14 +8,11 @@ export const meta: GameMeta = {
   skill: 'Response Inhibition',
   tagline: 'Read the top. Look at the bottom.',
   debrief:
-    'In this game you compared what the top word meant against the colour the ' +
-    'bottom word was printed in — while the bottom word did its best to be ' +
-    'read instead of looked at. Holding off that automatic response is ' +
-    'Response Inhibition, the brake you use whenever the obvious reaction is ' +
-    'the wrong one.',
+    'You answered the colour while the word said otherwise — that is response ' +
+    'inhibition: overriding the answer that arrives first.',
   roundSeconds: 45,
   accent: '#E0362F',
   controls: 'tap',
-  minLevel: 1,
-  maxLevel: 20,
+  minLevel: MIN_LEVEL,
+  maxLevel: MAX_LEVEL,
 };

@@ -5,7 +5,7 @@ import type { GameEntry } from '../../games/registry';
 import type { GameEngine, Phase, TutorialHint } from '../../core/engine/GameEngine';
 import type { HudState, RoundResult } from '../../core/types';
 import { ResultCard } from '../../core/ui/ResultCard';
-import { TutorialControl } from '../../core/ui/HudFrame';
+import { RoundLevelBadge, TutorialControl } from '../../core/ui/HudFrame';
 import {
   getProgress,
   recordRound,
@@ -33,9 +33,11 @@ interface GameHostProps {
   game: GameEntry;
   settings: Settings;
   onExit: () => void;
+  /** Leave Brain Games altogether; omitted when there is nowhere to go. */
+  onHome?: () => void;
 }
 
-export function GameHost({ game, settings, onExit }: GameHostProps) {
+export function GameHost({ game, settings, onExit, onHome }: GameHostProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -48,6 +50,14 @@ export function GameHost({ game, settings, onExit }: GameHostProps) {
   const [countUp, setCountUp] = useState<number | null>(null);
   /** Bumping this remounts the engine, which is how "play again" restarts. */
   const [runId, setRunId] = useState(0);
+  /**
+   * How the round's level reads on the HUD.
+   *
+   * Numbered from 1 rather than by the game's internal difficulty, because
+   * several ladders do not start there — Signal Box's levels are station counts
+   * beginning at 4, and "LEVEL 4" on a player's first ever round is a lie.
+   */
+  const [levelLabel, setLevelLabel] = useState('1');
   /**
    * Set by the tutorial button, read once by the next run.
    *
@@ -67,7 +77,8 @@ export function GameHost({ game, settings, onExit }: GameHostProps) {
     // core/progress/unlock.ts. Derived here rather than trusting `saved.level`
     // so no stored choice can start a round above the earned ladder position.
     const floor = game.meta.minLevel ?? 1;
-    const startsAt = startLevel(game.meta.id, floor);
+    const startsAt = startLevel(game.meta.id, floor, game.meta.maxLevel ?? floor);
+    setLevelLabel(String(startsAt - floor + 1));
     // Read and clear: a replay request applies to exactly the run it triggered.
     const forced = forceTutorialRef.current;
     forceTutorialRef.current = false;
@@ -203,6 +214,19 @@ export function GameHost({ game, settings, onExit }: GameHostProps) {
     onExit();
   }, [onExit]);
 
+  /**
+   * Same as quitting, one screen further out.
+   *
+   * Aborts first for the same reason `quit` does: the engine owns a running
+   * loop and timers, and unmounting it without a word leaves that work to be
+   * torn down by the effect cleanup instead of stopped deliberately.
+   */
+  const home = useCallback(() => {
+    if (!onHome) return;
+    engineRef.current?.abort();
+    onHome();
+  }, [onHome]);
+
   // Esc pauses; space resumes. Keyboard players should never need the mouse.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -227,11 +251,13 @@ export function GameHost({ game, settings, onExit }: GameHostProps) {
 
       {showHud && (
         <TutorialControl onReplay={stage === 'play' ? replayTutorial : null}>
-          <Hud
+          <RoundLevelBadge level={levelLabel}>
+            <Hud
             hud={hud}
             displayScore={stage === 'bonus' ? (countUp ?? result?.score) : undefined}
-            onPause={pause}
-          />
+              onPause={pause}
+            />
+          </RoundLevelBadge>
         </TutorialControl>
       )}
 
@@ -319,6 +345,7 @@ export function GameHost({ game, settings, onExit }: GameHostProps) {
             debrief={game.meta.debrief}
             onReplay={replay}
             onExit={onExit}
+            onHome={onHome ? home : undefined}
           />
         </div>
       )}

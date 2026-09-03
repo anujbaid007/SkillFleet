@@ -33,8 +33,8 @@
 
 import type { Category } from '../types';
 
-import { MAX_DIFFICULTY as COLOR_MATCH_MAX } from '../../games/color-match/difficulty';
-import { MAX_DIFFICULTY as MIGRATION_MAX } from '../../games/lost-in-migration/difficulty';
+import { MIN_LEVEL as COLOR_MATCH_MIN, MAX_LEVEL as COLOR_MATCH_MAX } from '../../games/color-match/difficulty';
+import { MIN_LEVEL as MIGRATION_MIN, MAX_LEVEL as MIGRATION_MAX } from '../../games/lost-in-migration/difficulty';
 import { MIN_TILES, MAX_TILES } from '../../games/memory-matrix/difficulty';
 
 /** The index scale, chosen to match the metric this system is modelled on. */
@@ -125,8 +125,8 @@ export interface Ladder {
  * out by hand would quietly describe a game that no longer exists.
  */
 const LADDERS: Record<string, Ladder> = {
-  'color-match': { min: 1, max: COLOR_MATCH_MAX },
-  'lost-in-migration': { min: 1, max: MIGRATION_MAX },
+  'color-match': { min: COLOR_MATCH_MIN, max: COLOR_MATCH_MAX },
+  'lost-in-migration': { min: MIGRATION_MIN, max: MIGRATION_MAX },
   'memory-matrix': { min: MIN_TILES, max: MAX_TILES },
 };
 

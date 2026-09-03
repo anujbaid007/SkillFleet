@@ -22,29 +22,38 @@
 
 import { getProgress, type GameProgress } from './Storage';
 
-/** The highest open level, given a game's stored progress. */
+/**
+ * The highest open level, given a game's stored progress.
+ *
+ * `maxLevel` is the ladder's top rung. It matters because the ladders were
+ * re-cut shorter — see docs/brain-games-difficulty.md — and a store written
+ * against a twenty-rung ladder can still be holding a mark of 15. Without the
+ * ceiling that mark would advertise rungs the game no longer has.
+ */
 export function unlockedFrom(
   progress: Pick<GameProgress, 'earned' | 'unlocked'>,
   minLevel: number,
+  maxLevel = Infinity,
 ): number {
   // Stores written before `unlocked` existed fall back to `earned`, which was
   // the gate then — so an existing player keeps what they had opened.
   const mark = progress.unlocked ?? progress.earned;
-  return Math.max(minLevel, mark || minLevel);
+  return Math.min(Math.max(minLevel, maxLevel), Math.max(minLevel, mark || minLevel));
 }
 
 /** The level a round begins at: the choice, capped by what is unlocked. */
 export function startFrom(
   progress: Pick<GameProgress, 'level' | 'earned' | 'unlocked'>,
   minLevel: number,
+  maxLevel = Infinity,
 ): number {
   const chosen = Math.max(minLevel, progress.level || minLevel);
-  return Math.min(chosen, unlockedFrom(progress, minLevel));
+  return Math.min(chosen, unlockedFrom(progress, minLevel, maxLevel));
 }
 
 /** The highest level currently open for a game. */
-export function unlockedLevel(gameId: string, minLevel: number): number {
-  return unlockedFrom(getProgress(gameId), minLevel);
+export function unlockedLevel(gameId: string, minLevel: number, maxLevel = Infinity): number {
+  return unlockedFrom(getProgress(gameId), minLevel, maxLevel);
 }
 
 /**
@@ -54,6 +63,6 @@ export function unlockedLevel(gameId: string, minLevel: number): number {
  * gates existed — or written to storage by hand — cannot start a round above
  * the ladder position the player has opened.
  */
-export function startLevel(gameId: string, minLevel: number): number {
-  return startFrom(getProgress(gameId), minLevel);
+export function startLevel(gameId: string, minLevel: number, maxLevel = Infinity): number {
+  return startFrom(getProgress(gameId), minLevel, maxLevel);
 }
