@@ -14,6 +14,9 @@ const JOIN_PATH = /^\/join\/([^/]+)\/?$/
 // Routes that require authentication
 const PROTECTED_PREFIXES = [
   '/dashboard',
+  // Not '/isc': that prefix would also catch the public /isc-2026 page. The
+  // platform layout already sends anonymous visitors of /isc to /login.
+  '/faq',
   '/onboarding',
   '/catalog',
   '/booking',

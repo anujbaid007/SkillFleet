@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, LayoutDashboard, LogOut, Mail, Share2 } from 'lucide-react'
+import { BarChart3, HelpCircle, LayoutDashboard, LogOut, Mail, Share2 } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
 import { createClient } from '@/lib/supabase/client'
 
@@ -31,6 +31,8 @@ const items = [
     exact: false,
     approvedOnly: true,
   },
+  // Open before approval too: a coordinator waiting on review has the most questions.
+  { href: '/coordinator/faq', label: 'FAQ', icon: HelpCircle, exact: false },
 ]
 
 export function CoordinatorNav({ approved = true }: { approved?: boolean }) {

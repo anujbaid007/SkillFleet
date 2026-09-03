@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, LogOut, UserRound, Award, Megaphone, ShoppingCart, Wallet, CalendarDays, Trophy, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Activity, BookOpen, ShoppingBag, Users, LogOut, UserRound, Award, Megaphone, ShoppingCart, Wallet, CalendarDays, Trophy, HelpCircle, type LucideIcon } from 'lucide-react'
 import { logoutAction } from '@/app/actions/auth'
 import { AccountSwitcher } from '@/components/platform/account-switcher'
 import type { SwitchTarget } from '@/app/actions/switch'
@@ -27,6 +27,7 @@ const studentNav: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, tile: 'bg-primary/10 text-primary' },
   { href: '/profile', label: 'Growth Profile', icon: Activity, tile: 'bg-accent-teal/15 text-accent-teal' },
   { href: '/isc', label: 'ISC 2026', icon: Trophy, tile: '', featured: true },
+  { href: '/faq', label: 'FAQ', icon: HelpCircle, tile: 'bg-accent-yellow/20 text-amber-600' },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, tile: 'bg-accent-pink/15 text-accent-pink' },
   { href: '/catalog', label: 'Explore', icon: BookOpen, tile: 'bg-accent-yellow/20 text-amber-600' },
   { href: '/requests', label: 'Requests', icon: Megaphone, tile: 'bg-accent-purple/15 text-accent-purple' },
