@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Compass, Bell } from 'lucide-react'
 import { CatalogStatusFilter } from '@/components/catalog/status-filter'
+import { catalogViewFor } from '@/lib/commerce/catalog-view'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
 import { OFFERING_TYPE_META, OFFERING_STATUS_META } from '@/lib/offering-meta'
@@ -107,14 +108,14 @@ export default async function CatalogPage({
   if (typeFilter) rows = rows.filter((o) => o.type === typeFilter)
   if (categoryFilter) rows = rows.filter((o) => o.topics?.category_id === categoryFilter)
 
-  if (statusFilter === 'planned' || statusFilter === 'completed') {
-    rows = rows.filter((o) => o.status === statusFilter)
-  } else if (statusFilter === 'all') {
-    // Everything, unfiltered — the explicit "show me the lot" escape hatch.
-  } else {
-    // Default: only what this family can actually book right now.
+  const view = catalogViewFor(statusFilter)
+  if (view === 'planned' || view === 'completed') {
+    rows = rows.filter((o) => o.status === view)
+  } else if (view === 'bookable') {
+    // Only what this family can actually book right now.
     rows = rows.filter((o) => o.status === 'live' && isUpcoming(o) && bookableBySomeone(o))
   }
+  // 'everything' is the default: the whole catalogue, unfiltered.
 
   const buildHref = (o: { type?: string | null; category?: string | null }) => {
     const params = new URLSearchParams()
@@ -189,9 +190,9 @@ export default async function CatalogPage({
             </div>
             <p className="font-display font-bold text-foreground">Nothing here yet</p>
             <p className="text-muted text-sm max-w-md mx-auto">
-              {statusFilter
-                ? 'No activities match these filters — try a different type or category.'
-                : 'Nothing left to book here right now. Activities already booked, or outside your child’s age range, are hidden — switch to “Show everything” to see the full catalogue.'}
+              {view === 'bookable'
+                ? 'Nothing left to book here right now. Activities already booked, or outside your child’s age range, are hidden — switch to “Show everything” to see the full catalogue.'
+                : 'No activities match these filters — try a different type or category.'}
             </p>
           </div>
         </Reveal>

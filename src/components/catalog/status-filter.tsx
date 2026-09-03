@@ -1,14 +1,16 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { catalogViewFor } from '@/lib/commerce/catalog-view'
 
-// Default view is "available to book". The other views are deliberate
-// detours — upcoming activities you can register interest in, and past ones.
+// Default view is the whole catalogue. Narrowing to what this family can
+// book right now, upcoming activities you can register interest in, and
+// past ones are deliberate detours.
 const STATUS_OPTIONS = [
-  { value: '', label: 'Available to book' },
+  { value: '', label: 'Show everything' },
+  { value: 'bookable', label: 'Available to book' },
   { value: 'planned', label: 'Planned (coming soon)' },
   { value: 'completed', label: 'Past activities' },
-  { value: 'all', label: 'Show everything' },
 ]
 
 // Status dropdown for the catalog. Navigates with the chosen status while
@@ -35,7 +37,8 @@ export function CatalogStatusFilter({
 
   return (
     <select
-      value={status ?? ''}
+      // Old links carried status=all; they still mean the default view.
+      value={catalogViewFor(status) === 'everything' ? '' : status}
       onChange={handleChange}
       aria-label="Filter by availability"
       className="h-9 px-3 rounded-full border border-black/10 bg-white text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
