@@ -152,12 +152,6 @@ export function EntryForm({
         )
       })}
 
-      {!readOnly && (
-        <p className="text-xs text-muted">
-          Your parent or guardian already agreed to you entering ISC 2026.
-        </p>
-      )}
-
       {/* Only shown when the problem is not tied to a specific field — a
           field-level error is already printed under that field. */}
       {state?.error && !state.field && (

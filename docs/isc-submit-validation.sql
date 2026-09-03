@@ -83,9 +83,6 @@ BEGIN
   IF NOT public.isc_is_open(v_track) THEN
     RETURN jsonb_build_object('ok', false, 'error', 'track_closed');
   END IF;
-  IF NOT public.isc_has_consent() THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'consent_required');
-  END IF;
   IF v_sub IS NULL OR v_sub = '{}'::jsonb THEN
     RETURN jsonb_build_object('ok', false, 'error', 'empty_submission');
   END IF;

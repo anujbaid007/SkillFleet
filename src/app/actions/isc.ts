@@ -4,13 +4,11 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import {
-  ISC_SEASON,
   TRACK_FIELDS,
   trackById,
   trackBySlug,
   type IscTrackId,
 } from '@/lib/isc/tracks'
-import { CONSENT_PURPOSES, CONSENT_VERSION } from '@/lib/isc/consent-notice'
 import { readSubmission } from '@/lib/isc/submission'
 import { firstInvalidField } from '@/lib/isc/validate'
 import { checkLink } from '@/lib/isc/link-check'
@@ -22,7 +20,6 @@ const ERR: Record<string, string> = {
   track_closed: 'Entries for this track have closed.',
   not_found: 'That entry could not be found.',
   not_leader: 'Only the team leader can change this entry.',
-  consent_required: 'Agree to the championship terms before you submit.',
   empty_submission: 'Fill in your entry before submitting.',
   // Raised by the database when a required field is missing or a link is not
   // http(s). The app checks the same things first, so a student only sees this
@@ -536,103 +533,3 @@ export async function leaveTeamAction(
   redirect('/isc')
 }
 
-/** Has this student already given consent for the season? */
-export async function hasIscConsent(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data } = await supabase.rpc('isc_has_consent')
-  return data === true
-}
-
-export type ConsentState = { error?: string } | undefined
-
-const CONSENT_ERR: Record<string, string> = {
-  not_student: 'Only student accounts can enter ISC.',
-  // Only reachable if a profile somehow has no name by the time it reaches
-  // ISC, which onboarding should already have prevented.
-  name_missing: 'Please add your full name to your profile before entering.',
-}
-
-export async function giveConsentAction(
-  _prev: ConsentState,
-  formData: FormData
-): Promise<ConsentState> {
-  const next = ((formData.get('next') as string) ?? '/isc').trim()
-
-  /*
-    Each purpose is read separately, and the required one is checked here as
-    well as in the form. A disabled button is a convenience, not a control —
-    the form can be submitted without it.
-  */
-  const agreed = (id: string) => formData.get(id) === 'on'
-  const required = CONSENT_PURPOSES.filter((p) => p.required)
-  if (!required.every((p) => agreed(p.id))) {
-    return { error: 'Please agree to taking part before continuing.' }
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  /*
-    The name is read from the profile rather than typed into the form.
-
-    The student is already signed in, so asking them to type their own name
-    proved nothing: student_id, the timestamp and the consent version are
-    stronger evidence than a string the same person could put anything into.
-    Taking it from the profile also means no part of the record is
-    self-reported at the moment of consent.
-
-    The parameter and the column behind it are still called guardian_name.
-    What goes in is the name of whoever performed the act, and `consented_by`
-    below records which that was. Renaming the column would mean rewriting the
-    RPC that owns eligibility and the one-per-season rule, for no gain that a
-    reader of the row cannot already get from consented_by.
-  */
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
-
-  const consentName = profile?.full_name?.trim()
-  if (!consentName) return { error: CONSENT_ERR.name_missing }
-
-  const { data, error } = await supabase.rpc('isc_give_consent', {
-    p_guardian_name: consentName,
-  })
-  if (error) return { error: iscError(undefined) }
-
-  const r = data as { ok: boolean; error?: string }
-  if (!r?.ok) return { error: CONSENT_ERR[r?.error ?? ''] ?? iscError(r?.error) }
-
-  /*
-    Record what was actually agreed to, against the row the RPC just wrote.
-
-    Separate from the RPC on purpose: the RPC owns eligibility and the
-    one-per-season rule, and rewriting it to carry four more arguments would
-    put that logic at risk for what is only bookkeeping. The version stamp
-    matters most — without it, editing the consent wording later would
-    silently change what past students are recorded as having agreed to.
-
-    A failure here is deliberately not fatal. The consent itself is stored; a
-    missing detail row is a reporting gap, not grounds to send a student back
-    round a form they have already completed.
-  */
-  await supabase
-    .from('isc_consent')
-    .update({
-      consented_by: 'student',
-      consent_version: CONSENT_VERSION,
-      brainweave_sharing: agreed('brainweave_sharing'),
-      promo_use: agreed('promo_use'),
-    })
-    .eq('student_id', user.id)
-    .eq('season', ISC_SEASON)
-
-  revalidatePath('/isc')
-  // Only ever an internal path: `next` comes from our own links, but refuse
-  // anything that could send a student off-site.
-  redirect(next.startsWith('/isc') ? next : '/isc')
-}

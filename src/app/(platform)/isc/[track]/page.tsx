@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getCurrentProfile } from '@/lib/supabase/session'
 import { trackBySlug } from '@/lib/isc/tracks'
 import { isEligibleClass, isTrackLocked } from '@/lib/isc/validate'
-import { getMyIscEntries, getIscEntry, getTrackDeadline, hasIscConsent } from '@/app/actions/isc'
+import { getMyIscEntries, getIscEntry, getTrackDeadline } from '@/app/actions/isc'
 import { EntryForm } from '@/components/isc/entry-form'
 import { TeamPanel } from '@/components/isc/team-panel'
 import { TrackHero } from '@/components/isc/track-hero'
@@ -30,17 +30,15 @@ export default async function IscTrackPage({
   if (!isEligibleClass(profile.school_class)) redirect('/isc')
 
   /*
-    These three are independent of one another, and the first two are also
-    independent of the entry lookup below. Run one after another they were
-    three separate waits stacked in front of the page; together they cost one.
+    Independent of each other and of the entry lookup below, so they are
+    fetched together rather than as two waits stacked in front of the page.
   */
-  const [mine, deadline, consentGiven] = await Promise.all([
+  const [mine, deadline] = await Promise.all([
     // Read-only: neither browsing a track nor opening its form creates
     // anything. The entry is written by the first real action — see
     // resolveEntryId.
     getMyIscEntries(),
     getTrackDeadline(track.id),
-    hasIscConsent(),
   ])
   const existing = mine.find((e) => e.track === track.id)
   // A pending invite has a row here but isn't joined yet — send them back to
@@ -68,7 +66,7 @@ export default async function IscTrackPage({
 
   // The form is open either because an entry exists, or because the student
   // just asked to start one (?start=1) and nothing has been written yet.
-  const opening = !entry && start === '1' && consentGiven && !locked
+  const opening = !entry && start === '1' && !locked
 
   // Before the entry exists there is no members row to read, so stand in the
   // one member it will certainly have: the student looking at the page. Shaped
@@ -125,7 +123,7 @@ export default async function IscTrackPage({
                 : 'Opening the form does not enter you — nothing is saved until you press Save draft.'}
             </p>
           </div>
-          {!locked && <EnterTrackButton slug={track.slug} needsConsent={!consentGiven} />}
+          {!locked && <EnterTrackButton slug={track.slug} />}
         </div>
       ) : (
         <>

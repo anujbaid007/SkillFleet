@@ -7,17 +7,13 @@ import { ArrowRight } from 'lucide-react'
  * own entry blocks anyone from inviting them to a team for that track. The
  * entry is created by the first real action — saving, or adding a teammate.
  *
- * Consent is a one-time step for the season, so it is asked before the form
- * rather than on every save.
+ * There is no separate consent step: the account's registration consent
+ * already covers taking part, so the form opens directly.
  */
-export function EnterTrackButton({ slug, needsConsent }: { slug: string; needsConsent: boolean }) {
-  const href = needsConsent
-    ? `/isc/consent?next=${encodeURIComponent(`/isc/${slug}?start=1`)}`
-    : `/isc/${slug}?start=1`
-
+export function EnterTrackButton({ slug }: { slug: string }) {
   return (
     <Link
-      href={href}
+      href={`/isc/${slug}?start=1`}
       className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-2"
     >
       Start your entry
