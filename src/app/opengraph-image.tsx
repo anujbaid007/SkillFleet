@@ -1,15 +1,13 @@
 import { ImageResponse } from "next/og";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { LOGO_SVG } from "@/lib/brand/logo-svg";
 
 export const alt = "SkillFleet - India's First Industrial Exposure Platform";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
-  // Read the logo SVG with original colors (black + purple on white bg)
-  const rawSvg = readFileSync(join(process.cwd(), "public", "logo.svg"), "utf-8");
-  const logoSrc = `data:image/svg+xml;base64,${Buffer.from(rawSvg).toString("base64")}`;
+  // The logo SVG with its original colours (black + purple on a white bg).
+  const logoSrc = `data:image/svg+xml;base64,${Buffer.from(LOGO_SVG).toString("base64")}`;
 
   return new ImageResponse(
     (

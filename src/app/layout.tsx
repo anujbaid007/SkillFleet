@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     "STEM education",
     "India",
   ],
-  metadataBase: new URL("https://skillfleet.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://skillfleet.org"),
   openGraph: {
     title: "SkillFleet - India's First Industrial Exposure Platform",
     description:

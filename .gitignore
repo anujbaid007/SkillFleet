@@ -51,3 +51,8 @@ cbse_schools_master.xlsx
 
 # Google OAuth client credentials — must never be committed
 client_secret_*.json
+
+# cloudflare / opennext
+.open-next
+.dev.vars*
+.wrangler

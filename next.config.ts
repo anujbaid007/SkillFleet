@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 // Pin the workspace root to THIS project. A stray package-lock.json in the home
 // directory was making Next infer the wrong root, which left the Turbopack dev
@@ -30,3 +31,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Lets `next dev` see Cloudflare bindings (Images, Assets) the way the deployed worker does.
+initOpenNextCloudflareForDev();
