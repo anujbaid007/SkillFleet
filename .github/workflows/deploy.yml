@@ -1,0 +1,53 @@
+# Deploys the site to Cloudflare Workers on every push to main.
+#
+# Secrets this needs in the GitHub repo (Settings > Secrets and variables > Actions):
+#   CLOUDFLARE_API_TOKEN          token with Workers Scripts, Workers Routes and Zone Read
+#   CLOUDFLARE_ACCOUNT_ID         the Cloudflare account id
+#   NEXT_PUBLIC_SUPABASE_URL      build-time: Next inlines NEXT_PUBLIC_* into the bundles
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY build-time
+#   NEXT_PUBLIC_SITE_URL          build-time, https://skillfleet.org
+#
+# Runtime secrets (SUPABASE_SERVICE_ROLE_KEY, OPENROUTER_API_KEY, ...) live on the
+# Worker itself, set once with `wrangler secret put`; a deploy does not touch them.
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the deploy token is present
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret is not set on this repo, so nothing was deployed. Add it under Settings > Secrets and variables > Actions, then re-run."
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Build and deploy
+        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
