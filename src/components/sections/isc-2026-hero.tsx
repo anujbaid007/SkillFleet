@@ -273,7 +273,7 @@ export default function Isc2026Hero() {
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link href="/isc">
+            <Link href="/signup">
               <Button size="lg" className="group">
                 Enter ISC 2026
                 <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />

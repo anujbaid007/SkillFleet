@@ -328,7 +328,7 @@ export default function Navbar({ hasBanner = false }: { hasBanner?: boolean } = 
                 `isLight` variant the way the text links do.
               */}
               <Link
-                href="/isc"
+                href="/signup"
                 className="ml-1.5 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent-teal px-3.5 py-2 text-sm font-bold text-white shadow-[0_6px_16px_-6px_rgba(116,71,225,0.85)] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_22px_-8px_rgba(116,71,225,0.95)]"
               >
                 <Trophy className="h-3.5 w-3.5" />
@@ -409,7 +409,7 @@ export default function Navbar({ hasBanner = false }: { hasBanner?: boolean } = 
             >
               <div className="px-4 py-6 space-y-1">
                 <Link
-                  href="/isc"
+                  href="/signup"
                   onClick={() => setIsMobileOpen(false)}
                   className="mb-3 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-accent-teal px-4 py-3 text-base font-bold text-white shadow-[0_8px_20px_-8px_rgba(116,71,225,0.85)]"
                 >
