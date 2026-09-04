@@ -2,19 +2,25 @@ import { Download, FileText, Lock, Trophy, Users, type LucideIcon } from 'lucide
 import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { HowItWorks } from '@/components/isc/how-it-works'
 
-/** The two decks a coordinator hands out, and who each one is for. */
+/** The decks a coordinator hands out, and who each one is for. */
 const DECKS = [
-  {
-    href: '/decks/ISC-Student-Deck.pdf',
-    title: 'Student deck',
-    blurb: 'What ISC is and how to enter, written for students. PDF, 7.5 MB.',
-    gradient: 'from-accent-teal to-primary',
-  },
   {
     href: '/decks/ISC-School-Deck.pdf',
     title: 'School deck',
-    blurb: 'The full programme, for your principal and staff. PDF, 6.6 MB.',
+    blurb: 'The full programme, for your principal and management. PDF, 6.8 MB.',
     gradient: 'from-primary to-primary-light',
+  },
+  {
+    href: '/decks/ISC-Teacher-Deck.pdf',
+    title: 'Teacher deck',
+    blurb: 'How to run it with a class, for the staff room. PDF, 6.4 MB.',
+    gradient: 'from-accent-purple to-primary',
+  },
+  {
+    href: '/decks/ISC-Student-Deck.pdf',
+    title: 'Student deck',
+    blurb: 'What ISC is and how to enter, written for students. PDF, 6.6 MB.',
+    gradient: 'from-accent-teal to-primary',
   },
 ]
 
@@ -166,7 +172,7 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {DECKS.map((deck) => (
           <a
             key={deck.href}

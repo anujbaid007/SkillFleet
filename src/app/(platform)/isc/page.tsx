@@ -9,6 +9,7 @@ import { getMyIscEntries, getMyPendingInvites } from '@/app/actions/isc'
 import { IscHero } from '@/components/isc/isc-hero'
 import { TrackCard, type TrackCardState } from '@/components/isc/track-card'
 import { HowItWorks } from '@/components/isc/how-it-works'
+import { GuideAndDeck } from '@/components/isc/guide-and-deck'
 import { PendingInvites } from '@/components/isc/pending-invites'
 
 export default async function IscPage() {
@@ -56,6 +57,10 @@ export default async function IscPage() {
 
       <Reveal delay={0.08}>
         <HowItWorks />
+      </Reveal>
+
+      <Reveal delay={0.09}>
+        <GuideAndDeck />
       </Reveal>
 
       <Reveal delay={0.1}>
