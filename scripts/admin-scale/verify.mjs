@@ -11,7 +11,16 @@ const t0 = Date.now()
 await db.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
 await seed(db, scale)
 await db.exec(readFileSync(new URL('../../docs/admin-scale-migration.sql', import.meta.url), 'utf8'))
-console.log(`seeded ${scale.students} students, ${scale.schools} schools, ${scale.entries} entries in ${Date.now() - t0} ms`)
+const seedMs = Date.now() - t0
+console.log(`seeded ${scale.students} students, ${scale.schools} schools, ${scale.entries} entries in ${seedMs} ms`)
+
+// ANALYZE is not optional. Without column statistics the planner falls back to a
+// default selectivity that FAVOURS index scans, so a plan can pass here and still
+// sequential-scan on Supabase, where real statistics exist — a false pass, in the
+// dangerous direction. Every plan asserted below is planned from real statistics.
+const tAnalyze = Date.now()
+await db.exec('analyze')
+console.log(`analyzed every table in ${Date.now() - tAnalyze} ms - plans below use real statistics`)
 
 const failures = []
 const timings = []
@@ -32,6 +41,10 @@ export function assertEqual(actual, expected, label) {
 export async function assertIndexScan(sql, params, forbiddenTable) {
   const { rows } = await db.query(`explain ${sql}`, params)
   const plan = rows.map((r) => Object.values(r)[0]).join('\n')
+  // Refuse to report success on a plan that never mentions the table at all: a
+  // typo in the table name, or a query that does not touch it, would otherwise
+  // make this assertion silently vacuous.
+  if (!new RegExp(`\\b${forbiddenTable}\\b`).test(plan)) throw new Error(`cannot judge ${forbiddenTable}: the plan never mentions it (misspelled table, or the query does not read it?):\n${plan}`)
   if (new RegExp(`Seq Scan on ${forbiddenTable}\\b`).test(plan)) throw new Error(`sequential scan on ${forbiddenTable}:\n${plan}`)
 }
 export { db }
