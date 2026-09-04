@@ -70,3 +70,205 @@ update isc_entries e
    set division = isc_division_for_class(p.school_class)
   from user_profiles p
  where p.id = e.created_by and e.division is null;
+
+-- ---------------------------------------------------------------
+-- C. Championship summaries
+--
+-- UNITS, because they are not all the same and the UI must not mislabel them:
+--   eligible / started / submitted  -> counts of STUDENTS (distinct people)
+--   schools_with_entries            -> count of SCHOOLS that have >= 1 entry
+--   by_track                        -> distinct STUDENTS competing in each track
+--   by_division / by_status / by_language -> counts of ENTRIES
+-- So by_track does NOT sum to the same total as by_status: a student in two
+-- tracks is counted in both, and an entry has one status but several members.
+--
+-- "started" means a person actually on a team: the leader, or an invitee who
+-- accepted. A pending invitee (accepted_at is null, is_leader false) is NOT
+-- started -- they have been asked, not enrolled.
+--
+-- SCOPE, and the one asymmetry in it: entries are scoped by the school the
+-- ENTRY belongs to (via schools.state / schools.district), while eligible
+-- students are scoped by the denormalised user_profiles.school_state /
+-- school_district. A team-mate from a neighbouring school therefore counts
+-- toward the state of the entry, not their own, so summing `started` across
+-- states can exceed the national figure. `eligible` does sum exactly.
+-- ---------------------------------------------------------------
+create or replace function admin_isc_summary(
+  p_state text default null, p_district text default null, p_school_id uuid default null
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare v jsonb;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  with scoped_schools as (
+    select s.id from schools s
+    where (p_school_id is null or s.id = p_school_id)
+      and (p_school_id is not null or p_state is null or s.state = p_state)
+      and (p_school_id is not null or p_district is null or s.district = p_district)
+  ),
+  entries as (
+    select e.status, e.division, e.submission->>'language' as language, e.school_id
+    from isc_entries e
+    where e.school_id in (select id from scoped_schools)
+  ),
+  -- Joined to isc_entries directly rather than to the `entries` CTE above: the
+  -- CTE is materialised with columns this join does not need, and probing that
+  -- tuplestore with 1.2M member rows costs more than re-reading the table.
+  members as (
+    select m.user_id, e.track, e.status = 'submitted' as sub
+    from isc_entry_members m
+    join isc_entries e on e.id = m.entry_id
+    where e.school_id in (select id from scoped_schools)
+      and m.user_id is not null and (m.is_leader or m.accepted_at is not null)
+  ),
+  -- One row per (student, track), then one per student. Deriving the headline
+  -- numbers from these turns four large `count(distinct ...)` sorts into two
+  -- hash aggregates. `sub` is the ENTRY's status, so a student counts as
+  -- submitted if any entry they are on was submitted.
+  per_track as (
+    select track, user_id, bool_or(sub) as any_submitted from members group by track, user_id
+  ),
+  per_user as (
+    select user_id, bool_or(any_submitted) as any_submitted from per_track group by user_id
+  ),
+  -- All four entry-level breakdowns in ONE pass over the entries. Four separate
+  -- GROUP BYs re-scan the materialised CTE four times; a MixedAggregate over
+  -- grouping sets hashes them together. Exactly one grouping() flag is 0 per row.
+  dims as (
+    select grouping(division) gd, grouping(status) gs, grouping(language) gl, grouping(school_id) gc,
+           division, status, language, school_id, count(*) c
+    from entries
+    group by grouping sets ((division), (status), (language), (school_id))
+  )
+  select jsonb_build_object(
+    'eligible', (select count(*) from user_profiles p
+                 where p.role = 'student' and isc_division_for_class(p.school_class) is not null
+                   and (p_school_id is null or p.school_id = p_school_id)
+                   and (p_school_id is not null or p_state is null or p.school_state = p_state)
+                   and (p_school_id is not null or p_district is null or p.school_district = p_district)),
+    'started', (select count(*) from per_user),
+    'submitted', (select count(*) from per_user where any_submitted),
+    'schools_with_entries', (select count(*) from dims where gc = 0),
+    -- Every list is ordered by count desc then key, so ties are stable between calls.
+    'by_track', (select coalesce(jsonb_agg(jsonb_build_object('key', k, 'count', c) order by c desc, k), '[]'::jsonb)
+                 from (select track k, count(*) c from per_track group by track) t),
+    'by_division', (select coalesce(jsonb_agg(jsonb_build_object('key', k, 'count', c) order by c desc, k), '[]'::jsonb)
+                 from (select coalesce(division, 'unknown') k, c from dims where gd = 0) t),
+    'by_status', (select coalesce(jsonb_agg(jsonb_build_object('key', k, 'count', c) order by c desc, k), '[]'::jsonb)
+                 from (select status k, c from dims where gs = 0) t),
+    'by_language', (select coalesce(jsonb_agg(jsonb_build_object('key', k, 'count', c) order by c desc, k), '[]'::jsonb)
+                 from (select coalesce(language, 'unknown') k, c from dims where gl = 0) t)
+  ) into v;
+  return v;
+end $$;
+
+-- Every level shares one shape: `el` counts eligible students from
+-- user_profiles, `ent` is the scoped entries with their grouping key, `sch`
+-- counts the schools that have entries, `mem` collapses members to one row per
+-- (key, student) so `stm` can count people with a plain count(*). Written the
+-- obvious way -- `count(distinct m.user_id) filter (...)` straight off the join
+-- -- Postgres has to sort 1.2M wide rows on disk; this is a third faster.
+create or replace function admin_isc_breakdown(p_state text default null, p_district text default null)
+returns table(key text, label text, eligible bigint, started bigint, submitted bigint, schools bigint)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if p_state is null then
+    return query
+    with el as (
+      select p.school_state k, count(*) n from user_profiles p
+      where p.role = 'student' and isc_division_for_class(p.school_class) is not null and p.school_state is not null
+      group by p.school_state),
+    ent as (
+      select e.id, e.school_id, s.state k, e.status = 'submitted' as sub
+      from isc_entries e join schools s on s.id = e.school_id),
+    sch as (select ent.k, count(distinct ent.school_id) n from ent group by ent.k),
+    mem as (
+      select en.k, m.user_id, bool_or(en.sub) sub
+      from ent en join isc_entry_members m on m.entry_id = en.id
+      where m.user_id is not null and (m.is_leader or m.accepted_at is not null)
+      group by en.k, m.user_id),
+    stm as (select mem.k, count(*) started, count(*) filter (where mem.sub) submitted from mem group by mem.k),
+    st as (
+      select coalesce(stm.k, sch.k) k, coalesce(stm.started, 0) started,
+             coalesce(stm.submitted, 0) submitted, coalesce(sch.n, 0) schools
+      from sch full join stm on stm.k = sch.k)
+    select coalesce(el.k, st.k), coalesce(el.k, st.k), coalesce(el.n, 0), coalesce(st.started, 0), coalesce(st.submitted, 0), coalesce(st.schools, 0)
+    from el full join st on st.k = el.k order by 3 desc, 1;
+  elsif p_district is null then
+    return query
+    with el as (
+      select p.school_district k, count(*) n from user_profiles p
+      where p.role = 'student' and isc_division_for_class(p.school_class) is not null and p.school_state = p_state and p.school_district is not null
+      group by p.school_district),
+    ent as (
+      select e.id, e.school_id, s.district k, e.status = 'submitted' as sub
+      from isc_entries e join schools s on s.id = e.school_id and s.state = p_state),
+    sch as (select ent.k, count(distinct ent.school_id) n from ent group by ent.k),
+    mem as (
+      select en.k, m.user_id, bool_or(en.sub) sub
+      from ent en join isc_entry_members m on m.entry_id = en.id
+      where m.user_id is not null and (m.is_leader or m.accepted_at is not null)
+      group by en.k, m.user_id),
+    stm as (select mem.k, count(*) started, count(*) filter (where mem.sub) submitted from mem group by mem.k),
+    st as (
+      select coalesce(stm.k, sch.k) k, coalesce(stm.started, 0) started,
+             coalesce(stm.submitted, 0) submitted, coalesce(sch.n, 0) schools
+      from sch full join stm on stm.k = sch.k)
+    select coalesce(el.k, st.k), coalesce(el.k, st.k), coalesce(el.n, 0), coalesce(st.started, 0), coalesce(st.submitted, 0), coalesce(st.schools, 0)
+    from el full join st on st.k = el.k order by 3 desc, 1;
+  else
+    return query
+    with sc as (select s.id, s.name from schools s where s.state = p_state and s.district = p_district),
+    el as (
+      select p.school_id k, count(*) n from user_profiles p
+      where p.role = 'student' and isc_division_for_class(p.school_class) is not null and p.school_id in (select id from sc)
+      group by p.school_id),
+    ent as (
+      select e.id, e.school_id k, e.status = 'submitted' as sub
+      from isc_entries e where e.school_id in (select id from sc)),
+    -- A school counts as 1 as soon as it has an entry, even one with no members.
+    sch as (select distinct ent.k from ent),
+    mem as (
+      select en.k, m.user_id, bool_or(en.sub) sub
+      from ent en join isc_entry_members m on m.entry_id = en.id
+      where m.user_id is not null and (m.is_leader or m.accepted_at is not null)
+      group by en.k, m.user_id),
+    stm as (select mem.k, count(*) started, count(*) filter (where mem.sub) submitted from mem group by mem.k)
+    select sc.id::text, sc.name, coalesce(el.n, 0), coalesce(stm.started, 0), coalesce(stm.submitted, 0),
+           case when sch.k is null then 0::bigint else 1::bigint end
+    from sc left join el on el.k = sc.id left join stm on stm.k = sc.id left join sch on sch.k = sc.id
+    order by 3 desc, 2;
+  end if;
+end $$;
+
+-- day is a calendar date; `started` and `submitted` here are ENTRY counts (how
+-- many entries were created / submitted that day), not student counts. Every day
+-- in the window is present, zero-filled, so a chart has no gaps.
+create or replace function admin_isc_timeline(
+  p_state text default null, p_district text default null, p_school_id uuid default null, p_days int default 30
+) returns table(day date, started bigint, submitted bigint)
+language plpgsql security definer set search_path = public as $$
+declare v_from date := current_date - greatest(p_days, 1) + 1;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  return query
+  with scoped as (
+    select e.created_at, e.submitted_at
+    from isc_entries e join schools s on s.id = e.school_id
+    where (p_school_id is null or e.school_id = p_school_id)
+      and (p_school_id is not null or p_state is null or s.state = p_state)
+      and (p_school_id is not null or p_district is null or s.district = p_district)
+      and (e.created_at >= v_from or e.submitted_at >= v_from)
+  ),
+  c as (select created_at::date d, count(*) n from scoped where created_at >= v_from group by 1),
+  s as (select submitted_at::date d, count(*) n from scoped where submitted_at >= v_from group by 1)
+  -- Integer series, not generate_series(date, date, interval): the date/interval
+  -- form is resolved to the timestamptz overload, so the day column would come
+  -- back as a timestamptz needing a cast, and the boundaries would depend on the
+  -- session timezone. `current_date - int` is plain date arithmetic.
+  select (current_date - g.i)::date, coalesce(c.n, 0), coalesce(s.n, 0)
+  from generate_series(0, greatest(p_days, 1) - 1) g(i)
+  left join c on c.d = current_date - g.i
+  left join s on s.d = current_date - g.i
+  order by 1;
+end $$;
