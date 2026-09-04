@@ -66,10 +66,17 @@ drop trigger if exists isc_entries_division_trg on isc_entries;
 create trigger isc_entries_division_trg
   before insert on isc_entries for each row execute function isc_entries_set_division();
 
+-- The third predicate is what makes this idempotent. Without it, every entry
+-- whose leader sits outside Classes 5-12 keeps division null, matches
+-- `e.division is null` again, and is rewritten null -> null on EVERY run: about
+-- 170,000 dead tuples and a long lock each time the founder re-pastes this
+-- script. With it, the second run matches zero rows.
 update isc_entries e
    set division = isc_division_for_class(p.school_class)
   from user_profiles p
- where p.id = e.created_by and e.division is null;
+ where p.id = e.created_by
+   and e.division is null
+   and isc_division_for_class(p.school_class) is not null;
 
 -- ---------------------------------------------------------------
 -- C. Championship summaries
@@ -99,6 +106,9 @@ create or replace function admin_isc_summary(
 declare v jsonb;
 begin
   if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_isc_summary';
+  end if;
   with scoped_schools as (
     select s.id from schools s
     where (p_school_id is null or s.id = p_school_id)
@@ -172,6 +182,9 @@ returns table(key text, label text, eligible bigint, started bigint, submitted b
 language plpgsql security definer set search_path = public as $$
 begin
   if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_isc_breakdown';
+  end if;
   if p_state is null then
     return query
     with el as (
@@ -251,6 +264,9 @@ language plpgsql security definer set search_path = public as $$
 declare v_from date := current_date - greatest(p_days, 1) + 1;
 begin
   if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_isc_timeline';
+  end if;
   return query
   with scoped as (
     select e.created_at, e.submitted_at
@@ -272,3 +288,32 @@ begin
   left join s on s.d = current_date - g.i
   order by 1;
 end $$;
+
+-- ---------------------------------------------------------------
+-- F. Run these on the live project before trusting any admin figure
+--
+-- NOTE to whoever appends section E's EXPLAIN checks: they belong in THIS
+-- block. Do not start a second "F." heading further down the file.
+--
+-- 1. Orphan entries. Every function in section C reaches isc_entries through
+--    schools, so an entry whose school_id matches no schools row is missing
+--    from by_status, started, submitted, schools_with_entries AND the timeline
+--    -- silently, with no error anywhere.
+--
+--      select count(*) from isc_entries e
+--      left join schools s on s.id = e.school_id
+--      where s.id is null;
+--
+--    Anything other than 0 means that many entries are absent from every number
+--    on the admin pages. Fix the rows, then add
+--    `alter table isc_entries add constraint isc_entries_school_fk
+--     foreign key (school_id) references schools(id)` so it cannot happen again.
+--
+-- 2. Eligible students with no state. admin_isc_summary().eligible counts them;
+--    every row of admin_isc_breakdown() drops them, so the state table will not
+--    sum to the national headline by exactly this many:
+--
+--      select count(*) from user_profiles
+--      where role = 'student' and isc_division_for_class(school_class) is not null
+--        and school_state is null;
+-- ---------------------------------------------------------------

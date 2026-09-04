@@ -160,7 +160,17 @@ CHECKS.push(() => check('division trigger', async () => {
 }))
 
 CHECKS.push(() => check('migration is safe to run twice', async () => {
+  // ctid changes on any UPDATE, so comparing it across a re-apply proves the
+  // backfill rewrote nothing. Entries whose leader is outside Classes 5-12 keep
+  // division null forever and match `division is null` on every single run, so
+  // without the extra predicate in the backfill these rows are rewritten every
+  // time the founder re-pastes the script.
+  const nulls = `select id, ctid::text ct from isc_entries where division is null order by id limit 100`
+  const { rows: before } = await db.query(nulls)
+  if (!before.length) throw new Error('no null-division entries, so this cannot detect a re-running backfill')
   await db.exec(MIGRATION_SQL)
+  const { rows: after } = await db.query(nulls)
+  assertEqual(after, before, 'the backfill rewrote rows it can never change')
   const { rows: [n] } = await db.query(`select
       count(*) filter (where e.division is distinct from isc_division_for_class(p.school_class))::int wrong
     from isc_entries e join user_profiles p on p.id = e.created_by`)
@@ -445,6 +455,28 @@ CHECKS.push(() => check('ISC summaries on a hand-computed fixture', async () => 
   }
   const { rows: [left] } = await db.query(`select count(*)::int n from schools where state in ('Zedland','Yedland','Wedland','Vedland')`)
   assertEqual(left.n, 0, 'the fixture was rolled back')
+}))
+
+CHECKS.push(() => check('a district without a state is refused', async () => {
+  // admin_isc_breakdown used to IGNORE p_district when p_state was null and
+  // return the national state rows, while admin_isc_summary honoured it. One
+  // scope object passed to both rendered a district headline over a national
+  // table with nothing erroring. District names also repeat across states, so
+  // the district-only answer was itself a merge of two states.
+  const { rows: [d] } = await db.query(`select school_district d from user_profiles where school_district is not null order by id limit 1`)
+  for (const sql of ['select admin_isc_summary(null, $1)', 'select * from admin_isc_breakdown(null, $1)',
+                     'select * from admin_isc_timeline(null, $1)']) {
+    let raised = null
+    try { await db.query(sql, [d.d]) } catch (e) { raised = e.message }
+    if (!raised || !/p_district was given without p_state/.test(raised))
+      throw new Error(`${sql} must refuse a district with no state, got: ${raised}`)
+  }
+  // The same district WITH its state still works, so the guard is not just a wall.
+  const { rows: [st] } = await db.query(`select school_state s from user_profiles where school_district = $1 order by id limit 1`, [d.d])
+  const { rows: [{ v }] } = await db.query(`select admin_isc_summary($1, $2) v`, [st.s, d.d])
+  if (!(v.eligible > 0)) throw new Error(`state + district should still answer, got ${JSON.stringify(v)}`)
+  assertEqual((await db.query(`select * from admin_isc_breakdown($1, $2)`, [st.s, d.d])).rows.length > 0, true, 'state + district breakdown still answers')
+  assertEqual((await db.query(`select * from admin_isc_timeline($1, $2, null, 7)`, [st.s, d.d])).rows.length, 7, 'state + district timeline still answers')
 }))
 
 CHECKS.push(() => check('section C functions are admin only', async () => {
