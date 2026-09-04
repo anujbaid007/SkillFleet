@@ -1,0 +1,2 @@
+-- Admin at scale: indexes, the division column and admin-only functions.
+-- Safe to run more than once. Paste into the Supabase SQL editor as one script.
