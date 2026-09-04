@@ -68,8 +68,11 @@ export default async function IscPage() {
           <h2 className="font-display text-lg font-bold text-foreground sm:text-xl">
             Choose your championship
           </h2>
-          <span className="text-xs text-muted">
-            {ISC_TRACKS.length + 1} tracks · enter as many as you like
+          {/* An invitation, not a statistic: the old line read as small print
+              and nobody acted on it. */}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent-teal px-3 py-1.5 text-xs font-bold text-white shadow-[0_6px_16px_-8px_rgba(116,71,225,0.9)]">
+            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+            We encourage you to enter all {ISC_TRACKS.length + 1} competitions
           </span>
         </div>
       </Reveal>
