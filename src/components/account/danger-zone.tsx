@@ -88,7 +88,7 @@ export function DangerZone() {
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
-                href="mailto:contact@skillfleet.org?subject=Data%20request%20or%20complaint"
+                href="mailto:hello@skillfleet.org?subject=Data%20request%20or%20complaint"
                 className="clay-button inline-flex h-10 items-center bg-white px-4 text-sm font-semibold text-foreground"
               >
                 Email the Grievance Officer

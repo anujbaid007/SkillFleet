@@ -51,7 +51,7 @@ export async function deleteMyAccountAction(
   if (profile?.role !== 'student' && profile?.role !== 'coordinator') {
     return {
       error:
-        'Staff and vendor accounts are removed by SkillFleet directly. Write to contact@skillfleet.org and we will do it for you.',
+        'Staff and vendor accounts are removed by SkillFleet directly. Write to hello@skillfleet.org and we will do it for you.',
     }
   }
 
@@ -60,7 +60,7 @@ export async function deleteMyAccountAction(
     return {
       error:
         result.error ??
-        'Could not delete the account. Please contact contact@skillfleet.org and we will do it for you.',
+        'Could not delete the account. Please contact hello@skillfleet.org and we will do it for you.',
     }
   }
 

@@ -9,7 +9,7 @@
  * changes.
  */
 
-export const TERMS_VERSION = '2026.2'
+export const TERMS_VERSION = '2026.3'
 
 export interface RegistrationPurpose {
   id: string
@@ -57,5 +57,5 @@ export const REGISTRATION_NOTICE = {
     'To run this account Skill Fleet keeps the student’s name, date of birth, class, school and city, and a parent’s name, email and WhatsApp number.',
   coordinator: 'To run this account Skill Fleet keeps your name, email, phone number and school.',
   rights:
-    'You can see, change or delete it any time from Account or by writing to contact@skillfleet.org, and complain to our Grievance Officer, then the Data Protection Board of India.',
+    'You can see, change or delete it any time from Account or by writing to hello@skillfleet.org, and complain to our Grievance Officer, then the Data Protection Board of India.',
 }

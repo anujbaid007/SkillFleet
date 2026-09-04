@@ -93,7 +93,7 @@ const contactInfo = [
   {
     icon: Mail,
     title: "Email",
-    primary: "contact@skillfleet.org",
+    primary: "hello@skillfleet.org",
     secondary: "We reply within 24 hours",
     secondaryIcon: Clock,
     color: "bg-accent-purple/10 text-accent-purple",

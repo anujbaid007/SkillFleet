@@ -266,7 +266,7 @@ export function buildIscFaq({
         {
           id: 'change-mind',
           q: 'Can I withdraw?',
-          a: ['Yes. Write to contact@skillfleet.org and we will remove your entry from the championship.'],
+          a: ['Yes. Write to hello@skillfleet.org and we will remove your entry from the championship.'],
         },
       ],
     },
@@ -305,7 +305,7 @@ export function buildIscFaq({
         {
           id: 'co-help',
           q: 'How do I reach Skill Fleet?',
-          a: ['Contact Admin in your menu opens a thread with the Skill Fleet team, or write to contact@skillfleet.org.'],
+          a: ['Contact Admin in your menu opens a thread with the Skill Fleet team, or write to hello@skillfleet.org.'],
         },
       ],
     })

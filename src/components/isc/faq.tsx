@@ -174,10 +174,10 @@ export function IscFaq({ groups, subtitle }: { groups: FaqGroup[]; subtitle: str
           </p>
         </div>
         <a
-          href="mailto:contact@skillfleet.org"
+          href="mailto:hello@skillfleet.org"
           className="clay-button inline-flex h-10 shrink-0 items-center bg-cta px-5 text-sm font-semibold text-white"
         >
-          contact@skillfleet.org
+          hello@skillfleet.org
         </a>
       </div>
     </div>

@@ -122,7 +122,7 @@ export default function Footer() {
               <li className="flex items-start gap-2.5">
                 <Mail className="w-4 h-4 text-white/40 mt-0.5 shrink-0" />
                 <span className="text-sm text-white/50">
-                  contact@skillfleet.org
+                  hello@skillfleet.org
                 </span>
               </li>
               <li className="flex items-start gap-2.5">

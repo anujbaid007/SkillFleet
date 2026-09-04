@@ -40,7 +40,7 @@ const faqs = [
   {
     question: "How do I enroll my child?",
     answer:
-      "You can enroll by filling out the registration form on our website or contacting us at contact@skillfleet.org. Share your child's age, grade, and interests, and our team will recommend the best programs to get started.",
+      "You can enroll by filling out the registration form on our website or contacting us at hello@skillfleet.org. Share your child's age, grade, and interests, and our team will recommend the best programs to get started.",
   },
   {
     question: "Are scholarships available?",

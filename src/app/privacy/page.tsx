@@ -60,7 +60,7 @@ export default function PrivacyPage() {
                 <LegalList
                   items={[
                     <>Address: HQ27 The Headquarters, Gurugram, Haryana 122009, India</>,
-                    <>Email: {mail('contact@skillfleet.org')}</>,
+                    <>Email: {mail('hello@skillfleet.org')}</>,
                     <>Phone: +91 8076314479 (Mon–Sat, 9am–7pm IST)</>,
                   ]}
                 />
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
                     <>
                       <strong>Parents can ask us anything about their child&apos;s data</strong> —
                       what we hold, why, and to correct or delete it. Write to{' '}
-                      {mail('contact@skillfleet.org')} from the parent email on the account.
+                      {mail('hello@skillfleet.org')} from the parent email on the account.
                     </>,
                   ]}
                 />
@@ -193,7 +193,7 @@ export default function PrivacyPage() {
                   booking you have made, we process what is necessary to deliver it.
                 </p>
                 <p>
-                  You may withdraw consent at any time by writing to {mail('contact@skillfleet.org')}
+                  You may withdraw consent at any time by writing to {mail('hello@skillfleet.org')}
                   . Withdrawing consent does not undo processing that already happened, and it may
                   mean we can no longer provide part of the service — for example, we cannot keep a
                   Championship entry in judging if you withdraw consent to it being judged.
@@ -292,7 +292,7 @@ export default function PrivacyPage() {
                 />
                 <p>
                   A parent or guardian may exercise these rights for their child. Write to{' '}
-                  {mail('contact@skillfleet.org')} and we will respond as quickly as we can.
+                  {mail('hello@skillfleet.org')} and we will respond as quickly as we can.
                 </p>
               </>
             ),
@@ -323,7 +323,7 @@ export default function PrivacyPage() {
                 </p>
                 <LegalList
                   items={[
-                    <>Email: {mail('contact@skillfleet.org')}</>,
+                    <>Email: {mail('hello@skillfleet.org')}</>,
                     <>Post: Grievance Officer, SkillFleet, HQ27 The Headquarters, Gurugram, Haryana 122009</>,
                   ]}
                 />

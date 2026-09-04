@@ -69,7 +69,7 @@ export default function TermsPage() {
                 items={[
                   'Give us accurate details, and keep them up to date. School, class and date of birth decide what you are eligible for, so wrong details can invalidate a booking or an entry.',
                   'Keep your password to yourself. You are responsible for what happens under your account.',
-                  'Tell us straight away at contact@skillfleet.org if you think somebody else has got into your account.',
+                  'Tell us straight away at hello@skillfleet.org if you think somebody else has got into your account.',
                   'You can ask us to close your account at any time.',
                 ]}
               />
@@ -91,7 +91,7 @@ export default function TermsPage() {
                 <p className="rounded-xl bg-accent-yellow/10 px-4 py-3 text-sm">
                   <strong>Cancellation and refund terms are still to be finalised.</strong> Until
                   they are published here, if you need to cancel a booking, contact us at{' '}
-                  {mail('contact@skillfleet.org')} and we will deal with it case by case.
+                  {mail('hello@skillfleet.org')} and we will deal with it case by case.
                 </p>
               </>
             ),
@@ -150,7 +150,7 @@ export default function TermsPage() {
                   entry, show it to judges, and — if you are among the winners — publish or feature
                   your name, school and winning entry in connection with the Championship. You can
                   ask us to stop featuring your work at any time by writing to{' '}
-                  {mail('contact@skillfleet.org')}, though we cannot withdraw material already
+                  {mail('hello@skillfleet.org')}, though we cannot withdraw material already
                   printed or broadcast.
                 </p>
               </>
@@ -236,7 +236,7 @@ export default function TermsPage() {
               <>
                 <LegalList
                   items={[
-                    <>Email: {mail('contact@skillfleet.org')}</>,
+                    <>Email: {mail('hello@skillfleet.org')}</>,
                     <>Phone: +91 8076314479 (Mon–Sat, 9am–7pm IST)</>,
                     <>Championship helpline: +91 9601443663</>,
                     <>Post: SkillFleet, HQ27 The Headquarters, Gurugram, Haryana 122009</>,
