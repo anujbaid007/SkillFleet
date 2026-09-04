@@ -480,6 +480,24 @@ end $$;
 -- NULLABLE in the result -- render it as "no account" rather than assuming a
 -- string. Such a profile is also unfindable by email, since its email is null;
 -- searching by name or phone still reaches it. Query 5 in section F counts them.
+--
+-- PERFORMANCE, stated here because it is a property of the design and not a
+-- thing to tune later: p_q is a substring search ORed across four columns, so
+-- admin_users_page WITH A QUERY IS A SEQUENTIAL SCAN of user_profiles joined to
+-- a sequential scan of auth.users, at every scale. Measured at 200k profiles it
+-- is ~350-410 ms, which is fine for an admin-only screen; there is no plan here
+-- to be disappointed by. Section F item 6 shows the real plan.
+--
+-- Adding trigram indexes to phone, school_name and auth.users.email DOES NOT
+-- FIX IT -- measured, 68 ms to 67 ms, the same Hash Left Join over two
+-- sequential scans. A BitmapOr cannot span two tables, and one branch of the OR
+-- lives on auth.users, so the whole predicate stays a filter no matter how many
+-- indexes exist. Drop the u.email branch from the query and it immediately
+-- becomes a BitmapOr over three Bitmap Index Scans. So the only remedy that
+-- works is to put every searched value on ONE table: denormalise the email onto
+-- user_profiles, or add a generated search_text column there
+-- (full_name || ' ' || email || ' ' || phone || ' ' || school_name) with a
+-- single gin_trgm_ops index, and search that one column.
 create or replace function admin_users_page(
   p_q text default null, p_role text default null, p_onboarded boolean default null,
   p_sort text default 'created_desc', p_page int default 1, p_size int default 50
@@ -518,8 +536,12 @@ end $$;
 
 -- The admin command-bar lookup. Three independent top-N lists in one round
 -- trip, so the caller gets up to 3 * p_limit rows and groups them by `kind`.
--- Under two characters it returns NOTHING: 'a' matches most of the database and
--- costs three trigram scans to say so.
+-- Under two characters it returns NOTHING, because saying so is not cheap:
+-- 'a' matches most of the database, and only the schools branch is a trigram
+-- scan. The student and coordinator branches OR a name, an email on auth.users
+-- and a phone together, which no single index can serve (see the note above
+-- admin_users_page), so each is a sequential scan of user_profiles joined to a
+-- sequential scan of auth.users.
 create or replace function admin_search(p_q text, p_limit int default 10)
 returns table(kind text, id uuid, title text, subtitle text)
 language plpgsql security definer set search_path = public as $$
@@ -715,7 +737,20 @@ end $$;
 --      order by e.created_at desc, e.id desc limit 50;
 --
 --      explain analyze
---      select p.id from user_profiles p
---      where p.role = 'student' and lower(coalesce(p.full_name, '')) like '%sharma%'
---      limit 50;
+--      select p.id, count(*) over () from user_profiles p
+--      left join auth.users u on u.id = p.id
+--      where p.role = 'student'
+--        and (lower(coalesce(p.full_name, '')) like '%sharma%'
+--             or lower(coalesce(u.email, '')) like '%sharma%'
+--             or coalesce(p.phone, '') like '%sharma%'
+--             or lower(coalesce(p.school_name, '')) like '%sharma%')
+--      order by p.created_at desc, p.id limit 50;
+--
+--    That second one is the ONLY probe here that is SUPPOSED to show a
+--    sequential scan -- two of them, on user_profiles and on auth.users. That is
+--    correct and accepted for an admin-only search; see the note above
+--    admin_users_page in section E for why no index can help and what would.
+--    Do not shorten it to the full_name branch alone: that one predicate does
+--    use user_profiles_name_trgm, and measuring it would tell you the users page
+--    is index-backed when it is not.
 -- ---------------------------------------------------------------

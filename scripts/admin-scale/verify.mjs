@@ -984,17 +984,19 @@ CHECKS.push(() => check('the trigram indexes fit the expressions the functions s
     if (!/schools_name_trgm/.test(schools)) throw new Error(`admin_search's school search cannot use schools_name_trgm:\n${schools}`)
   } finally { await db.exec('set enable_seqscan = on') }
   // Honest counterpart, asserted so nobody reads the two lines above as a promise
-  // the users page is index-backed: it is not. p_q ORs four columns together,
-  // three of which have no substring index at all, so the whole predicate is a
-  // filter over a sequential scan at every scale. If that ever needs fixing it
-  // needs a trigram index per searched column (so the planner can BitmapOr them)
-  // or one generated search_text column with one index -- not a tweak here.
+  // the users page is index-backed: it is not. p_q ORs four columns together and
+  // one of them lives on auth.users, so a BitmapOr cannot span the predicate and
+  // it stays a filter over two sequential scans at every scale. Per-column
+  // trigram indexes do NOT change that (measured: 68 ms to 67 ms). The caveat
+  // and the remedy that does work are written where the founder will actually
+  // read them -- the note above admin_users_page in section E of
+  // docs/admin-scale-migration.sql, and section F item 6.
   const real = await plan(`select p.id, count(*) over () from user_profiles p left join auth.users u on u.id = p.id
     where p.role = 'student' and (lower(coalesce(p.full_name,'')) like '%student 12%' or lower(coalesce(u.email,'')) like '%student 12%'
       or coalesce(p.phone,'') like '%student 12%' or lower(coalesce(p.school_name,'')) like '%student 12%')
     order by p.created_at desc, p.id limit 50`)
   if (!/Seq Scan on user_profiles/.test(real))
-    throw new Error(`the four-column OR is no longer a sequential scan -- good news, but update this check and the note in section E:\n${real}`)
+    throw new Error(`the four-column OR is no longer a sequential scan -- good news, but update this check, the PERFORMANCE note above admin_users_page in section E, and section F item 6:\n${real}`)
 }))
 
 CHECKS.push(() => check('admin_search', async () => {
