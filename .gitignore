@@ -56,3 +56,7 @@ client_secret_*.json
 .open-next
 .dev.vars*
 .wrangler
+
+# Isolated workspaces for large in-progress work
+.worktrees/
+.superpowers/
