@@ -290,6 +290,187 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------
+-- D. Roster pages, export chunks, cold schools
+--
+-- THE PAGING CONTRACT, shared by everything in sections D and E:
+--
+--   * p_page is 1-BASED. 0, a negative number or null all mean page 1.
+--   * p_size is clamped INSIDE the SQL -- 200 for a page, 1000 for an export
+--     chunk -- so no caller can ask for the whole table in one request. A null
+--     or out-of-range size becomes the default.
+--   * `total` is count(*) over (): how many rows the SAME filters match in
+--     total, not how many are on this page. An empty page has no rows at all
+--     and therefore carries no `total` -- read "no rows" as total 0.
+--   * EVERY sort key is made TOTAL by appending the primary key. Ordering by
+--     created_at alone is not a total order here: 800k entries share 28
+--     distinct created_at values and 200k profiles share ~9600, so a page
+--     boundary landing inside a tie group would silently drop some rows and
+--     repeat others. `order by created_at desc, id desc` is what makes
+--     offset paging lossless.
+--   * The expensive per-row work (member_count) is computed OUTSIDE the LIMIT,
+--     in a select over the already-paged CTE. Written the obvious way -- the
+--     subquery sitting in the same select list as `count(*) over ()` -- whether
+--     it runs 50 times or 800,000 times is a COST DECISION: Postgres 17 does
+--     postpone it above the sort with a Result node (measured: 50 loops), but
+--     nothing makes it. Paging first and then computing makes it structural.
+--
+-- member_count counts MEMBER ROWS on the entry that are either the leader or an
+-- accepted invitee -- the team as it actually stands. Note it does not also
+-- require m.user_id is not null the way section C's `started` does: section C
+-- counts distinct PEOPLE and cannot count a row with no person, while here an
+-- accepted row with no user_id would still be a seat filled. The two therefore
+-- disagree by exactly the number of accepted member rows with a null user_id,
+-- which should be zero; query 3 in section F tells you whether it is.
+-- ---------------------------------------------------------------
+create or replace function admin_isc_roster(
+  p_state text default null, p_district text default null, p_school_id uuid default null,
+  p_track text default null, p_status text default null, p_division text default null,
+  p_language text default null, p_q text default null, p_page int default 1, p_size int default 50
+) returns table(
+  id uuid, track text, status text, division text, language text, school_id uuid, school_name text,
+  leader_id uuid, leader_name text, member_count bigint, created_at timestamptz, submitted_at timestamptz, total bigint
+) language plpgsql security definer set search_path = public as $$
+declare v_size int    := least(greatest(coalesce(p_size, 50), 1), 200);
+        -- bigint: (p_page - 1) * v_size overflows a 32-bit int somewhere past
+        -- page 10,737,419, and an overflow is an error, not an empty page.
+        v_off  bigint := (greatest(coalesce(p_page, 1), 1)::bigint - 1) * v_size;
+        v_q    text   := nullif(lower(trim(coalesce(p_q, ''))), '');
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_isc_roster';
+  end if;
+  return query
+  with page as (
+    select e.id, e.track, e.status, e.division, e.submission->>'language' as language,
+           e.school_id, s.name as school_name, e.created_by as leader_id, p.full_name as leader_name,
+           e.created_at, e.submitted_at, count(*) over () as n_total
+    from isc_entries e
+    join schools s on s.id = e.school_id
+    left join user_profiles p on p.id = e.created_by
+    where (p_school_id is null or e.school_id = p_school_id)
+      and (p_school_id is not null or p_state is null or s.state = p_state)
+      and (p_school_id is not null or p_district is null or s.district = p_district)
+      and (p_track is null or e.track = p_track)
+      and (p_status is null or e.status = p_status)
+      and (p_division is null or e.division = p_division)
+      and (p_language is null or e.submission->>'language' = p_language)
+      and (v_q is null
+           or lower(coalesce(p.full_name, '')) like '%' || v_q || '%'
+           or lower(s.name) like '%' || v_q || '%')
+    order by e.created_at desc, e.id desc
+    limit v_size offset v_off
+  )
+  select pg.id, pg.track, pg.status, pg.division, pg.language, pg.school_id, pg.school_name,
+         pg.leader_id, pg.leader_name,
+         (select count(*) from isc_entry_members m
+           where m.entry_id = pg.id and (m.is_leader or m.accepted_at is not null)),
+         pg.created_at, pg.submitted_at, pg.n_total
+  from page pg
+  order by pg.created_at desc, pg.id desc;
+end $$;
+
+-- The export walks the SAME ordering as the roster with a keyset cursor instead
+-- of an offset, so a 40,000-row download is 40 requests that each cost the same
+-- as the first -- an OFFSET 39950 has to count past 39,950 rows to throw them
+-- away. Feed the last row of a chunk back in as (p_after_created, p_after_id)
+-- and stop when a chunk comes back shorter than p_size.
+--
+-- Two refusals, both deliberate:
+--   * A national export is REFUSED. Without a state or a school this pulls
+--     800,000 rows through PostgREST one 1000-row chunk at a time and nobody
+--     meant to do it.
+--   * Half a cursor is REFUSED. (created_at, id) < (ts, null) is NULL for every
+--     row, so a chunk with p_after_id lost would come back empty and the export
+--     would look finished; an id with no timestamp would restart from the top
+--     and loop forever.
+create or replace function admin_isc_export_chunk(
+  p_state text default null, p_district text default null, p_school_id uuid default null,
+  p_track text default null, p_status text default null, p_division text default null,
+  p_language text default null, p_q text default null,
+  p_after_created timestamptz default null, p_after_id uuid default null, p_size int default 1000
+) returns table(
+  id uuid, track text, status text, division text, language text, school_id uuid, school_name text,
+  leader_id uuid, leader_name text, member_count bigint, created_at timestamptz, submitted_at timestamptz
+) language plpgsql security definer set search_path = public as $$
+declare v_size int  := least(greatest(coalesce(p_size, 1000), 1), 1000);
+        v_q    text := nullif(lower(trim(coalesce(p_q, ''))), '');
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_isc_export_chunk';
+  end if;
+  if p_state is null and p_school_id is null then
+    raise exception 'admin_isc_export_chunk: an export needs a state or a school. A national export would stream every entry in the country; pick a scope.';
+  end if;
+  if (p_after_created is null) <> (p_after_id is null) then
+    raise exception 'admin_isc_export_chunk: the cursor is (p_after_created, p_after_id) and needs both halves or neither. Pass the created_at AND the id of the last row of the previous chunk.';
+  end if;
+  return query
+  with page as (
+    select e.id, e.track, e.status, e.division, e.submission->>'language' as language,
+           e.school_id, s.name as school_name, e.created_by as leader_id, p.full_name as leader_name,
+           e.created_at, e.submitted_at
+    from isc_entries e
+    join schools s on s.id = e.school_id
+    left join user_profiles p on p.id = e.created_by
+    where (p_school_id is null or e.school_id = p_school_id)
+      and (p_school_id is not null or p_state is null or s.state = p_state)
+      and (p_school_id is not null or p_district is null or s.district = p_district)
+      and (p_track is null or e.track = p_track)
+      and (p_status is null or e.status = p_status)
+      and (p_division is null or e.division = p_division)
+      and (p_language is null or e.submission->>'language' = p_language)
+      and (v_q is null
+           or lower(coalesce(p.full_name, '')) like '%' || v_q || '%'
+           or lower(s.name) like '%' || v_q || '%')
+      and (p_after_created is null or (e.created_at, e.id) < (p_after_created, p_after_id))
+    order by e.created_at desc, e.id desc
+    limit v_size
+  )
+  select pg.id, pg.track, pg.status, pg.division, pg.language, pg.school_id, pg.school_name,
+         pg.leader_id, pg.leader_name,
+         (select count(*) from isc_entry_members m
+           where m.entry_id = pg.id and (m.is_leader or m.accepted_at is not null)),
+         pg.created_at, pg.submitted_at
+  from page pg
+  order by pg.created_at desc, pg.id desc;
+end $$;
+
+-- Schools with eligible students and not one entry -- the outreach list.
+--
+-- The join to user_profiles is INNER on purpose, so a school with no eligible
+-- students at all is NOT listed. That is a different problem with a different
+-- fix (nobody has signed up yet), and putting a thousand zero-student schools
+-- at the bottom of this list would bury the ones worth phoning. Query 4 in
+-- section F counts them, if you want to see them.
+create or replace function admin_isc_cold_schools(
+  p_state text default null, p_district text default null, p_page int default 1, p_size int default 20
+) returns table(id uuid, name text, state text, district text, eligible bigint, coordinator_status text, total bigint)
+language plpgsql security definer set search_path = public as $$
+declare v_size int    := least(greatest(coalesce(p_size, 20), 1), 200);
+        v_off  bigint := (greatest(coalesce(p_page, 1), 1)::bigint - 1) * v_size;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_isc_cold_schools';
+  end if;
+  return query
+  select s.id, s.name, s.state, s.district, count(p.id), s.coordinator_status, count(*) over ()
+  from schools s
+  join user_profiles p on p.school_id = s.id and p.role = 'student'
+                      and isc_division_for_class(p.school_class) is not null
+  where (p_state is null or s.state = p_state)
+    and (p_district is null or s.district = p_district)
+    and not exists (select 1 from isc_entries e where e.school_id = s.id)
+  group by s.id
+  -- s.id last: two schools can share a name, and without a total order the
+  -- same school can appear on two pages while another appears on none.
+  order by count(p.id) desc, s.name, s.id
+  limit v_size offset v_off;
+end $$;
+
+-- ---------------------------------------------------------------
 -- F. Run these on the live project before trusting any admin figure
 --
 -- NOTE to whoever appends section E's EXPLAIN checks: they belong in THIS
