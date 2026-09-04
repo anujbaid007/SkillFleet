@@ -10,7 +10,7 @@ const STAGES = [
   {
     n: '02',
     title: 'State championship',
-    body: `The top three in every championship and division go through — up to ${SCHOOL_QUALIFIERS} entries from one school. A wildcard route is open too.`,
+    body: `The top three in every championship and division go through — up to ${SCHOOL_QUALIFIERS} entries from one school.`,
     note: 'Opens later',
   },
   {

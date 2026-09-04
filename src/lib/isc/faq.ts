@@ -196,7 +196,7 @@ export function buildIscFaq({
           q: 'How do the rounds work?',
           a: [
             'School level: enter online, free. Skill Fleet judges every entry centrally, and a school can send as many entries as it likes.',
-            `State championship: ${SCHOOL_QUALIFIER_NOTE} There is a wildcard route as well, and we will publish how it works nearer the time.`,
+            `State championship: ${SCHOOL_QUALIFIER_NOTE}`,
             'National finals: the top three in every championship and division from every state meet in person in April 2027.',
           ],
         },
