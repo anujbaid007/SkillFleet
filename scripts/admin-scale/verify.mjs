@@ -831,6 +831,407 @@ CHECKS.push(() => check('TIMING admin_isc_export_chunk() 1000 rows', async () =>
 CHECKS.push(() => check('TIMING admin_isc_cold_schools() national', async () => {
   await db.query(`select * from admin_isc_cold_schools(p_size => 20)`)
 }))
+
+// ---------------------------------------------------------------------------
+// Task 5 — section E (admin_users_page, admin_search, admin_dashboard,
+//                     admin_similar_schools_batch)
+// ---------------------------------------------------------------------------
+
+// user_profiles.created_at is far from unique -- the seeder gives 200k profiles
+// ~9600 distinct values, and production will have whole batches signed up in the
+// same second -- so the fixture below makes EVERY row share one created_at. That
+// turns `order by created_at desc` into a pure tie and the paging is lossless
+// only because of the `p.id` tie-break.
+const USERS_FIXTURE = { n: 12, at: '2026-06-01T12:00:00Z' }
+const uf = (n) => `e3e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+async function withUsersFixture(fn) {
+  await db.exec('begin')
+  try {
+    const rows = []
+    for (let i = 0; i < USERS_FIXTURE.n; i++) {
+      // The name order is the REVERSE of the id order, so name_asc and
+      // created_desc cannot accidentally agree.
+      rows.push([uf(i), 'student', `Zzfixture ${String(USERS_FIXTURE.n - 1 - i).padStart(2, '0')}`,
+        `55500${String(i).padStart(5, '0')}`, 'Class 9', 'Fixtureland', 'Fixtureland District 1',
+        `Zzfixture School ${i % 2}`, i % 3 === 0, USERS_FIXTURE.at])
+    }
+    // Profile 7 has NO auth.users row: a deleted account, or a half-finished
+    // signup. It must still be listed, with a null email.
+    const auth = rows.filter((r) => r[0] !== uf(7)).map((r) => [r[0], `${r[0].slice(0, 8)}.${r[2].replace(' ', '')}@fixture.test`.toLowerCase()])
+    await db.query(`insert into auth.users (id, email) values ${auth.map((_, j) => `($${j * 2 + 1},$${j * 2 + 2})`).join(',')}`, auth.flat())
+    await db.query(`insert into user_profiles (id, role, full_name, phone, school_class, school_state, school_district, school_name, onboarding_completed, created_at)
+      values ${rows.map((_, j) => `(${Array.from({ length: 10 }, (_, k) => `$${j * 10 + k + 1}`).join(',')})`).join(',')}`, rows.flat())
+    await fn(rows)
+  } finally { await db.exec('rollback') }
+}
+
+CHECKS.push(() => check('admin_users_page pages are lossless and totally ordered', async () => {
+  await withUsersFixture(async () => {
+    const ids = Array.from({ length: USERS_FIXTURE.n }, (_, i) => uf(i))
+    const walk = async (sort, size) => {
+      const seen = [], totals = []
+      for (let page = 1; page <= 20; page++) {
+        const { rows } = await db.query(
+          `select * from admin_users_page(p_q => 'zzfixture', p_sort => $1, p_page => $2, p_size => $3)`, [sort, page, size])
+        if (!rows.length) return { seen, totals }
+        for (const r of rows) { seen.push(r.id); totals.push(Number(r.total)) }
+      }
+      throw new Error('paging did not terminate')
+    }
+    for (const sort of ['created_desc', 'created_asc', 'name_asc']) {
+      const { seen, totals } = await walk(sort, 5)
+      assertEqual(new Set(seen).size, seen.length, `${sort}: no profile appeared on two pages`)
+      assertEqual([...seen].sort(), [...ids].sort(), `${sort}: the walk covered every profile exactly once`)
+      assertEqual(totals, Array(USERS_FIXTURE.n).fill(USERS_FIXTURE.n), `${sort}: total is the whole match set on every page`)
+    }
+    // Every row shares one created_at, so created_desc and created_asc both fall
+    // through to the id tie-break and name_asc must be the reverse of it.
+    assertEqual((await walk('created_desc', 5)).seen, ids, 'created_desc order')
+    assertEqual((await walk('created_asc', 5)).seen, ids, 'created_asc order (same timestamp everywhere)')
+    assertEqual((await walk('name_asc', 5)).seen, [...ids].reverse(), 'name_asc order')
+    // An unrecognised sort falls back to created_desc rather than erroring.
+    assertEqual((await walk('nonsense', 5)).seen, ids, 'an unknown p_sort behaves like created_desc')
+  })
+}))
+
+CHECKS.push(() => check('admin_users_page: filters, caps and the auth.users join', async () => {
+  await withUsersFixture(async (rows) => {
+    const q = async (args, params = []) => (await db.query(`select * from admin_users_page(${args})`, params)).rows
+    // The email comes from auth.users...
+    const all = await q(`p_q => 'zzfixture', p_size => 50`)
+    assertEqual(all.length, USERS_FIXTURE.n, 'every fixture profile is listed')
+    // ...and a profile whose auth row is missing is STILL LISTED, with a null
+    // email, rather than being silently dropped by an inner join.
+    const orphan = all.find((r) => r.id === uf(7))
+    if (!orphan) throw new Error('a profile with no auth.users row vanished from the users page')
+    assertEqual(orphan.email, null, 'a profile with no auth row has a null email')
+    if (all.filter((r) => r.email === null).length !== 1) throw new Error('exactly one fixture profile should lack an email')
+    for (const r of all.filter((r) => r.id !== uf(7)))
+      if (!/@fixture\.test$/.test(r.email)) throw new Error(`bad email ${r.email} for ${r.id}`)
+    // Searching by email finds a profile that HAS one; the orphan is unreachable
+    // that way, which is why the name and phone branches matter.
+    assertEqual((await q(`p_q => $1, p_size => 50`, [all[0].email])).map((r) => r.id), [all[0].id], 'search by email')
+    assertEqual((await q(`p_q => '5550000007', p_size => 50`)).map((r) => r.id), [uf(7)], 'search by phone reaches the orphan')
+    assertEqual((await q(`p_q => 'zzfixture school 1', p_size => 50`)).map((r) => r.id).sort(),
+      rows.filter((r) => r[7] === 'Zzfixture School 1').map((r) => r[0]).sort(), 'search by school_name')
+    // Case and surrounding whitespace do not matter; an empty query is not a filter.
+    assertEqual((await q(`p_q => '  ZZFIXTURE  ', p_size => 50`)).length, USERS_FIXTURE.n, 'the query is trimmed and case-folded')
+    const blank = await q(`p_q => '   ', p_size => 1`)
+    assertEqual(Number(blank[0].total), (await q(`p_size => 1`)).map((r) => Number(r.total))[0], 'a blank query filters nothing')
+    // onboarding filter, both ways.
+    const onb = rows.filter((r) => r[8]).map((r) => r[0]).sort()
+    assertEqual((await q(`p_q => 'zzfixture', p_onboarded => true, p_size => 50`)).map((r) => r.id).sort(), onb, 'p_onboarded true')
+    assertEqual((await q(`p_q => 'zzfixture', p_onboarded => false, p_size => 50`)).map((r) => r.id).sort(),
+      rows.filter((r) => !r[8]).map((r) => r[0]).sort(), 'p_onboarded false')
+    if (!(onb.length > 0 && onb.length < USERS_FIXTURE.n)) throw new Error('the onboarding filter is not discriminating anything')
+    // role filter
+    assertEqual((await q(`p_q => 'zzfixture', p_role => 'coordinator', p_size => 50`)).length, 0, 'no fixture coordinators')
+    assertEqual((await q(`p_q => 'zzfixture', p_role => 'student', p_size => 50`)).length, USERS_FIXTURE.n, 'p_role student')
+    // The other columns are the profile's own.
+    const one = all.find((r) => r.id === uf(3))
+    assertEqual([one.full_name, one.role, one.school_name, one.school_state, one.school_class, one.onboarding_completed, String(one.created_at)],
+      ['Zzfixture 08', 'student', 'Zzfixture School 1', 'Fixtureland', 'Class 9', true, String(new Date(USERS_FIXTURE.at))], 'row contents')
+  })
+  // Against the seeded data, at whatever scale: the total must equal an
+  // independently written count with the same predicates.
+  const total = async (args, params = []) => {
+    const { rows } = await db.query(`select * from admin_users_page(${args})`, params)
+    return rows.length ? Number(rows[0].total) : 0
+  }
+  const { rows: [ref] } = await db.query(`select
+      count(*)::int all_rows,
+      count(*) filter (where p.role = 'student')::int students,
+      count(*) filter (where p.role = 'student' and not p.onboarding_completed)::int not_onboarded,
+      count(*) filter (where lower(coalesce(p.full_name,'')) like '%student 12%'
+                          or lower(coalesce(u.email,'')) like '%student 12%'
+                          or coalesce(p.phone,'') like '%student 12%'
+                          or lower(coalesce(p.school_name,'')) like '%student 12%')::int q12
+    from user_profiles p left join auth.users u on u.id = p.id`)
+  assertEqual(await total(`p_size => 1`), ref.all_rows, 'unfiltered total')
+  assertEqual(await total(`p_role => 'student', p_size => 1`), ref.students, 'role total')
+  assertEqual(await total(`p_role => 'student', p_onboarded => false, p_size => 1`), ref.not_onboarded, 'role + onboarded total')
+  assertEqual(await total(`p_q => 'student 12', p_size => 1`), ref.q12, 'q total across name, email, phone and school_name')
+  if (!(ref.not_onboarded > 0 && ref.not_onboarded < ref.students)) throw new Error('the onboarding filter is vacuous on this seed')
+  // Caps and page edges.
+  const n = async (args, params = []) => (await db.query(`select * from admin_users_page(${args})`, params)).rows.length
+  assertEqual(await n(`p_size => 5000`), 200, 'p_size is capped at 200')
+  assertEqual(await n(`p_size => 0`), 1, 'p_size 0 becomes 1')
+  const p1 = await db.query(`select id from admin_users_page(p_page => 1, p_size => 3)`)
+  for (const page of [0, -3, null])
+    assertEqual((await db.query(`select id from admin_users_page(p_page => $1::int, p_size => 3)`, [page])).rows.map((r) => r.id),
+      p1.rows.map((r) => r.id), `page ${page} is page 1`)
+  assertEqual(await n(`p_page => 2000000000, p_size => 200`), 0, 'an absurd page number is empty, not an error')
+}))
+
+CHECKS.push(() => check('the trigram indexes fit the expressions the functions search with', async () => {
+  // A gin_trgm_ops index only helps a `like '%x%'` when the indexed expression is
+  // written EXACTLY as the query writes it: change `lower(coalesce(full_name,''))`
+  // to `lower(full_name)` in either place and the index silently stops being
+  // usable, with no error and no failing test anywhere else.
+  //
+  // enable_seqscan is turned off for the plan, on purpose. Whether the planner
+  // PICKS the index is a costing question -- on 2,000 rows a sequential scan
+  // really is cheaper -- but whether it CAN is the thing that must not rot.
+  const plan = async (sql) => {
+    const { rows } = await db.query(`explain ${sql}`)
+    return rows.map((r) => Object.values(r)[0]).join('\n')
+  }
+  await db.exec('set enable_seqscan = off')
+  try {
+    const users = await plan(`select p.id from user_profiles p where lower(coalesce(p.full_name, '')) like '%student 12%'`)
+    if (!/user_profiles_name_trgm/.test(users)) throw new Error(`admin_users_page's name search cannot use user_profiles_name_trgm:\n${users}`)
+    const schools = await plan(`select s.id from schools s where lower(s.name) like '%school 12%'`)
+    if (!/schools_name_trgm/.test(schools)) throw new Error(`admin_search's school search cannot use schools_name_trgm:\n${schools}`)
+  } finally { await db.exec('set enable_seqscan = on') }
+  // Honest counterpart, asserted so nobody reads the two lines above as a promise
+  // the users page is index-backed: it is not. p_q ORs four columns together,
+  // three of which have no substring index at all, so the whole predicate is a
+  // filter over a sequential scan at every scale. If that ever needs fixing it
+  // needs a trigram index per searched column (so the planner can BitmapOr them)
+  // or one generated search_text column with one index -- not a tweak here.
+  const real = await plan(`select p.id, count(*) over () from user_profiles p left join auth.users u on u.id = p.id
+    where p.role = 'student' and (lower(coalesce(p.full_name,'')) like '%student 12%' or lower(coalesce(u.email,'')) like '%student 12%'
+      or coalesce(p.phone,'') like '%student 12%' or lower(coalesce(p.school_name,'')) like '%student 12%')
+    order by p.created_at desc, p.id limit 50`)
+  if (!/Seq Scan on user_profiles/.test(real))
+    throw new Error(`the four-column OR is no longer a sequential scan -- good news, but update this check and the note in section E:\n${real}`)
+}))
+
+CHECKS.push(() => check('admin_search', async () => {
+  const S = (n) => `e4e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const U = (n) => `e5e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  await db.exec('begin')
+  try {
+    await db.query(`insert into auth.users (id, email) values ($1,'zzsearch.coord@fixture.test'), ($2,'zzsearch.two@fixture.test'), ($3,'zzsearch.pupil@fixture.test')`,
+      [U(1), U(2), U(3)])
+    await db.query(`insert into user_profiles (id, role, full_name, phone, school_name, school_class) values
+      ($1,'coordinator','Zzsearch Coordinator One','5550100001',null,null),
+      ($2,'coordinator','Zzsearch Coordinator Two','5550100002',null,null),
+      ($3,'student','Zzsearch Pupil','5550100003','Zzsearch Public School','Class 11'),
+      ($4,'student',null,'5550100004',null,null)`, [U(1), U(2), U(3), U(4)])
+    await db.query(`insert into schools (id, name, state, district, affiliation_no, coordinator_id) values
+      ($1,'Zzsearch Public School','Searchland','Searchland District 1','AFF-99001',$3),
+      ($2,'Zzsearch Second School','Searchland','Searchland District 1',null,$3)`, [S(1), S(2), U(1)])
+
+    const rows = (await db.query(`select * from admin_search('zzsearch', 10)`)).rows
+    const kinds = (k) => rows.filter((r) => r.kind === k)
+    assertEqual(kinds('student').map((r) => [r.id, r.title, r.subtitle]),
+      [[U(3), 'Zzsearch Pupil', 'Zzsearch Public School - Class 11']], 'student hit')
+    assertEqual(kinds('school').map((r) => [r.id, r.title, r.subtitle]),
+      [[S(1), 'Zzsearch Public School', 'Searchland District 1, Searchland'],
+       [S(2), 'Zzsearch Second School', 'Searchland District 1, Searchland']], 'school hits')
+    // The coordinator who claimed TWO schools appears ONCE, not twice.
+    assertEqual(kinds('coordinator').map((r) => [r.id, r.title, r.subtitle]),
+      [[U(1), 'Zzsearch Coordinator One', 'Zzsearch Public School'],
+       [U(2), 'Zzsearch Coordinator Two', 'No school claimed']], 'coordinator hits, one row each')
+    // Search by email, by phone, and by affiliation number.
+    assertEqual((await db.query(`select kind, id from admin_search('zzsearch.two@fixture.test', 5)`)).rows,
+      [{ kind: 'coordinator', id: U(2) }], 'search by email')
+    assertEqual((await db.query(`select kind, id from admin_search('AFF-99001', 5)`)).rows,
+      [{ kind: 'school', id: S(1) }], 'search by affiliation number, case-insensitively')
+    // A profile with no name and no email is still returned with a usable title.
+    assertEqual((await db.query(`select kind, id, title from admin_search('5550100004', 5)`)).rows,
+      [{ kind: 'student', id: U(4), title: U(4) }], 'title falls back to the id, never null')
+    // Every row of every kind has a non-null title and subtitle.
+    for (const r of rows)
+      if (r.title === null || r.subtitle === null) throw new Error(`null title/subtitle: ${JSON.stringify(r)}`)
+  } finally { await db.exec('rollback') }
+
+  // The two-character floor, on the live data.
+  for (const q of ['', ' ', 'a', ' s ', null])
+    assertEqual((await db.query(`select * from admin_search($1)`, [q])).rows.length, 0, `search ${JSON.stringify(q)} returns nothing`)
+  const two = (await db.query(`select * from admin_search('sc', 5)`)).rows
+  if (!two.length) throw new Error('a two-character search must be allowed to answer')
+  // p_limit is per kind and capped at 25.
+  const wide = (await db.query(`select kind, count(*)::int n from admin_search('school', 100000) group by 1`)).rows
+  if (!wide.length) throw new Error("'school' matched nothing")
+  for (const r of wide) if (r.n > 25) throw new Error(`p_limit is not capped: ${r.kind} returned ${r.n}`)
+  if (!wide.some((r) => r.n === 25)) throw new Error('nothing reached the cap, so the cap is untested')
+  for (const r of (await db.query(`select kind, count(*)::int n from admin_search('school', 0) group by 1`)).rows)
+    if (r.n > 1) throw new Error(`p_limit 0 should clamp to 1, ${r.kind} returned ${r.n}`)
+  // Kinds are what the caller groups on, so they must be exactly these three.
+  const seenKinds = (await db.query(`select distinct kind from admin_search('s', 5) union select distinct kind from admin_search('school', 5)
+    union select distinct kind from admin_search('student', 5)`)).rows.map((r) => r.kind).sort()
+  for (const k of seenKinds) if (!['student', 'school', 'coordinator'].includes(k)) throw new Error(`unexpected kind ${k}`)
+}))
+
+CHECKS.push(() => check('admin_dashboard', async () => {
+  await db.exec('begin')
+  try {
+    // support_conversations is never seeded and admin_dashboard reads it, so
+    // active_support would be 0 == 0 and prove nothing. Three inside the window,
+    // two outside it.
+    await db.query(`insert into support_conversations (coordinator_id, last_message_at) values
+      (null, now() - interval '1 hour'), (null, now() - interval '2 days'), (null, now() - interval '6 days'),
+      (null, now() - interval '8 days'), (null, now() - interval '90 days')`)
+    // Nothing in the seed is pending review or has the coordinator role either.
+    await db.query(`insert into schools (id, name, state, district, review_status, coordinator_status) values
+      ('e6e00000-0000-4000-8000-000000000001','Dashboard Pending','Searchland','Searchland District 1','pending','pending')`)
+    await db.query(`insert into user_profiles (id, role, full_name) values ('e6e00000-0000-4000-8000-000000000002','coordinator','Dashboard Coordinator')`)
+
+    const { rows: [{ v }] } = await db.query(`select admin_dashboard() v`)
+    for (const k of ['pending_schools', 'pending_coordinators', 'pending_certificates', 'active_support', 'students',
+      'students_onboarded', 'coordinators', 'schools_approved', 'isc', 'top_states', 'stalled_states', 'timeline'])
+      if (!(k in v)) throw new Error(`admin_dashboard is missing ${k}`)
+    const { rows: [ref] } = await db.query(`select
+        (select count(*)::int from schools where review_status = 'pending') pending_schools,
+        (select count(*)::int from schools where coordinator_status = 'pending') pending_coordinators,
+        (select count(*)::int from certificate_uploads where status = 'pending') pending_certificates,
+        (select count(*)::int from support_conversations where last_message_at > now() - interval '7 days') active_support,
+        (select count(*)::int from user_profiles where role = 'student') students,
+        (select count(*)::int from user_profiles where role = 'student' and onboarding_completed) students_onboarded,
+        (select count(*)::int from user_profiles where role = 'coordinator') coordinators,
+        (select count(*)::int from schools where review_status = 'approved') schools_approved`)
+    for (const k of Object.keys(ref)) {
+      assertEqual(v[k], ref[k], `dashboard ${k}`)
+      if (typeof v[k] !== 'number') throw new Error(`${k} should be a JSON number, got ${typeof v[k]}`)
+    }
+    // Every counter must be discriminating something, or it is not being tested.
+    assertEqual(v.active_support, 3, 'active_support counts only the last seven days')
+    for (const k of ['pending_schools', 'pending_coordinators', 'pending_certificates', 'students', 'coordinators', 'schools_approved'])
+      if (!(v[k] > 0)) throw new Error(`${k} is 0, so comparing it to a reference proves nothing`)
+    if (!(v.students_onboarded > 0 && v.students_onboarded < v.students)) throw new Error('students_onboarded is not a strict subset')
+    assertEqual(v.isc, (await db.query(`select admin_isc_summary() v`)).rows[0].v, 'isc is the national summary verbatim')
+
+    // top_states / stalled_states are the same breakdown ordered two ways. The
+    // expected order is computed in SQL, not JS: `submitted::numeric / eligible`
+    // is exact numeric in Postgres and a float64 in JS, and the two can disagree
+    // about a tie.
+    await db.exec(`create temp table bd_ref on commit drop as select * from admin_isc_breakdown()`)
+    const order = async (where, dir) => (await db.query(
+      `select key from bd_ref where ${where} order by submitted::numeric / eligible ${dir}, eligible desc, key limit 5`)).rows.map((r) => r.key)
+    assertEqual(v.top_states.map((r) => r.key), await order('eligible > 0', 'desc'), 'top_states order')
+    assertEqual(v.stalled_states.map((r) => r.key), await order('eligible >= 50', 'asc'), 'stalled_states order')
+    if (!(v.top_states.length > 0)) throw new Error('top_states is empty, so its ordering proves nothing')
+    if (v.top_states.length > 5 || v.stalled_states.length > 5) throw new Error('at most five states in each list')
+    // ...and each element carries the whole breakdown row.
+    for (const list of [v.top_states, v.stalled_states])
+      for (const r of list) {
+        assertEqual(Object.keys(r).sort(), ['eligible', 'key', 'label', 'schools', 'started', 'submitted'], 'state row shape')
+        const { rows: [b] } = await db.query(`select * from bd_ref where key = $1`, [r.key])
+        assertEqual([r.label, r.eligible, r.started, r.submitted, r.schools],
+          [b.label, Number(b.eligible), Number(b.started), Number(b.submitted), Number(b.schools)], `state row ${r.key}`)
+      }
+    // timeline is admin_isc_timeline(7) verbatim, oldest day first.
+    // `day` is not a safe bare alias in Postgres -- `select x as day` or nothing.
+    const { rows: tl } = await db.query(`select to_char(t.day, 'YYYY-MM-DD') as day,
+        t.started::int as started, t.submitted::int as submitted
+      from admin_isc_timeline(null, null, null, 7) t`)
+    assertEqual(v.timeline.length, 7, 'seven-day timeline')
+    assertEqual(v.timeline, tl, 'the timeline is admin_isc_timeline(7), oldest day first')
+  } finally { await db.exec('rollback') }
+  assertEqual((await db.query(`select count(*)::int n from support_conversations`)).rows[0].n, 0, 'the fixture was rolled back')
+}))
+
+CHECKS.push(() => check('admin_similar_schools_batch', async () => {
+  const S = (n) => `e7e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  await db.exec('begin')
+  try {
+    // find_similar_schools only pairs schools in the SAME district with a trigram
+    // similarity over 0.3, which the seeder never produces below --schools 200.
+    // A deliberate near-duplicate pair makes this check mean something at every scale.
+    await db.query(`insert into schools (id, name, state, district, address, review_status) values
+      ($1,'Batchland Model School','Batchland','Batchland District 1','12 Batch Road','approved'),
+      ($2,'Batchland Model School Annexe','Batchland','Batchland District 1','12 Batch Road','pending'),
+      ($3,'Completely Different Place','Batchland','Batchland District 1','9 Elsewhere','approved')`,
+      [S(1), S(2), S(3)])
+    const ids = [S(1), S(2), S(3)]
+    const { rows } = await db.query(`select * from admin_similar_schools_batch($1)`, [ids])
+    if (!rows.length) throw new Error('the near-duplicate pair produced no matches at all')
+    for (const r of rows) if (!ids.includes(r.school_id)) throw new Error(`row for an unrequested school ${r.school_id}`)
+    // Batch == the per-school calls it replaces.
+    for (const id of ids) {
+      const { rows: one } = await db.query(`select id, name, address, review_status, score from find_similar_schools($1) order by score desc, id`, [id])
+      assertEqual(rows.filter((r) => r.school_id === id).map((r) => [r.similar_id, r.similar_name, r.similar_address, r.similar_review_status, r.score]),
+        one.map((r) => [r.id, r.name, r.address, r.review_status, r.score]), `batch matches find_similar_schools(${id})`)
+    }
+    assertEqual(rows.filter((r) => r.school_id === S(1)).map((r) => [r.similar_id, r.similar_review_status]),
+      [[S(2), 'pending']], 'the near-duplicate is found, with its review status')
+    assertEqual(rows.filter((r) => r.school_id === S(3)).length, 0, 'a school with no near-duplicate contributes no rows')
+    // Asking for one school returns rows for that school only.
+    const solo = (await db.query(`select * from admin_similar_schools_batch($1)`, [[S(1)]])).rows
+    assertEqual(solo.map((r) => r.school_id), [S(1)], 'a one-id batch stays on that id')
+    // Duplicated ids must not duplicate the matches.
+    assertEqual((await db.query(`select * from admin_similar_schools_batch($1)`, [[S(1), S(1), S(1)]])).rows.length, solo.length,
+      'a repeated id is not answered three times')
+  } finally { await db.exec('rollback') }
+  // Empty, null and unknown inputs, and the size cap.
+  for (const [label, arr] of [['empty', []], ['null', null], ['unknown id', ['e7e00000-0000-4000-8000-000000009999']], ['null element', [null]]])
+    assertEqual((await db.query(`select * from admin_similar_schools_batch($1::uuid[])`, [arr])).rows.length, 0, `${label} array returns no rows`)
+  const many = Array.from({ length: 201 }, (_, i) => `e7e00000-0000-4000-8000-${String(i).padStart(12, '0')}`)
+  let raised = null
+  try { await db.query(`select * from admin_similar_schools_batch($1)`, [many]) } catch (e) { raised = e.message }
+  if (!raised || !/at most 200 per call/.test(raised)) throw new Error(`201 ids should be refused, got: ${raised}`)
+  assertEqual((await db.query(`select count(*)::int n from admin_similar_schools_batch($1)`, [many.slice(0, 200)])).rows.length, 1, '200 ids are allowed')
+}))
+
+CHECKS.push(() => check('sections D and E are admin only', async () => {
+  // Every one of these reads children's records. A non-admin must get an
+  // exception, never an empty result that a caller could mistake for "no rows".
+  await db.exec(`create or replace function is_admin() returns boolean language sql as $x$ select false $x$`)
+  try {
+    const calls = [
+      `select * from admin_isc_roster()`,
+      `select * from admin_isc_export_chunk(p_state => 'Haryana')`,
+      `select * from admin_isc_cold_schools()`,
+      `select * from admin_users_page()`,
+      `select * from admin_search('sharma')`,
+      // ...including a query too short to answer: the gate must come FIRST, or a
+      // non-admin gets a silent empty set back and learns the function exists.
+      `select * from admin_search('a')`,
+      `select admin_dashboard()`,
+      `select * from admin_similar_schools_batch(null)`,
+      `select * from admin_similar_schools_batch(array(select id from schools limit 2))`,
+    ]
+    for (const sql of calls) {
+      let raised = null
+      try { await db.query(sql) } catch (e) { raised = e.message }
+      assertEqual(raised, 'admin only', `${sql} must refuse a non-admin`)
+    }
+  } finally {
+    await db.exec(`create or replace function is_admin() returns boolean language sql as $x$ select true $x$`)
+  }
+}))
+
+CHECKS.push(() => check('sections D and E survive a second apply', async () => {
+  // `create or replace function` only REPLACES when the signature matches to the
+  // argument type. Change one parameter and the second apply leaves TWO
+  // functions of the same name, and every call becomes "function is not unique".
+  // Everything above this line already ran against a twice-applied migration
+  // (the section B idempotency check re-execs the file); this pins the function
+  // definitions specifically.
+  await db.exec(MIGRATION_SQL)
+  const names = ['admin_isc_cold_schools', 'admin_isc_export_chunk', 'admin_isc_roster',
+    'admin_search', 'admin_similar_schools_batch', 'admin_users_page', 'admin_dashboard'].sort()
+  const { rows } = await db.query(
+    `select proname, count(*)::int n from pg_proc where proname = any($1) group by 1 order by 1`, [names])
+  assertEqual(rows.map((r) => [r.proname, r.n]), names.map((n) => [n, 1]), 'exactly one function of each name after a second apply')
+  for (const sql of [`select * from admin_isc_roster(p_size => 1)`, `select * from admin_isc_export_chunk(p_state => 'Haryana', p_size => 1)`,
+    `select * from admin_isc_cold_schools(p_size => 1)`, `select * from admin_users_page(p_size => 1)`,
+    `select * from admin_search('school', 1)`, `select admin_dashboard()`,
+    `select * from admin_similar_schools_batch(array(select id from schools order by id limit 2))`])
+    await db.query(sql)
+}))
+
+CHECKS.push(() => check('TIMING admin_users_page() page 1', async () => {
+  const { rows } = await db.query(`select * from admin_users_page(p_size => 50)`)
+  if (rows.length !== 50) throw new Error(`${rows.length} rows`)
+}))
+CHECKS.push(() => check('TIMING admin_users_page() search', async () => {
+  const { rows } = await db.query(`select * from admin_users_page(p_q => 'student 12', p_role => 'student', p_size => 50)`)
+  if (!rows.length) throw new Error('no rows')
+}))
+CHECKS.push(() => check('TIMING admin_search()', async () => {
+  const { rows } = await db.query(`select * from admin_search('school 12', 10)`)
+  if (!rows.length) throw new Error('no rows')
+}))
+CHECKS.push(() => check('TIMING admin_dashboard()', async () => {
+  const { rows: [{ v }] } = await db.query(`select admin_dashboard() v`)
+  if (!v || v.students === undefined) throw new Error('no dashboard')
+}))
+CHECKS.push(() => check('TIMING admin_similar_schools_batch() 20 schools', async () => {
+  await db.query(`select * from admin_similar_schools_batch(array(select id from schools order by id limit 20))`)
+}))
 // ============================================================================
 // RUNNER — KEEP THIS BLOCK LAST IN THE FILE. Add new checks above, not below.
 // ============================================================================

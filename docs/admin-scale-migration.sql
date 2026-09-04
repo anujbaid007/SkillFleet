@@ -471,15 +471,182 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------
+-- E. Users, search, dashboard, similar schools
+-- ---------------------------------------------------------------
+-- auth.users is LEFT joined, not joined. A profile whose auth row has gone
+-- (deleted user, half-finished signup, a restore that missed auth) is exactly
+-- the row an admin needs to find, and an inner join would hide it from the
+-- users page entirely with no error anywhere. The price is that `email` is
+-- NULLABLE in the result -- render it as "no account" rather than assuming a
+-- string. Such a profile is also unfindable by email, since its email is null;
+-- searching by name or phone still reaches it. Query 5 in section F counts them.
+create or replace function admin_users_page(
+  p_q text default null, p_role text default null, p_onboarded boolean default null,
+  p_sort text default 'created_desc', p_page int default 1, p_size int default 50
+) returns table(
+  id uuid, full_name text, email text, role text, school_name text, school_state text, school_class text,
+  onboarding_completed boolean, created_at timestamptz, total bigint
+) language plpgsql security definer set search_path = public as $$
+declare v_size int    := least(greatest(coalesce(p_size, 50), 1), 200);
+        v_off  bigint := (greatest(coalesce(p_page, 1), 1)::bigint - 1) * v_size;
+        v_q    text   := nullif(lower(trim(coalesce(p_q, ''))), '');
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  return query
+  select p.id, p.full_name, u.email, p.role, p.school_name, p.school_state, p.school_class,
+         p.onboarding_completed, p.created_at, count(*) over ()
+  from user_profiles p
+  left join auth.users u on u.id = p.id
+  where (p_role is null or p.role = p_role)
+    and (p_onboarded is null or p.onboarding_completed = p_onboarded)
+    and (v_q is null
+         or lower(coalesce(p.full_name, '')) like '%' || v_q || '%'
+         or lower(coalesce(u.email, '')) like '%' || v_q || '%'
+         or coalesce(p.phone, '') like '%' || v_q || '%'
+         or lower(coalesce(p.school_name, '')) like '%' || v_q || '%')
+  -- An unrecognised p_sort falls through to created_desc rather than erroring.
+  -- p.id last makes every one of the three orders total: user_profiles.created_at
+  -- is far from unique (~9600 distinct values across 200k rows at target scale),
+  -- and two students very often share a name.
+  order by
+    case when p_sort = 'name_asc' then lower(coalesce(p.full_name, '')) end asc,
+    case when p_sort = 'created_asc' then p.created_at end asc,
+    p.created_at desc,
+    p.id
+  limit v_size offset v_off;
+end $$;
+
+-- The admin command-bar lookup. Three independent top-N lists in one round
+-- trip, so the caller gets up to 3 * p_limit rows and groups them by `kind`.
+-- Under two characters it returns NOTHING: 'a' matches most of the database and
+-- costs three trigram scans to say so.
+create or replace function admin_search(p_q text, p_limit int default 10)
+returns table(kind text, id uuid, title text, subtitle text)
+language plpgsql security definer set search_path = public as $$
+declare v_q   text := lower(trim(coalesce(p_q, '')));
+        v_lim int  := least(greatest(coalesce(p_limit, 10), 1), 25);
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if length(v_q) < 2 then return; end if;
+  return query
+  -- title is never null: a profile with no name and no auth row still shows its
+  -- id, so a result is always clickable. subtitle is never null either, but
+  -- concat_ws returns '' when every part is null.
+  (select 'student'::text, p.id, coalesce(p.full_name, u.email, p.id::text),
+          concat_ws(' - ', p.school_name, p.school_class)
+   from user_profiles p
+   left join auth.users u on u.id = p.id
+   where p.role = 'student'
+     and (lower(coalesce(p.full_name, '')) like '%' || v_q || '%'
+          or lower(coalesce(u.email, '')) like '%' || v_q || '%'
+          or coalesce(p.phone, '') like '%' || v_q || '%')
+   order by p.full_name nulls last, p.id
+   limit v_lim)
+  union all
+  (select 'school'::text, s.id, s.name, concat_ws(', ', s.district, s.state)
+   from schools s
+   where lower(s.name) like '%' || v_q || '%'
+      or lower(coalesce(s.affiliation_no, '')) = v_q
+   order by s.name, s.id
+   limit v_lim)
+  union all
+  -- lateral, not a plain join to schools: a coordinator who has claimed two
+  -- schools would otherwise appear twice with the same id.
+  (select 'coordinator'::text, p.id, coalesce(p.full_name, u.email, p.id::text),
+          coalesce(sc.name, 'No school claimed')
+   from user_profiles p
+   left join auth.users u on u.id = p.id
+   left join lateral (select s.name from schools s where s.coordinator_id = p.id order by s.name, s.id limit 1) sc on true
+   where p.role = 'coordinator'
+     and (lower(coalesce(p.full_name, '')) like '%' || v_q || '%'
+          or lower(coalesce(u.email, '')) like '%' || v_q || '%'
+          or coalesce(p.phone, '') like '%' || v_q || '%')
+   order by p.full_name nulls last, p.id
+   limit v_lim);
+end $$;
+
+-- One round trip for the whole admin landing page.
+--
+-- admin_isc_breakdown() is the most expensive thing here and top_states and
+-- stalled_states are two views of the SAME rows, so it goes in a MATERIALIZED
+-- CTE and runs once. That halves the cost and, more importantly, guarantees the
+-- two lists come from one snapshot -- read twice, a state could appear in
+-- neither list or in both.
+create or replace function admin_dashboard()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v jsonb;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  with bd as materialized (select * from admin_isc_breakdown())
+  select jsonb_build_object(
+    'pending_schools', (select count(*) from schools where review_status = 'pending'),
+    'pending_coordinators', (select count(*) from schools where coordinator_status = 'pending'),
+    'pending_certificates', (select count(*) from certificate_uploads where status = 'pending'),
+    'active_support', (select count(*) from support_conversations where last_message_at > now() - interval '7 days'),
+    'students', (select count(*) from user_profiles where role = 'student'),
+    'students_onboarded', (select count(*) from user_profiles where role = 'student' and onboarding_completed),
+    'coordinators', (select count(*) from user_profiles where role = 'coordinator'),
+    'schools_approved', (select count(*) from schools where review_status = 'approved'),
+    'isc', admin_isc_summary(),
+    -- Best and worst submitted/eligible rate. The ORDER BY is repeated inside
+    -- jsonb_agg because a subquery's LIMIT order is not a promise about the
+    -- order rows reach an aggregate. stalled_states needs eligible >= 50: a
+    -- state with three eligible students and none submitted is noise, not news.
+    'top_states', (select coalesce(jsonb_agg(to_jsonb(t) order by t.submitted::numeric / t.eligible desc, t.eligible desc, t.key), '[]'::jsonb)
+                   from (select * from bd where bd.eligible > 0
+                         order by bd.submitted::numeric / bd.eligible desc, bd.eligible desc, bd.key
+                         limit 5) t),
+    'stalled_states', (select coalesce(jsonb_agg(to_jsonb(t) order by t.submitted::numeric / t.eligible asc, t.eligible desc, t.key), '[]'::jsonb)
+                   from (select * from bd where bd.eligible >= 50
+                         order by bd.submitted::numeric / bd.eligible asc, bd.eligible desc, bd.key
+                         limit 5) t),
+    'timeline', (select coalesce(jsonb_agg(to_jsonb(t) order by t.day), '[]'::jsonb)
+                 from admin_isc_timeline(null, null, null, 7) t)
+  ) into v;
+  return v;
+end $$;
+
+-- One call for a whole page of schools instead of one call per row. Capped at
+-- 200 ids, which is the largest page any function here will hand you: this runs
+-- a trigram similarity join per id and an unbounded array would be a way to
+-- make the admin area hang from the client side.
+create or replace function admin_similar_schools_batch(p_school_ids uuid[])
+returns table(school_id uuid, similar_id uuid, similar_name text, similar_address text, similar_review_status text, score real)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if coalesce(array_length(p_school_ids, 1), 0) > 200 then
+    raise exception 'admin_similar_schools_batch: % ids given, at most 200 per call.', array_length(p_school_ids, 1);
+  end if;
+  return query
+  -- distinct: duplicate ids in the array would duplicate every match.
+  select s.id, f.id, f.name, f.address, f.review_status, f.score
+  from (select distinct u.id from unnest(coalesce(p_school_ids, '{}'::uuid[])) u(id) where u.id is not null) s
+  cross join lateral find_similar_schools(s.id) f
+  order by s.id, f.score desc, f.id;
+end $$;
+
+-- ---------------------------------------------------------------
 -- F. Run these on the live project before trusting any admin figure
 --
--- NOTE to whoever appends section E's EXPLAIN checks: they belong in THIS
--- block. Do not start a second "F." heading further down the file.
+-- Nothing below runs as part of the migration. Queries 1-5 are integrity
+-- probes; part 6 is the EXPLAIN pass that confirms section A's indexes are
+-- actually being used on real data. Run them once after pasting this script,
+-- and again whenever a number on an admin page looks wrong.
 --
--- 1. Orphan entries. Every function in section C reaches isc_entries through
---    schools, so an entry whose school_id matches no schools row is missing
---    from by_status, started, submitted, schools_with_entries AND the timeline
---    -- silently, with no error anywhere.
+-- 1. Orphan entries -- an entry whose school_id matches no row in schools.
+--    Everything that reads entries here reaches them THROUGH schools:
+--      * admin_isc_summary, admin_isc_breakdown, admin_isc_timeline (C) leave
+--        such an entry out of by_status, by_track, by_division, by_language,
+--        started, submitted, schools_with_entries and every day of the chart;
+--      * admin_isc_roster and admin_isc_export_chunk (D) inner-join schools, so
+--        the entry cannot be listed, opened or exported -- the founder cannot
+--        even reach it to fix it;
+--      * admin_search (E) will still find the STUDENT who created it, which is
+--        the only thread left to pull.
+--    admin_isc_cold_schools is the one exception: it tests `not exists (... where
+--    e.school_id = s.id)` without joining, and an orphan's school_id matches no
+--    real school, so the cold list is unaffected.
 --
 --      select count(*) from isc_entries e
 --      left join schools s on s.id = e.school_id
@@ -497,4 +664,58 @@ end $$;
 --      select count(*) from user_profiles
 --      where role = 'student' and isc_division_for_class(school_class) is not null
 --        and school_state is null;
+--
+-- 3. Accepted member rows with no user. These are the rows where
+--    admin_isc_roster.member_count (seats filled) and admin_isc_summary.started
+--    (distinct people) disagree; the answer should be 0:
+--
+--      select count(*) from isc_entry_members
+--      where user_id is null and (is_leader or accepted_at is not null);
+--
+-- 4. Approved schools with no eligible student. admin_isc_cold_schools does not
+--    list them -- there is nobody to phone yet -- so they are invisible on the
+--    outreach page. This is the count that page is not showing you:
+--
+--      select count(*) from schools s
+--      where s.review_status = 'approved'
+--        and not exists (select 1 from isc_entries e where e.school_id = s.id)
+--        and not exists (select 1 from user_profiles p where p.school_id = s.id
+--                          and p.role = 'student'
+--                          and isc_division_for_class(p.school_class) is not null);
+--
+-- 5. Profiles with no auth user. admin_users_page LEFT joins auth.users so these
+--    still appear, with a null email; they cannot be found by email search and
+--    they cannot sign in. Should be 0:
+--
+--      select count(*) from user_profiles p
+--      left join auth.users u on u.id = p.id
+--      where u.id is null;
+--
+-- 6. Index use. Each of these should show an Index Scan, an Index Only Scan or a
+--    Bitmap Heap Scan -- never "Seq Scan on isc_entries" or "Seq Scan on
+--    user_profiles" for a scoped query. Substitute a real school id and a name
+--    that exists. The unscoped calls (a national roster page, a dashboard) DO
+--    read every row by design: count(*) over () has to count everything, so
+--    judge those on wall-clock time, not on the plan.
+--
+--      explain analyze select * from admin_isc_roster(null, null, (select id from schools limit 1), null, null, null, null, null, 1, 50);
+--      explain analyze select * from admin_users_page('sharma', 'student', null, 'created_desc', 1, 50);
+--      explain analyze select * from admin_search('sharma', 10);
+--      explain analyze select admin_isc_summary('Haryana');
+--      explain analyze select admin_dashboard();
+--
+--    EXPLAIN of a function call only ever prints "Function Scan", so the plans
+--    that matter are the statements inside. Either set
+--    `auto_explain.log_nested_statements = on`, or -- simpler -- run the bodies
+--    directly, which is what the local harness asserts on:
+--
+--      explain analyze
+--      select e.id from isc_entries e join schools s on s.id = e.school_id
+--      where e.school_id = (select id from schools limit 1)
+--      order by e.created_at desc, e.id desc limit 50;
+--
+--      explain analyze
+--      select p.id from user_profiles p
+--      where p.role = 'student' and lower(coalesce(p.full_name, '')) like '%sharma%'
+--      limit 50;
 -- ---------------------------------------------------------------
