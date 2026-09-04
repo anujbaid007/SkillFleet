@@ -38,9 +38,11 @@ const CHAMPIONSHIPS = [
 
 const FACTS = [
   { label: "Who can enter", value: "Classes 5 to 12" },
+  { label: "Divisions", value: "Classes 5–8 and 9–12" },
   { label: "Cost", value: "Free to enter" },
   { label: "Languages", value: LANGUAGE_OPTIONS.join(" or ") },
   { label: "Team size", value: "On your own, or up to 3" },
+  { label: "How many", value: "Enter every championship" },
 ];
 
 export default function Isc2026Page() {

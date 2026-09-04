@@ -1,4 +1,11 @@
-import { ISC_TRACKS, LANGUAGE_OPTIONS, PUZZLE_MASTER } from '@/lib/isc/tracks'
+import {
+  ISC_DIVISIONS,
+  ISC_TRACKS,
+  LANGUAGE_OPTIONS,
+  PUZZLE_MASTER,
+  SCHOOL_QUALIFIER_NOTE,
+} from '@/lib/isc/tracks'
+import { SCHOOL_RECOGNITION } from '@/lib/isc/recognition'
 import { ISC_GROUPS } from '@/lib/isc/groups'
 
 /*
@@ -66,9 +73,26 @@ export function buildIscFaq({
           a: ['No. The school level is free, and you can enter as many of the four championships as you like.'],
         },
         {
+          id: 'how-many',
+          q: 'Can I enter more than one championship?',
+          a: [
+            'Yes. A student may enter as many of the four as they like, each as a separate entry, and each is judged on its own.',
+            'The only limit is one entry per championship: you cannot enter the same championship twice, or join someone else’s team for a championship you have already entered.',
+          ],
+        },
+        {
           id: 'languages',
           q: 'Which languages can I enter in?',
           a: [`${LANGUAGE_OPTIONS.join(' or ')}. You choose the language of your entry on the form.`],
+        },
+        {
+          id: 'school-impact',
+          q: 'What does my school get out of it?',
+          a: [
+            'Taking part is measured in children educated, not only in prizes: ' +
+              SCHOOL_RECOGNITION[0].charAt(0).toLowerCase() + SCHOOL_RECOGNITION[0].slice(1) + '.',
+            SCHOOL_RECOGNITION.slice(1).join('. ') + '.',
+          ],
         },
         {
           id: 'certificate',
@@ -86,7 +110,8 @@ export function buildIscFaq({
           id: 'classes',
           q: 'Which classes can take part?',
           a: [
-            `ISC 2026 is open to Classes 5 to 12. Students compete in two groups: ${group1.label} is ${classesOf(group1)} and ${group2.label} is ${classesOf(group2)}.`,
+            `ISC 2026 is open to Classes 5 to 12. ${ISC_DIVISIONS}, so ${group1.label} is ${classesOf(group1)} and ${group2.label} is ${classesOf(group2)}.`,
+            'You are only ever judged against students in your own division.',
             'Your group comes from the class on your profile, so make sure it is right before you enter.',
           ],
         },
@@ -123,6 +148,7 @@ export function buildIscFaq({
           a: [
             PUZZLE_MASTER.brief,
             `${PUZZLE_MASTER.divisions}. Individual only.`,
+            `Rounds run live from ${PUZZLE_MASTER.window}.`,
             `On the day you will need: ${PUZZLE_MASTER.prepare.map((p) => p.charAt(0).toLowerCase() + p.slice(1)).join('; ')}.`,
             `Prize: ${PUZZLE_MASTER.prize}`,
           ],
@@ -169,9 +195,17 @@ export function buildIscFaq({
           id: 'how-rounds-work',
           q: 'How do the rounds work?',
           a: [
-            'School level: enter online, free. Skill Fleet judges every entry centrally.',
-            'State championship: the top three in each championship from your school go through to the state round.',
-            'National finals: the top three in each championship from every state meet in person in April 2027.',
+            'School level: enter online, free. Skill Fleet judges every entry centrally, and a school can send as many entries as it likes.',
+            `State championship: ${SCHOOL_QUALIFIER_NOTE} There is a wildcard route as well, and we will publish how it works nearer the time.`,
+            'National finals: the top three in every championship and division from every state meet in person in April 2027.',
+          ],
+        },
+        {
+          id: 'how-many-qualify',
+          q: 'How many entries from my school go through to the state round?',
+          a: [
+            SCHOOL_QUALIFIER_NOTE,
+            'Winners are picked per division, so a Class 6 entry never competes against a Class 11 one.',
           ],
         },
         {

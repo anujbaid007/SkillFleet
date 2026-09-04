@@ -1,20 +1,22 @@
+import { SCHOOL_QUALIFIERS } from '@/lib/isc/tracks'
+
 const STAGES = [
   {
     n: '01',
     title: 'School level',
-    body: 'Enter online, free. Skill Fleet judges every entry centrally.',
+    body: 'Enter online, free. Skill Fleet judges every entry centrally, and a school can send as many entries as it likes.',
     note: 'Free to enter',
   },
   {
     n: '02',
     title: 'State championship',
-    body: 'The top three in each track from your school go through to the state round.',
+    body: `The top three in every championship and division go through — up to ${SCHOOL_QUALIFIERS} entries from one school. A wildcard route is open too.`,
     note: 'Opens later',
   },
   {
     n: '03',
     title: 'National finals',
-    body: 'The top three in each track from every state meet in person.',
+    body: 'The top three in every championship and division from every state meet in person.',
     note: 'April 2027',
   },
 ]

@@ -30,7 +30,7 @@ export default async function PuzzleMasterPage() {
         icon={PUZZLE_MASTER.icon}
         gradient={PUZZLE_MASTER.gradient}
         tint={PUZZLE_MASTER.tint}
-        teamNote="Individual only"
+        teamNote={`Individual only · runs ${PUZZLE_MASTER.window}`}
         // Played live on a date Brainweave sets, so there is no submission
         // deadline to count down to.
         deadlineLabel={null}

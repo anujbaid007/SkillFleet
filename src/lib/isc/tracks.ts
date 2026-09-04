@@ -8,6 +8,32 @@ export const ISC_SEASON = '2026'
 /** Entries are accepted in either language, on every track. */
 export const LANGUAGE_OPTIONS = ['English', 'Hindi']
 
+/*
+  Every championship runs two age divisions, and a student may enter as many
+  championships as they like. Both were once true of Puzzle Master alone,
+  which is why the wording lived on that track; they are season-wide rules and
+  belong here.
+*/
+export const ISC_DIVISIONS = 'Two divisions in every competition: Classes 5–8 and Classes 9–12'
+
+/** The same rule, short enough for a chip beside team size and language. */
+export const ISC_DIVISIONS_SHORT = 'Two divisions: Classes 5–8 and 9–12'
+
+/** Said wherever a student might assume one entry is all they get. */
+export const ISC_MULTI_ENTRY = 'A student may enter more than one championship.'
+
+/**
+ * Three winners in each division of each championship, so this many entries
+ * from one school go up to the state round. Derived rather than typed out:
+ * four championships × two divisions × three winners.
+ */
+export const CHAMPIONSHIP_COUNT = 4
+export const WINNERS_PER_DIVISION = 3
+export const SCHOOL_QUALIFIERS = CHAMPIONSHIP_COUNT * 2 * WINNERS_PER_DIVISION
+
+export const SCHOOL_QUALIFIER_NOTE =
+  `The top three entries — on your own or as a team — are picked in every division of every championship, so up to ${SCHOOL_QUALIFIERS} from a single school go through to the state round.`
+
 export interface IscTrack {
   id: IscTrackId
   slug: string
@@ -56,7 +82,7 @@ export const ISC_TRACKS: IscTrack[] = [
     verb: 'Build',
     art: '/isc/2026/ai.webp',
     prize:
-      'All three national winners get enterprise-grade deployment and scalability support for their app, plus social-media visibility.',
+      'Prizes up to ₹1 lakh, plus mentorship, deployment guidance and support to scale the strongest solutions.',
     prepare: [
       'A working app or prototype, live on a link anyone can open',
       'A demo video of one minute or less',
@@ -78,7 +104,8 @@ export const ISC_TRACKS: IscTrack[] = [
     wash: 'from-accent-teal/[0.16] via-primary/[0.06]',
     verb: 'Lead',
     art: '/isc/2026/venture.webp',
-    prize: 'The national winner receives funding of up to ₹1 lakh to take the idea forward.',
+    prize:
+      'Prizes up to ₹1 lakh, plus mentorship and venture-building support to help winning ideas scale.',
     prepare: [
       'Your idea written out: problem, solution, who it is for, and why it works',
       'How it would make money',
@@ -101,7 +128,7 @@ export const ISC_TRACKS: IscTrack[] = [
     verb: 'Create',
     art: '/isc/2026/content.webp',
     prize:
-      'The top three national winners become brand ambassadors and feature in digital campaigns for participating brands.',
+      'Prizes up to ₹1 lakh, plus mentorship and creator or brand support to help standout talent scale.',
     prepare: [
       'An original video of one minute or less, on a link anyone can open',
       'A title for it',
@@ -130,9 +157,11 @@ export const PUZZLE_MASTER = {
   wash: 'from-accent-yellow/[0.18] via-accent-pink/[0.06]',
   verb: 'Solve',
   art: '/isc/2026/puzzle.webp',
-  divisions: 'Two divisions: Classes 5–8 and Classes 9–12',
+  divisions: ISC_DIVISIONS,
+  /** Played live across this window rather than submitted against a deadline. */
+  window: '1 October to 30 December 2026',
   prize:
-    'A shared ₹2 lakh pool across both divisions — ₹1 lakh in gifts or devices and ₹1 lakh in scholarships.',
+    'Prizes up to ₹50,000 across the two age divisions, alongside winner certificates and national recognition.',
   prepare: [
     'A device with a steady internet connection',
     'A quiet half hour — rounds are played live and cannot be paused',

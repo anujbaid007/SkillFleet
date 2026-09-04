@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ArrowLeft, CalendarClock, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Layers, Users, type LucideIcon } from 'lucide-react'
+import { ISC_DIVISIONS_SHORT } from '@/lib/isc/tracks'
 
 export function TrackHero({
   name,
@@ -60,6 +61,10 @@ export function TrackHero({
             <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full bg-white/70 text-foreground">
               <Users className="w-3.5 h-3.5" />
               {teamNote ?? `On your own or a team of up to ${maxTeamSize}`}
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full bg-white/70 text-foreground">
+              <Layers className="w-3.5 h-3.5" />
+              {ISC_DIVISIONS_SHORT}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full bg-white/70 text-foreground">
               English or Hindi

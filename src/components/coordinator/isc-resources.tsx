@@ -1,5 +1,6 @@
-import { Download, FileText, Lock, Trophy, Users, type LucideIcon } from 'lucide-react'
-import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
+import { Download, FileText, HeartHandshake, Lock, Trophy, Users, type LucideIcon } from 'lucide-react'
+import { ISC_DIVISIONS, ISC_TRACKS, PUZZLE_MASTER, SCHOOL_QUALIFIER_NOTE } from '@/lib/isc/tracks'
+import { SCHOOL_RECOGNITION, SCHOOL_RECOGNITION_HEADLINE } from '@/lib/isc/recognition'
 import { HowItWorks } from '@/components/isc/how-it-works'
 
 /** The decks a coordinator hands out, and who each one is for. */
@@ -145,9 +146,9 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
       // Open, like the other three: it has its own page now. There is no
       // submission deadline to count down to because it is played live, so
       // the badge matches what the others show before a date is set.
-      badge: 'Date to be announced',
+      badge: PUZZLE_MASTER.window,
       listTitle: 'How it runs',
-      listItems: [PUZZLE_MASTER.divisions, 'Played live — nothing to submit in advance.'],
+      listItems: [`Played live from ${PUZZLE_MASTER.window}.`, ISC_DIVISIONS],
       prize: PUZZLE_MASTER.prize,
       teamNote: 'Individual only',
     },
@@ -170,6 +171,33 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
             <ChampionshipCard key={c.key} c={c} />
           ))}
         </div>
+      </div>
+
+      <div className="clay-card p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-teal to-primary">
+            <HeartHandshake className="h-5 w-5 text-white" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-display text-base font-bold text-foreground sm:text-lg">
+              {SCHOOL_RECOGNITION_HEADLINE}
+            </h2>
+            <p className="text-xs text-muted">
+              Recognition reaches the school, not only the students who win.
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 rounded-xl bg-primary/[0.06] px-4 py-3 text-sm leading-relaxed text-foreground">
+          {SCHOOL_QUALIFIER_NOTE}
+        </p>
+        <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          {SCHOOL_RECOGNITION.map((item) => (
+            <li key={item} className="flex gap-2 text-sm leading-relaxed text-muted">
+              <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-accent-teal" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
