@@ -71,14 +71,28 @@ export function IscHero({ groupLabel }: { groupLabel: string | null }) {
             level is free.
           </p>
 
+          {/*
+            Which division a student is in decides who they are judged against
+            and who they may team up with, so it is a card rather than a chip
+            set inside a sentence, where it read as an aside.
+          */}
           {groupLabel && (
-            <p className="mt-4 max-w-md text-sm text-foreground/70">
-              <span className="mr-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 align-middle text-xs font-bold text-foreground shadow-sm">
-                <Users className="h-3.5 w-3.5 text-primary" />
-                {groupLabel}
+            <div className="mt-5 inline-flex max-w-md items-center gap-3 rounded-2xl border-2 border-white bg-white/85 py-2.5 pl-2.5 pr-4 shadow-[6px_6px_18px_rgba(80,50,160,0.10),-3px_-3px_10px_rgba(255,255,255,0.9)] backdrop-blur">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent-teal shadow-sm">
+                <Users className="h-5 w-5 text-white" aria-hidden="true" />
               </span>
-              Team up with classmates from those classes at your school.
-            </p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                  Your division
+                </p>
+                <p className="font-display text-base font-bold leading-tight text-foreground">
+                  {groupLabel}
+                </p>
+                <p className="mt-0.5 text-xs text-foreground/60">
+                  Team up with classmates from these classes.
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
