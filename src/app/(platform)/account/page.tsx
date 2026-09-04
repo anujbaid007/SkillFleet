@@ -79,47 +79,51 @@ export default async function AccountPage() {
         </Reveal>
       )}
 
-      <Reveal delay={0.06}>
-      <AccountForm
-        role={profile.role}
-        email={user.email ?? ''}
-        states={states}
-        initial={{
-          full_name: profile.full_name ?? '',
-          date_of_birth: profile.date_of_birth ?? '',
-          phone: profile.phone ?? '',
-          school_class: profile.school_class ?? '',
-          school_branch: profile.school_branch ?? '',
-          school_name: profile.school_name ?? '',
-          school_id: profile.school_id ?? '',
-          school_state: profile.school_state ?? '',
-          school_district: profile.school_district ?? '',
-          city: profile.city ?? '',
-          parent_mobile: profile.parent_mobile ?? '',
-        }}
-      />
-      </Reveal>
-
-      {family && (
-        <Reveal delay={0.09}>
-          <ParentDetailsForm
-            parentName={family.parent_full_name}
-            parentEmail={family.parent_email}
-            parentPhone={family.parent_phone ?? ''}
-            memberCount={family.member_count}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
+        <Reveal delay={0.06}>
+          <AccountForm
+            role={profile.role}
+            email={user.email ?? ''}
+            states={states}
+            initial={{
+              full_name: profile.full_name ?? '',
+              date_of_birth: profile.date_of_birth ?? '',
+              phone: profile.phone ?? '',
+              school_class: profile.school_class ?? '',
+              school_branch: profile.school_branch ?? '',
+              school_name: profile.school_name ?? '',
+              school_id: profile.school_id ?? '',
+              school_state: profile.school_state ?? '',
+              school_district: profile.school_district ?? '',
+              city: profile.city ?? '',
+              parent_mobile: profile.parent_mobile ?? '',
+            }}
           />
         </Reveal>
-      )}
-    <Reveal delay={0.2}>
-        <div className="pt-2">
-          <h2 className="font-display text-lg font-bold text-foreground">Your data</h2>
-          <p className="mt-0.5 mb-4 text-sm text-muted">
-            Take a copy of everything we hold, or remove it altogether.
-          </p>
-          <DangerZone />
-        </div>
-      </Reveal>
 
+        <div className="space-y-6">
+          {family && (
+            <Reveal delay={0.09}>
+              <ParentDetailsForm
+                parentName={family.parent_full_name}
+                parentEmail={family.parent_email}
+                parentPhone={family.parent_phone ?? ''}
+                memberCount={family.member_count}
+              />
+            </Reveal>
+          )}
+
+          <Reveal delay={0.12}>
+            <div>
+              <h2 className="font-display text-lg font-bold text-foreground">Your data</h2>
+              <p className="mt-0.5 mb-4 text-sm text-muted">
+                Take a copy of everything we hold, or remove it altogether.
+              </p>
+              <DangerZone />
+            </div>
+          </Reveal>
+        </div>
+      </div>
     </div>
   )
 }

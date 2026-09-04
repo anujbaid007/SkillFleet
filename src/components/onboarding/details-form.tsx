@@ -1,49 +1,16 @@
 'use client'
 
-import { useActionState, type ReactNode } from 'react'
+import { useActionState } from 'react'
 import { motion } from 'motion/react'
-import { CalendarDays, School, UserRound, Users, type LucideIcon } from 'lucide-react'
+import { CalendarDays, School, UserRound, Users } from 'lucide-react'
 import { saveStudentDetailsAction } from '@/app/onboarding/details/actions'
 import type { DetailsFormState } from '@/app/onboarding/details/actions'
 import { ClassBranchFields } from '@/components/onboarding/class-branch-fields'
 import { SchoolLocationFields } from '@/components/onboarding/school-location-fields'
+import { FormSection } from '@/components/ui/form-section'
 
 const INPUT_CLASS =
   'w-full h-11 px-4 rounded-xl border-2 border-black/[0.06] bg-white text-foreground placeholder:text-muted/60 focus:outline-none focus:border-primary transition-colors'
-
-/*
-  One titled card per part of the form, so the page reads as three short
-  steps rather than one long column. The card is only chrome: every field
-  keeps its name and id, so the action behind the form is untouched.
-*/
-function Section({
-  icon: Icon,
-  tint,
-  title,
-  hint,
-  children,
-}: {
-  icon: LucideIcon
-  tint: string
-  title: string
-  hint?: string
-  children: ReactNode
-}) {
-  return (
-    <section className="clay-card p-5 sm:p-6">
-      <div className="mb-4 flex items-center gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tint}`}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="font-display text-base font-bold text-foreground">{title}</h2>
-          {hint && <p className="text-xs text-muted">{hint}</p>}
-        </div>
-      </div>
-      <div className="space-y-4">{children}</div>
-    </section>
-  )
-}
 
 export function DetailsForm({
   states,
@@ -80,7 +47,7 @@ export function DetailsForm({
       transition={{ type: 'spring', stiffness: 80, damping: 18 }}
       className="space-y-4"
     >
-      <Section icon={UserRound} tint="bg-primary/10 text-primary" title="About you" hint="As your school knows you.">
+      <FormSection icon={UserRound} tint="bg-primary/10 text-primary" title="About you" hint="As your school knows you.">
         <div>
           <label htmlFor="full_name" className="block text-sm font-medium text-foreground mb-1">
             Your full name
@@ -115,10 +82,10 @@ export function DetailsForm({
             <p className="mt-1 text-xs text-muted">Used to check which programmes you can join.</p>
           </div>
         )}
-      </Section>
+      </FormSection>
 
       {needsParent && (
-        <Section
+        <FormSection
           icon={Users}
           tint="bg-accent-pink/15 text-accent-pink"
           title="A parent or guardian"
@@ -168,10 +135,10 @@ export function DetailsForm({
               />
             </div>
           </div>
-        </Section>
+        </FormSection>
       )}
 
-      <Section
+      <FormSection
         icon={School}
         tint="bg-accent-teal/15 text-accent-teal"
         title="Your school"
@@ -210,7 +177,7 @@ export function DetailsForm({
             placeholder="e.g. Pune"
           />
         </div>
-      </Section>
+      </FormSection>
 
       {state?.error && (
         <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3" role="alert">
