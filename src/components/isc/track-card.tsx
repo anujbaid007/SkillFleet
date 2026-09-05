@@ -9,7 +9,7 @@ const STATE_LABEL: Record<TrackCardState, string> = {
   // "Draft saved" sounds like an accomplishment. It is not an entry, and the
   // card is where a student checks whether they are actually in.
   draft: 'Draft — not entered',
-  submitted: 'Entered',
+  submitted: 'Entry submitted',
   coming_soon: 'Coming soon',
   closed: 'Entries closed',
 }
