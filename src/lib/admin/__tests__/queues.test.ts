@@ -225,6 +225,36 @@ describe('getSchoolsQueue', () => {
     expect(calls.filter((c) => c.table === 'user_profiles')).toHaveLength(0)
   })
 
+  it('reads a page past the last one as empty, carrying the real total', async () => {
+    invalidateAdminCache()
+    // PostgREST answers 416 PGRST103 for a window that starts past the end.
+    // The reader asks again for the count alone rather than reporting a fault.
+    const { db, calls } = fakeDb((call) =>
+      has(call, 'range')
+        ? { data: null, error: { code: 'PGRST103', message: 'Requested range not satisfiable' } }
+        : { data: [], error: null, count: 32891 }
+    )
+    const r = await getSchoolsQueue(db, { status: 'all', page: 9999 })
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.data).toEqual({ rows: [], total: 32891, page: 9999, size: QUEUE_PAGE })
+    // The second query asks for no rows at all, only the count.
+    expect(args(calls[1], 'limit')).toEqual([0])
+    expect(calls).toHaveLength(2)
+  })
+
+  it('does not ask twice for a failure that is not a range overrun', async () => {
+    invalidateAdminCache()
+    const { db, from } = fakeDb(() => ({
+      data: null,
+      error: { code: '42501', message: 'permission denied' },
+    }))
+    expect(await getSchoolsQueue(db, { status: 'all', page: 2 })).toMatchObject({
+      ok: false,
+      kind: 'failed',
+    })
+    expect(from).toHaveBeenCalledTimes(1)
+  })
+
   it('reports a failure, and does not cache it', async () => {
     invalidateAdminCache()
     let n = 0
@@ -385,6 +415,18 @@ describe('getCoordinatorsQueue', () => {
     expect(args(calls.find((c) => c.table === 'schools'), 'or')?.[0]).toBe(
       'name.ilike.%vidyalaya%'
     )
+  })
+
+  it('orders the applicant lookup by id, so two pages of one search agree', async () => {
+    invalidateAdminCache()
+    const { db, calls } = fakeDb((call) =>
+      call.table === 'schools' ? { data: [], error: null, count: 0 } : { data: [], error: null }
+    )
+    await getCoordinatorsQueue(db, { status: 'all', q: 'sharma', page: 1 })
+    const lookup = calls.find((c) => c.table === 'user_profiles')
+    // Without an order, a limited match set is free to differ per request.
+    expect(args(lookup, 'order')).toEqual(['id'])
+    expect(args(lookup, 'limit')).toEqual([200])
   })
 
   it('strips the punctuation that would break an or() filter', async () => {

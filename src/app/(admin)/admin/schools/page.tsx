@@ -29,10 +29,13 @@ const TABS = [
 
 const EMPTY: Record<string, string> = {
   pending: 'Nothing waiting — every school students have added has been reviewed.',
-  approved: 'No approved schools match this search.',
-  rejected: 'No rejected schools match this search.',
-  all: 'No schools match this search.',
+  approved: 'No approved schools yet.',
+  rejected: 'No rejected schools yet.',
+  all: 'No schools here yet.',
 }
+
+/** A search that found nothing is a different sentence from an empty tab. */
+const NO_MATCH = 'No schools match this search.'
 
 /**
  * Schools students added because they could not find theirs in the list.
@@ -134,7 +137,7 @@ export default async function AdminSchoolsPage({
           }))}
           rows={rows}
           summary={`${page.data.total.toLocaleString('en-IN')} ${page.data.total === 1 ? 'school' : 'schools'} in this view`}
-          emptyMessage={EMPTY[query.status] ?? EMPTY.all}
+          emptyMessage={query.q ? NO_MATCH : (EMPTY[query.status] ?? EMPTY.all)}
           action={bulkReviewSchools}
           pagination={
             <Pagination

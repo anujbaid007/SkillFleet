@@ -232,16 +232,47 @@ function rowWindow(page: number, size: number): [number, number] {
   return [from, from + size - 1]
 }
 
+/** The two ways a built query gets consumed: one window, or the count alone. */
+interface Windowed {
+  range: (from: number, to: number) => PromiseLike<TableResponse>
+  limit: (n: number) => PromiseLike<TableResponse>
+}
+
 /**
- * One page out of a table read. mapRpcError is reused deliberately: a table
- * read cannot answer PGRST202 (that is "no such function"), so everything it
- * can fail with lands on 'failed' and the page shows SectionFailed. Only
- * getSimilarSchools below can be migration-missing.
+ * PostgREST answers 416 PGRST103 -- "Requested range not satisfiable" -- when
+ * the window starts past the last row. A page number typed into the address
+ * bar or kept in a stale bookmark is not a fault, so it must not read as one.
  */
-function lift<T>(res: TableResponse, page: number, size: number, read: (raw: unknown) => T): AdminResult<Page<T>> {
-  if (res.error) return mapRpcError(res.error)
-  const list = rows(res.data)
-  return ok({ rows: list.map(read), total: toNumber(res.count), page, size })
+function isPastLastPage(error: { code?: string } | null): boolean {
+  return error?.code === 'PGRST103'
+}
+
+/**
+ * One window of a table read, plus the total the same filters match.
+ *
+ * `build` is called again rather than reused because a PostgREST query builder
+ * is consumed when it is awaited. The second call happens only past the last
+ * page, where it asks for the count with no rows at all (limit 0 still carries
+ * the exact count in Content-Range) -- so Pagination can say which page is the
+ * last one and link back to it, instead of the queue reading as broken.
+ *
+ * mapRpcError is reused deliberately for everything else: a table read cannot
+ * answer PGRST202 (that is "no such function"), so every real failure lands on
+ * 'failed' and the page shows SectionFailed. Only getSimilarSchools below can
+ * be migration-missing.
+ */
+async function readWindow(
+  build: () => Windowed,
+  page: number,
+  size: number
+): Promise<AdminResult<{ list: unknown[]; total: number }>> {
+  const [from, to] = rowWindow(page, size)
+  const res = await build().range(from, to)
+  if (!res.error) return ok({ list: rows(res.data), total: toNumber(res.count) })
+  if (!isPastLastPage(res.error)) return mapRpcError(res.error)
+  const counted = await build().limit(0)
+  if (counted.error) return mapRpcError(counted.error)
+  return ok({ list: [], total: toNumber(counted.count) })
 }
 
 /**
@@ -265,12 +296,18 @@ async function profilesById(
 /**
  * The profile ids whose name or phone matches a search term. Capped at
  * PROFILE_MATCH_LIMIT -- see that constant for what the cap costs.
+ *
+ * ORDERED BY ID, and that is not cosmetic: an unordered limit lets Postgres
+ * return a different two hundred rows each time it is asked. Two pages of the
+ * same search would then be filtered by two different id sets, and a claim
+ * could appear on both pages or on neither.
  */
 async function matchingProfileIds(db: Db, term: string, role?: string): Promise<string[]> {
   let sel = db.from('user_profiles').select('id')
   if (role) sel = sel.eq('role', role)
   const { data } = await sel
     .or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`)
+    .order('id')
     .limit(PROFILE_MATCH_LIMIT)
   return (data ?? []).map((p) => p.id)
 }
@@ -306,35 +343,41 @@ export function getSchoolsQueue(
   })
 
   return cachedOk(key, async () => {
-    let sel = db
-      .from('schools')
-      .select('id, name, state, district, review_status, created_at, created_by', { count: 'exact' })
-    if (q.status !== 'all') sel = sel.eq('review_status', q.status)
-    if (term) sel = sel.ilike('name', `%${term}%`)
-    const [from, to] = rowWindow(page, clampedSize)
-    // id as a tiebreak: two schools added in the same millisecond would
-    // otherwise be free to swap places between page one and page two.
-    const res = (await sel
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(from, to)) as unknown as TableResponse
+    const build = () => {
+      let sel = db
+        .from('schools')
+        .select('id, name, state, district, review_status, created_at, created_by', {
+          count: 'exact',
+        })
+      if (q.status !== 'all') sel = sel.eq('review_status', q.status)
+      if (term) sel = sel.ilike('name', `%${term}%`)
+      // id as a tiebreak: two schools added in the same millisecond would
+      // otherwise be free to swap places between page one and page two.
+      return sel.order('created_at', { ascending: false }).order('id') as unknown as Windowed
+    }
 
-    if (res.error) return mapRpcError(res.error)
+    const read = await readWindow(build, page, clampedSize)
+    if (!read.ok) return read
 
-    const list = rows(res.data)
+    const { list, total } = read.data
     const names = await profilesById(
       db,
       list.map((r) => toNullableText(field(r, 'created_by')))
     )
-    return lift(res, page, clampedSize, (raw) => ({
-      id: toText(field(raw, 'id')),
-      name: toText(field(raw, 'name')),
-      state: toText(field(raw, 'state')),
-      district: toText(field(raw, 'district')),
-      review_status: toText(field(raw, 'review_status')),
-      created_at: toText(field(raw, 'created_at')),
-      submitted_by: names.get(toText(field(raw, 'created_by')))?.name ?? null,
-    }))
+    return ok({
+      rows: list.map((raw) => ({
+        id: toText(field(raw, 'id')),
+        name: toText(field(raw, 'name')),
+        state: toText(field(raw, 'state')),
+        district: toText(field(raw, 'district')),
+        review_status: toText(field(raw, 'review_status')),
+        created_at: toText(field(raw, 'created_at')),
+        submitted_by: names.get(toText(field(raw, 'created_by')))?.name ?? null,
+      })),
+      total,
+      page,
+      size: clampedSize,
+    })
   })
 }
 
@@ -406,34 +449,37 @@ export function getCoordinatorsQueue(
   })
 
   return cachedOk(key, async () => {
-    let sel = db
-      .from('schools')
-      .select(
-        'id, name, state, district, review_status, coordinator_id, coordinator_status, coordinator_notes, board, student_count_range',
-        { count: 'exact' }
-      )
-      .neq('coordinator_status', 'none')
-      // A claim with no claimant is not a claim; the old page filtered these
-      // out in JavaScript, which made its counts disagree with its list.
-      .not('coordinator_id', 'is', null)
-    if (q.status !== 'all') sel = sel.eq('coordinator_status', q.status)
-    if (term) {
-      const matched = await matchingProfileIds(db, term, 'coordinator')
-      const clauses = [`name.ilike.%${term}%`]
-      if (matched.length > 0) clauses.push(`coordinator_id.in.(${matched.join(',')})`)
-      sel = sel.or(clauses.join(','))
+    // Resolved once, before the query is built: build() may run twice.
+    const matched = term ? await matchingProfileIds(db, term, 'coordinator') : []
+    const build = () => {
+      let sel = db
+        .from('schools')
+        .select(
+          'id, name, state, district, review_status, coordinator_id, coordinator_status, coordinator_notes, board, student_count_range',
+          { count: 'exact' }
+        )
+        .neq('coordinator_status', 'none')
+        // A claim with no claimant is not a claim; the old page filtered these
+        // out in JavaScript, which made its counts disagree with its list.
+        .not('coordinator_id', 'is', null)
+      if (q.status !== 'all') sel = sel.eq('coordinator_status', q.status)
+      if (term) {
+        const clauses = [`name.ilike.%${term}%`]
+        if (matched.length > 0) clauses.push(`coordinator_id.in.(${matched.join(',')})`)
+        sel = sel.or(clauses.join(','))
+      }
+      return sel.order('name').order('id') as unknown as Windowed
     }
-    const [from, to] = rowWindow(page, clampedSize)
-    const res = (await sel.order('name').order('id').range(from, to)) as unknown as TableResponse
 
-    if (res.error) return mapRpcError(res.error)
+    const read = await readWindow(build, page, clampedSize)
+    if (!read.ok) return read
 
-    const list = rows(res.data)
+    const { list, total } = read.data
     const people = await profilesById(
       db,
       list.map((r) => toNullableText(field(r, 'coordinator_id')))
     )
-    return lift(res, page, clampedSize, (raw) => {
+    const mapped = list.map((raw) => {
       const coordinatorId = toText(field(raw, 'coordinator_id'))
       const person = people.get(coordinatorId)
       return {
@@ -451,6 +497,7 @@ export function getCoordinatorsQueue(
         applicant_phone: person?.phone ?? null,
       }
     })
+    return ok({ rows: mapped, total, page, size: clampedSize })
   })
 }
 
@@ -475,33 +522,32 @@ export function getCertificatesQueue(
   })
 
   return cachedOk(key, async () => {
-    let sel = db
-      .from('certificate_uploads')
-      .select(
-        'id, file_name, description, status, created_at, student_id, points_approved, growth_parameters(name)',
-        { count: 'exact' }
-      )
-    if (q.status !== 'all') sel = sel.eq('status', q.status)
-    if (term) {
-      const matched = await matchingProfileIds(db, term)
-      const clauses = [`file_name.ilike.%${term}%`, `description.ilike.%${term}%`]
-      if (matched.length > 0) clauses.push(`student_id.in.(${matched.join(',')})`)
-      sel = sel.or(clauses.join(','))
+    const matched = term ? await matchingProfileIds(db, term) : []
+    const build = () => {
+      let sel = db
+        .from('certificate_uploads')
+        .select(
+          'id, file_name, description, status, created_at, student_id, points_approved, growth_parameters(name)',
+          { count: 'exact' }
+        )
+      if (q.status !== 'all') sel = sel.eq('status', q.status)
+      if (term) {
+        const clauses = [`file_name.ilike.%${term}%`, `description.ilike.%${term}%`]
+        if (matched.length > 0) clauses.push(`student_id.in.(${matched.join(',')})`)
+        sel = sel.or(clauses.join(','))
+      }
+      return sel.order('created_at', { ascending: false }).order('id') as unknown as Windowed
     }
-    const [from, to] = rowWindow(page, clampedSize)
-    const res = (await sel
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(from, to)) as unknown as TableResponse
 
-    if (res.error) return mapRpcError(res.error)
+    const read = await readWindow(build, page, clampedSize)
+    if (!read.ok) return read
 
-    const list = rows(res.data)
+    const { list, total } = read.data
     const students = await profilesById(
       db,
       list.map((r) => toNullableText(field(r, 'student_id')))
     )
-    return lift(res, page, clampedSize, (raw) => {
+    const mapped = list.map((raw) => {
       const studentId = toText(field(raw, 'student_id'))
       return {
         id: toText(field(raw, 'id')),
@@ -515,5 +561,6 @@ export function getCertificatesQueue(
         parameter_name: toNullableText(field(field(raw, 'growth_parameters'), 'name')),
       }
     })
+    return ok({ rows: mapped, total, page, size: clampedSize })
   })
 }

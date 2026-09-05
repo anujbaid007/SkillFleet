@@ -24,18 +24,25 @@
   reasons, and reports all three. Nothing here ever reports a row as done that
   the database refused.
 
-  One round trip per row, in order. At QUEUE_PAGE (twenty-five) that is
-  twenty-five statements, which is well inside a request; MAX_BULK caps a
-  hand-crafted POST at two hundred.
+  One round trip per row, in order. MAX_BULK is QUEUE_PAGE, so that is
+  twenty-five statements at most -- well inside a request, and a hand-crafted
+  POST cannot ask for more than the buttons can.
 */
 
 import { revalidatePath } from 'next/cache'
 import { invalidateAdminCache } from '@/lib/admin/cache'
+import { QUEUE_PAGE } from '@/lib/admin/queues'
 import { createClient } from '@/lib/supabase/server'
 import type { BulkResult } from '@/components/admin/admin-queue'
 
-/** The most rows one call will act on, whatever the form says. */
-const MAX_BULK = 200
+/**
+ * The most rows one call will act on, whatever the form says. Equal to the
+ * page size on purpose: the interface can never offer more than a page, and
+ * this loop is one sequential round trip per row inside a single Worker
+ * invocation, so a hand-crafted POST should not be able to ask for eight times
+ * the work the buttons can.
+ */
+const MAX_BULK = QUEUE_PAGE
 
 /** The database's own status codes, in words an admin can act on. */
 const REASON: Record<string, string> = {

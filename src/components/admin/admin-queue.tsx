@@ -187,7 +187,13 @@ export function AdminQueue({
       )}
 
       {rows.length === 0 ? (
-        <div className="clay-card p-12 text-center text-muted">{emptyMessage}</div>
+        // The pagination goes here too: page nine thousand of a two-page queue
+        // is an empty list, and without a Previous link the only way back is
+        // to notice the tabs.
+        <div className="clay-card p-12 text-center">
+          <p className="text-muted">{emptyMessage}</p>
+          {pagination && <div className="mt-4 text-left">{pagination}</div>}
+        </div>
       ) : (
         <div className="clay-card divide-y divide-black/[0.06]">
           {(summary || selectableIds.length > 0) && (
@@ -246,12 +252,15 @@ export function AdminQueue({
 
           {rejecting ? (
             <>
-              <input
+              {/* A textarea, not a single line: a school reads this reason
+                  back, so it needs room to be written properly. */}
+              <textarea
                 name="note"
                 required
+                rows={2}
                 placeholder={rejectPlaceholder}
                 aria-label="Reason for rejecting these rows"
-                className="h-10 min-w-[16rem] flex-1 rounded-xl border-2 border-black/[0.06] px-3 text-sm focus:border-primary focus:outline-none"
+                className="min-h-[2.5rem] min-w-[16rem] flex-1 resize-y rounded-xl border-2 border-black/[0.06] px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
               <button
                 type="submit"

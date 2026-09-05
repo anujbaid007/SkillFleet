@@ -28,10 +28,13 @@ const TABS = [
 
 const EMPTY: Record<string, string> = {
   pending: 'Nothing waiting — every coordinator application has been reviewed.',
-  approved: 'No approved coordinators match this search.',
-  rejected: 'No rejected applications match this search.',
-  all: 'No coordinator applications match this search.',
+  approved: 'No approved coordinators yet.',
+  rejected: 'No rejected applications yet.',
+  all: 'No coordinator applications yet.',
 }
+
+/** A search that found nothing is a different sentence from an empty tab. */
+const NO_MATCH = 'No coordinator applications match this search.'
 
 export function CoordinatorQueue({
   basePath,
@@ -85,7 +88,7 @@ export function CoordinatorQueue({
       }))}
       rows={rows}
       summary={`${page.total.toLocaleString('en-IN')} ${page.total === 1 ? 'application' : 'applications'} in this view`}
-      emptyMessage={EMPTY[query.status] ?? EMPTY.all}
+      emptyMessage={query.q ? NO_MATCH : (EMPTY[query.status] ?? EMPTY.all)}
       action={bulkReviewCoordinators}
       pagination={
         <Pagination page={page.page} total={page.total} size={page.size} hrefFor={hrefFor} />

@@ -33,10 +33,13 @@ const TABS = [
 
 const EMPTY: Record<string, string> = {
   pending: 'Nothing waiting — every certificate has been reviewed.',
-  approved: 'No approved certificates match this search.',
-  rejected: 'No rejected certificates match this search.',
-  all: 'No certificates match this search.',
+  approved: 'No approved certificates yet.',
+  rejected: 'No rejected certificates yet.',
+  all: 'No certificates uploaded yet.',
 }
+
+/** A search that found nothing is a different sentence from an empty tab. */
+const NO_MATCH = 'No certificates match this search.'
 
 /**
  * Student achievement uploads awaiting review.
@@ -138,7 +141,7 @@ export default async function CertificatesPage({
           }))}
           rows={rows}
           summary={`${page.data.total.toLocaleString('en-IN')} ${page.data.total === 1 ? 'certificate' : 'certificates'} in this view`}
-          emptyMessage={EMPTY[query.status] ?? EMPTY.all}
+          emptyMessage={query.q ? NO_MATCH : (EMPTY[query.status] ?? EMPTY.all)}
           action={bulkReviewCertificates}
           approveLabel="Approve selected"
           approveFields={
