@@ -1,7 +1,8 @@
 -- Local stand-in for the live schema: only the columns the admin functions read.
 create extension if not exists pg_trgm;
 create schema if not exists auth;
-create table if not exists auth.users (id uuid primary key, email text);
+-- varchar(255), as on Supabase: a `returns table(email text)` over this column raises 42804 unless cast.
+create table if not exists auth.users (id uuid primary key, email varchar(255));
 
 create table if not exists user_profiles (
   id uuid primary key,

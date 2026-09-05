@@ -759,7 +759,7 @@ declare v_size int    := least(greatest(coalesce(p_size, 50), 1), 200);
 begin
   if not is_admin() then raise exception 'admin only'; end if;
   return query
-  select p.id, p.full_name, u.email, p.role, p.school_name, p.school_state, p.school_class,
+  select p.id, p.full_name, u.email::text, p.role, p.school_name, p.school_state, p.school_class,
          p.onboarding_completed, p.created_at, count(*) over ()
   from user_profiles p
   left join auth.users u on u.id = p.id
@@ -1294,7 +1294,7 @@ begin
   -- coordinator whose only school has no students yet.
   held as (select sh.coordinator_id cid, count(*) n from sch sh group by sh.coordinator_id),
   page as (
-    select p.id, p.full_name, u.email, p.phone, c.sid, c.name as school_name,
+    select p.id, p.full_name, u.email::text, p.phone, c.sid, c.name as school_name,
            c.state, c.district, coalesce(c.st, 'none') as claim_status,
            coalesce(h.n, 0)::bigint as schools_claimed,
            coalesce(r.students, 0)::bigint as students, p.created_at,
