@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { LANGUAGE_OPTIONS, TRACK_FILTER_OPTIONS, trackName } from '@/lib/isc/tracks'
+import { formatIstDay, istDay } from '@/lib/isc/dates'
 import { ISC_GROUPS, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 import { rosterFiltersToQuery, type IscScope, type RosterFilters } from '@/lib/admin/scope'
 import type { Page, RosterRow } from '@/lib/admin/isc'
@@ -185,12 +186,14 @@ export function IscRosterTable({
                       </span>
                     </td>
                     <td className="py-2 pr-3 text-muted tabular-nums">{r.member_count}</td>
-                    <td className="py-2 text-muted">
-                      {new Date(r.created_at).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </td>
+                    {/*
+                      formatIstDay(istDay(...)), never toLocaleDateString: this
+                      renders on the server, whose zone is UTC on Workers, so a
+                      1 a.m. Indian entry would read as the previous day here
+                      while the CSV -- which has always gone through these two
+                      -- called it today.
+                    */}
+                    <td className="py-2 text-muted">{formatIstDay(istDay(r.created_at))}</td>
                   </tr>
                 ))}
                 {page.rows.length === 0 && (

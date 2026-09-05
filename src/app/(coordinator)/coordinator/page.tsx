@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Clock, AlertTriangle, Users, Phone } from 'lucide-react'
 import { getMyCoordinatorSchool, getSchoolRoster } from '@/app/actions/coordinator'
-import { CoordinatorRoster } from '@/components/coordinator/coordinator-roster'
+import { SchoolRoster } from '@/components/isc/school-roster'
 import { PageHeader } from '@/components/ui/page-header'
 import { createClient } from '@/lib/supabase/server'
 import { getIscDeadlines } from '@/app/actions/isc'
@@ -144,7 +144,7 @@ export default async function CoordinatorDashboardPage() {
           schoolName={application.schoolName}
           origin={origin}
         />
-      <CoordinatorRoster
+      <SchoolRoster
         rows={roster}
         students={school.rosterStudents}
         entries={school.entries}

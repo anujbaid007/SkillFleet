@@ -52,28 +52,44 @@ function chip(row: RosterRow): { text: string; tone: string } {
 }
 
 /**
- * Every eligible student at this coordinator's school, and what each one is
- * actually doing.
+ * Every eligible student at ONE school and what each is actually doing —
+ * including the ones doing nothing, which an entry list can never show.
  *
- * The old roster could only print a per-track chip, so a coordinator could see
- * that a student had "entered" but never who was on their team, whether an
- * invite was still unanswered, or what they had actually written. This is the
- * same roster-and-profile pair the admin drill-down uses, scoped to one
- * school — a coordinator asks the same questions about their students that an
- * admin asks about everyone's.
+ * That completeness is the whole point. A school's real story is as much about
+ * the students who never started as the ones who did, and it is the only place
+ * in the app that answers "who do I telephone" after the cold-schools list has
+ * said which school to telephone about.
+ *
+ * Shared by the coordinator dashboard and the admin school page on purpose: a
+ * coordinator asks exactly the questions about their own students that an
+ * admin asks about everyone's, and the answer was written twice before this.
+ * Only the wording differs, which is what the three copy props are for.
+ *
+ * The filters are local state rather than the query string, unlike the
+ * page-level entry filters: this list lives inside one school's page and its
+ * filters are a way of reading what is already on screen. The profile opens in
+ * place for the same reason — everything it needs is already here, so a route
+ * would mean a second round trip for data the browser is holding.
  */
-export function CoordinatorRoster({
+export function SchoolRoster({
   rows,
   students,
   entries,
   members,
   submissionByEntry,
+  title = 'Students',
+  subtitle = 'Everyone eligible at your school — open a student to see their team and what they submitted',
+  emptyLabel = 'No eligible students from your school have joined SkillFleet yet.',
 }: {
   rows: RosterRow[]
   students: RosterStudent[]
   entries: AnalyticsEntry[]
   members: RosterMember[]
   submissionByEntry: Map<string, Record<string, unknown>>
+  title?: string
+  subtitle?: string
+  /** Shown when the school has no eligible students at all, as opposed to none matching. */
+  emptyLabel?: string
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filters, setFilters] = useState<RosterFilterParams>({})
@@ -98,8 +114,8 @@ export function CoordinatorRoster({
 
   return (
     <Panel
-      title="Students"
-      subtitle="Everyone eligible at your school — open a student to see their team and what they submitted"
+      title={title}
+      subtitle={subtitle}
       icon={Users}
       padded={false}
       action={
@@ -193,9 +209,7 @@ export function CoordinatorRoster({
       <div className="border-t border-black/[0.05] divide-y divide-black/[0.04]">
         {visible.length === 0 ? (
           <p className="p-12 text-sm text-muted text-center">
-            {rows.length === 0
-              ? 'No eligible students from your school have joined SkillFleet yet.'
-              : 'No student matches those filters.'}
+            {rows.length === 0 ? emptyLabel : 'No student matches those filters.'}
           </p>
         ) : (
           visible.map((row) => {

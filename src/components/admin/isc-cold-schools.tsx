@@ -24,10 +24,12 @@ const COORDINATOR_CHIP: Record<string, string> = {
  * The outreach list: schools with eligible students and not one entry, the
  * biggest opportunity first.
  *
- * A cold school is still a school worth opening — its page names the students
- * who have not started, which is what an outreach call needs. The comparison
- * chart cannot link there, because a school with no entries never appears in
- * it.
+ * A cold school is still a school worth opening: its page carries a Students
+ * panel listing everyone eligible there, non-starters included, which is the
+ * list an outreach call is actually made from. An entries table alone would
+ * show a cold school as empty, since by definition it has none. The comparison
+ * chart cannot link there either, because a school with no entries never
+ * appears in it.
  *
  * Schools with no eligible student at all are absent by design: that is an
  * onboarding gap rather than an outreach one, and a thousand zero-student
