@@ -3,6 +3,7 @@ import Image from 'next/image'
 import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { AdminNav } from '@/components/admin/admin-nav'
+import { GlobalSearch } from '@/components/admin/global-search'
 import { MobileNavDrawer } from '@/components/mobile-nav-drawer'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -37,6 +38,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             Admin
           </span>
         </div>
+        {/* Global search sits above the nav, so it reads as the header for this shell. */}
+        <div className="px-3 pt-3">
+          <GlobalSearch />
+        </div>
         <div className="flex-1 overflow-y-auto">
           <AdminNav />
         </div>
@@ -46,6 +51,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <MobileNavDrawer subtitle="Admin">
         <AdminNav />
       </MobileNavDrawer>
+
+      {/* Same search box, full width under the mobile top bar -- there is no
+          room for it in that bar's logo-and-menu-button row. */}
+      <div className="md:hidden border-b border-black/[0.06] bg-white px-4 py-3">
+        <GlobalSearch />
+      </div>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mx-auto w-full max-w-[1400px]">{children}</div>
