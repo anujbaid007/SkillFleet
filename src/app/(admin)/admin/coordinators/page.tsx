@@ -3,184 +3,111 @@ import { Inbox, MessageCircle, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
-import {
-  CoordinatorClaimRow,
-  type CoordinatorClaim,
-} from '@/components/admin/coordinator-claim-row'
+import { MigrationMissing } from '@/components/admin/migration-missing'
+import { SectionFailed } from '@/components/admin/section-failed'
+import { CoordinatorQueue, CLAIMS_DEFAULT_STATUS } from '@/components/admin/coordinator-queue'
+import { getCoordinatorsQueue, parseQueueQuery } from '@/lib/admin/queues'
+import type { SearchParams } from '@/lib/admin/scope'
 
-interface RawClaim {
-  id: string
-  name: string
-  state: string
-  district: string
-  review_status: string
-  coordinator_id: string
-  coordinator_status: string
-  coordinator_notes: string | null
-  board: string | null
-  student_count_range: string | null
-}
+const BASE_PATH = '/admin/coordinators'
 
-const STATUSES = [
-  { value: 'pending', label: 'Awaiting review' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-] as const
-
+/**
+ * Teachers applying to coordinate their school.
+ *
+ * This used to read every claim ever made, then every applicant's profile,
+ * then every claim again just to count the filter chips — three unbounded
+ * reads for one screen. It now reads one page, and the queue itself is a
+ * component that takes that page as a prop, so the tabbed Coordinators section
+ * coming next can render it without unpicking this route.
+ */
 export default async function AdminCoordinatorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<SearchParams>
 }) {
-  const { status } = await searchParams
-  // Default to the only view that needs action.
-  const active = status && ['pending', 'approved', 'rejected', 'all'].includes(status)
-    ? status
-    : 'pending'
-
+  const sp = await searchParams
+  const query = parseQueueQuery(sp, CLAIMS_DEFAULT_STATUS)
   const supabase = await createClient()
+  const page = await getCoordinatorsQueue(supabase, query)
 
-  let query = supabase
-    .from('schools')
-    .select(
-      'id, name, state, district, review_status, coordinator_id, coordinator_status, coordinator_notes, board, student_count_range'
-    )
-    .neq('coordinator_status', 'none')
-    .order('name')
-
-  if (active !== 'all') query = query.eq('coordinator_status', active)
-
-  const { data: raw } = (await query) as unknown as { data: RawClaim[] | null }
-  const claims = (raw ?? []).filter((c) => c.coordinator_id)
-
-  const applicantIds = [...new Set(claims.map((c) => c.coordinator_id))]
-  const { data: profiles } = applicantIds.length
-    ? await supabase.from('user_profiles').select('id, full_name, phone').in('id', applicantIds)
-    : { data: [] }
-  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]))
-  const phoneById = new Map((profiles ?? []).map((p) => [p.id, p.phone]))
-
-  // Counts for the filter chips, so an admin can see at a glance whether
-  // anything is waiting without clicking through each tab.
-  const { data: allRows } = (await supabase
-    .from('schools')
-    .select('coordinator_status')
-    .neq('coordinator_status', 'none')) as unknown as {
-    data: { coordinator_status: string }[] | null
-  }
-  const counts = (allRows ?? []).reduce<Record<string, number>>((acc, r) => {
-    acc[r.coordinator_status] = (acc[r.coordinator_status] ?? 0) + 1
-    return acc
-  }, {})
-  const total = (allRows ?? []).length
-
-  // Unread support messages across every conversation, for the inbox card.
-  const { data: unreadRows } = await supabase
+  // Unread support messages, counted by Postgres rather than by fetching every
+  // id and taking the length.
+  const { count: unreadCount } = await supabase
     .from('support_messages')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('sender_role', 'coordinator')
     .is('read_at', null)
-  const unreadCount = (unreadRows ?? []).length
 
-  const rows: CoordinatorClaim[] = claims.map((c) => ({
-    schoolId: c.id,
-    coordinatorId: c.coordinator_id,
-    schoolName: c.name,
-    schoolLocation: `${c.district}, ${c.state}`,
-    schoolReviewStatus: c.review_status,
-    coordinatorStatus: c.coordinator_status,
-    reviewNotes: c.coordinator_notes,
-    applicantName: nameById.get(c.coordinator_id) || 'Unknown applicant',
-    applicantPhone: phoneById.get(c.coordinator_id) ?? null,
-    board: c.board,
-    studentCountRange: c.student_count_range,
-  }))
+  const header = (
+    <PageHeader
+      eyebrow="ISC"
+      icon={UserCheck}
+      title="Coordinators"
+      subtitle="Teachers applying to coordinate their school. A coordinator's console stays closed until you approve them."
+    />
+  )
 
-  const chip = (isActive: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-      isActive ? 'bg-primary text-white' : 'border border-black/10 text-muted hover:text-foreground'
-    }`
+  const doors = (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Link
+        href="/admin/coordinators/support"
+        className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
+      >
+        <span className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <Inbox className="w-5 h-5" />
+        </span>
+        <span className="min-w-0">
+          <span className="flex items-center gap-2 flex-wrap">
+            <span className="font-display font-bold text-foreground text-sm">Support Inbox</span>
+            {(unreadCount ?? 0) > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-white">
+                {unreadCount} unread
+              </span>
+            )}
+          </span>
+          <span className="block text-xs text-muted mt-1">
+            Every conversation a coordinator has started with you.
+          </span>
+        </span>
+      </Link>
+
+      <Link
+        href="/admin/coordinators/message"
+        className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
+      >
+        <span className="w-11 h-11 rounded-xl bg-accent-teal/10 text-accent-teal flex items-center justify-center shrink-0">
+          <MessageCircle className="w-5 h-5" />
+        </span>
+        <span className="min-w-0">
+          <span className="font-display font-bold text-foreground text-sm">
+            Message a coordinator
+          </span>
+          <span className="block text-xs text-muted mt-1">
+            Reach out to any approved coordinator first.
+          </span>
+        </span>
+      </Link>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="ISC"
-        icon={UserCheck}
-        title="Coordinators"
-        subtitle="Teachers applying to coordinate their school. A coordinator's console stays closed until you approve them."
-      />
+      {header}
 
       {/*
         Two doors into the same conversations: the inbox for people who have
         already written in, and the approved list for reaching someone first.
       */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/admin/coordinators/support"
-          className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
-        >
-          <span className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <Inbox className="w-5 h-5" />
-          </span>
-          <span className="min-w-0">
-            <span className="flex items-center gap-2 flex-wrap">
-              <span className="font-display font-bold text-foreground text-sm">Support Inbox</span>
-              {unreadCount > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-white">
-                  {unreadCount} unread
-                </span>
-              )}
-            </span>
-            <span className="block text-xs text-muted mt-1">
-              Every conversation a coordinator has started with you.
-            </span>
-          </span>
-        </Link>
+      {doors}
 
-        <Link
-          href="/admin/coordinators/message"
-          className="clay-card p-6 flex items-start gap-4 hover:bg-black/[0.01] transition-colors"
-        >
-          <span className="w-11 h-11 rounded-xl bg-accent-teal/10 text-accent-teal flex items-center justify-center shrink-0">
-            <MessageCircle className="w-5 h-5" />
-          </span>
-          <span className="min-w-0">
-            <span className="font-display font-bold text-foreground text-sm">
-              Message a coordinator
-            </span>
-            <span className="block text-xs text-muted mt-1">
-              Reach out to any approved coordinator first.
-            </span>
-          </span>
-        </Link>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        {STATUSES.map((s) => (
-          <a key={s.value} href={`/admin/coordinators?status=${s.value}`} className={chip(active === s.value)}>
-            {s.label}
-            {counts[s.value] ? ` · ${counts[s.value]}` : ''}
-          </a>
-        ))}
-        <a href="/admin/coordinators?status=all" className={chip(active === 'all')}>
-          All{total ? ` · ${total}` : ''}
-        </a>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="clay-card p-12 text-center text-muted">
-          {active === 'pending'
-            ? 'Nothing waiting — every coordinator application has been reviewed.'
-            : 'No coordinator applications with this status.'}
-        </div>
-      ) : (
+      {page.ok ? (
         <Reveal delay={0.05}>
-          <div className="clay-card divide-y divide-black/[0.06]">
-            {rows.map((c) => (
-              <CoordinatorClaimRow key={c.schoolId} claim={c} />
-            ))}
-          </div>
+          <CoordinatorQueue basePath={BASE_PATH} query={query} page={page.data} />
         </Reveal>
+      ) : page.kind === 'migration-missing' ? (
+        <MigrationMissing message={page.message} />
+      ) : (
+        <SectionFailed title="Coordinator applications" message={page.message} />
       )}
     </div>
   )

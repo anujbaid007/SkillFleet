@@ -1,7 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { invalidateAdminCache } from '@/lib/admin/cache'
 import { createClient } from '@/lib/supabase/server'
+
+/*
+  invalidateAdminCache() before every revalidatePath: the certificates queue is
+  cached for sixty seconds in src/lib/admin/queues.ts, and a re-render that
+  reads that entry would show the certificate just decided still pending.
+*/
 
 export type CertActionState = { error?: string; success?: string } | undefined
 
@@ -25,7 +32,9 @@ export async function reviewCertAction(
     if (error) return { error: 'Database error. Please try again.' }
     switch (status) {
       case 'ok':
+        invalidateAdminCache()
         revalidatePath('/admin/certificates')
+        revalidatePath('/admin')
         return { success: 'Certificate rejected.' }
       case 'not_admin':
         return { error: 'Permission denied.' }
@@ -52,7 +61,9 @@ export async function reviewCertAction(
     if (error) return { error: 'Database error. Please try again.' }
     switch (status) {
       case 'ok':
+        invalidateAdminCache()
         revalidatePath('/admin/certificates')
+        revalidatePath('/admin')
         return { success: points > 0 ? `Approved. +${points} pts awarded.` : 'Approved. No points awarded.' }
       case 'not_admin':
         return { error: 'Permission denied.' }
