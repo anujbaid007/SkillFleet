@@ -20,11 +20,17 @@ const DEBOUNCE_MS = 250
 /**
  * Where a hit goes. Every kind now has a page that really contains it.
  *
- * status=all on the two queue links is the load-bearing part: both queues
- * default to the pending tab, and a school approved last month or a
- * coordinator approved last week is not on it. Sending a hit to a tab that
- * filters it back out would be worse than not linking at all, which is what
- * the school case did until /admin/schools learned to take `q`.
+ * status=all on the schools link is the load-bearing part: that queue defaults
+ * to the pending tab, and a school approved last month is not on it. Sending a
+ * hit to a tab that filters it back out would be worse than not linking at
+ * all, which is what the school case did until /admin/schools learned to take
+ * `q`.
+ *
+ * A coordinator goes to their own page, keyed on the person. It used to go to
+ * the claims queue, which lists CLAIMS: a teacher who had signed up and
+ * claimed nothing was not on it at any status, so the search found them and
+ * then showed an empty queue. admin_search returns the coordinator's own
+ * profile id, which is exactly what /admin/coordinators/[id] takes.
  */
 function hrefFor(hit: SearchHit): string {
   switch (hit.kind) {
@@ -33,7 +39,7 @@ function hrefFor(hit: SearchHit): string {
     case 'school':
       return `/admin/schools?status=all&q=${encodeURIComponent(hit.title)}`
     case 'coordinator':
-      return `/admin/coordinators?status=all&q=${encodeURIComponent(hit.title)}`
+      return `/admin/coordinators/${hit.id}`
   }
 }
 

@@ -102,8 +102,10 @@ export async function reviewCoordinatorClaimAction(
   if (!CLAIM_DONE[status]) return { error: CLAIM_ERR[status] ?? 'Could not complete that.' }
 
   invalidateAdminCache()
-  // The claims queue lives under /admin/coordinators, not /admin/schools --
-  // revalidating the schools page left the list this row is actually on stale.
+  // The claims queue lives under /admin/coordinators/claims, not
+  // /admin/schools -- revalidating the schools page left the list this row is
+  // actually on stale.
+  revalidatePath('/admin/coordinators/claims')
   revalidatePath('/admin/coordinators')
   revalidatePath('/admin')
   revalidatePath('/coordinator')

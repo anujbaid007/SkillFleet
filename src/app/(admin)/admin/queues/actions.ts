@@ -237,7 +237,10 @@ export async function bulkReviewCoordinators(formData: FormData): Promise<BulkRe
     }
   }
 
-  refresh('/admin/coordinators')
+  // The queue moved to the Claims tab; the section root still redirects the
+  // old address here, so both are revalidated.
+  refresh('/admin/coordinators/claims')
+  revalidatePath('/admin/coordinators')
   // An approved coordinator's own console opens on their next load.
   revalidatePath('/coordinator')
   return decision === 'approve'

@@ -1,7 +1,6 @@
 import Link from 'next/link'
-import { ArrowLeft, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { PageHeader } from '@/components/ui/page-header'
+import { CoordinatorHeader } from '@/components/admin/coordinator-header'
 import { SupportConfigForm } from '@/components/admin/support-config-form'
 
 interface ConversationRow {
@@ -85,18 +84,11 @@ export default async function AdminSupportInboxPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/admin/coordinators"
-        className="text-xs font-semibold text-muted hover:text-foreground inline-flex items-center gap-1.5"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Back to Coordinators
-      </Link>
-
-      <PageHeader
-        eyebrow="ISC"
-        icon={Inbox}
-        title="Support Inbox"
+      {/* The section's own header, so Support reads as one tab of Coordinators
+          rather than a page reached only by a back link. */}
+      <CoordinatorHeader
+        active="support"
+        title="Support inbox"
         subtitle="Every conversation with a coordinator, most recent first."
       />
 

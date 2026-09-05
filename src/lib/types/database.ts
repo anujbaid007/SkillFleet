@@ -1895,11 +1895,12 @@ export type Database = {
       // ---------------------------------------------------------------
       // Admin at scale -- docs/admin-scale-migration.sql.
       //
-      // All ten are `security definer` and gated on is_admin(); a non-admin
+      // All fifteen are `security definer` and gated on is_admin(); a non-admin
       // gets the Postgres error 'admin only', not an empty result. Until the
       // founder has pasted that file into the SQL editor they do not exist,
       // and PostgREST answers PGRST202 -- which src/lib/admin/errors.ts maps
-      // to the 'migration-missing' result kind.
+      // to the 'migration-missing' result kind. The last five are section G,
+      // the coordinator half -- see src/lib/admin/coordinators.ts.
       //
       // Two shapes of trap are encoded below and must not be "tidied":
       //   * `p_district` without `p_state` RAISES. District names repeat
@@ -2077,6 +2078,109 @@ export type Database = {
           similar_review_status: string
           score: number
         }[]
+      }
+
+      // ---------------------------------------------------------------
+      // Section G -- coordinators. Three units live in these five functions
+      // and mixing them is how this screen goes wrong: `coordinators`,
+      // `approved`, `pending` and `rejected` count PEOPLE; every `schools_*`
+      // counts SCHOOLS; every `students_*` counts STUDENTS. `students` is
+      // REACH -- every student registered at the school -- and NOT section
+      // C's Classes 5-12 `eligible`.
+      // ---------------------------------------------------------------
+
+      /**
+       * jsonb, thirteen keys, never null. See CoordinatorSummary in
+       * src/lib/admin/coordinators.ts. `entered_pct` is a true subset over its
+       * own superset and so is safe to draw as a percentage, unlike
+       * admin_dashboard's submitted/eligible. p_district without p_state
+       * RAISES, like every other scoped function here.
+       */
+      admin_coordinator_summary: {
+        Args: { p_state?: string | null; p_district?: string | null }
+        Returns: Json
+      }
+      /**
+       * States nationally, one state's districts with p_state -- there is NO
+       * p_district on this one. Every state with a school is listed, including
+       * those with no coordinator, because that row is the answer to "where is
+       * there no coverage". Ordered students_covered desc, key.
+       */
+      admin_coordinator_breakdown: {
+        Args: { p_state?: string | null }
+        Returns: {
+          key: string
+          label: string
+          coordinators: number
+          approved: number
+          schools_claimed: number
+          schools_total: number
+          students_covered: number
+          students_entered: number
+        }[]
+      }
+      /**
+       * A SIGNUP COHORT, not an event chart: `schools` carries no claim date,
+       * so every claim and approval is plotted on the day its coordinator
+       * signed up. The `cohort_` prefixes are the contract -- renamed to
+       * `claims`/`approvals` on a day axis they would read as events, and a
+       * 30-day window would look like recruitment had stopped.
+       * greatest(p_days, 1) rows, oldest first, zero-filled, ending today.
+       */
+      admin_coordinator_trend: {
+        Args: { p_state?: string | null; p_days?: number }
+        Returns: {
+          day: string
+          coordinators: number
+          cohort_claimed: number
+          cohort_approved: number
+        }[]
+      }
+      /**
+       * p_page is 1-based; p_size is clamped to 200 in SQL. `email` is
+       * NULLABLE (auth.users is LEFT joined). p_sort is 'students_desc' |
+       * 'students_asc' | 'name_asc' | 'joined_desc' and anything else quietly
+       * falls back to students_desc. p_state excludes every coordinator who
+       * has claimed nothing, since a claim is the only thing that gives them a
+       * state. `students` sums over EVERY school they hold while school_name
+       * shows one -- `schools_claimed` says how many.
+       */
+      admin_coordinators_page: {
+        Args: {
+          p_q?: string | null
+          p_status?: string | null
+          p_state?: string | null
+          p_sort?: string | null
+          p_page?: number
+          p_size?: number
+        }
+        Returns: {
+          id: string
+          full_name: string | null
+          email: string | null
+          phone: string | null
+          school_id: string | null
+          school_name: string | null
+          state: string | null
+          district: string | null
+          claim_status: string
+          schools_claimed: number
+          students: number
+          students_entered: number
+          joined_at: string
+          total: number
+        }[]
+      }
+      /**
+       * jsonb, or SQL NULL when the id is not a coordinator profile -- a
+       * student's id and an unknown uuid both answer null rather than raising.
+       * See CoordinatorDetail in src/lib/admin/coordinators.ts. `by_track`
+       * counts ENTRIES and sums to `entries`; admin_isc_summary's by_track
+       * counts distinct STUDENTS and does not.
+       */
+      admin_coordinator_detail: {
+        Args: { p_coordinator_id: string }
+        Returns: Json
       }
     }
     Enums: {
