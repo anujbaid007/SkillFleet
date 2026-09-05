@@ -1,6 +1,6 @@
-import { CalendarDays, Languages, Layers, ListChecks } from 'lucide-react'
+import { Languages, Layers, ListChecks } from 'lucide-react'
 import { Panel, PanelEmpty } from '@/components/dashboard/panel'
-import { formatIstDay } from '@/lib/isc/dates'
+import { IscTimelineChart } from '@/components/admin/isc-timeline-chart'
 import { iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 import type { CountRow, IscSummary, TimelinePoint } from '@/lib/admin/isc'
 
@@ -65,10 +65,6 @@ export function IscInsights({
   summary: IscSummary
   timeline: TimelinePoint[]
 }) {
-  const peak = Math.max(1, ...timeline.map((p) => Math.max(p.started, p.submitted)))
-  const started = timeline.reduce((sum, p) => sum + p.started, 0)
-  const submitted = timeline.reduce((sum, p) => sum + p.submitted, 0)
-
   return (
     <div className="grid gap-4 lg:grid-cols-12">
       <div className="lg:col-span-4">
@@ -108,49 +104,11 @@ export function IscInsights({
       </div>
 
       <div className="lg:col-span-12">
-        <Panel
-          title="Each day"
-          subtitle="Counted in entries, by Indian Standard Time — how many entries were started that day, and how many were submitted"
-          icon={CalendarDays}
-        >
-          {timeline.length === 0 ? (
-            <PanelEmpty>No days to show yet.</PanelEmpty>
-          ) : (
-            <>
-              <ul className="flex h-28 items-end gap-[3px]" aria-hidden="true">
-                {timeline.map((p) => (
-                  <li key={p.day} className="flex h-full flex-1 items-end justify-center gap-[2px]">
-                    <span
-                      className="w-1/2 rounded-t-sm bg-primary/70"
-                      style={{ height: `${Math.max(2, (p.started / peak) * 100)}%` }}
-                      title={`${formatIstDay(p.day)}: ${n(p.started)} started`}
-                    />
-                    <span
-                      className="w-1/2 rounded-t-sm bg-emerald-500"
-                      style={{ height: `${Math.max(2, (p.submitted / peak) * 100)}%` }}
-                      title={`${formatIstDay(p.day)}: ${n(p.submitted)} submitted`}
-                    />
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-black/[0.05] pt-3 text-[11px] text-muted">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-primary/70" />
-                  Started
-                  <span className="font-bold tabular-nums text-foreground">{n(started)}</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Submitted
-                  <span className="font-bold tabular-nums text-foreground">{n(submitted)}</span>
-                </span>
-                <span>
-                  {formatIstDay(timeline[0].day)} to {formatIstDay(timeline[timeline.length - 1].day)}
-                </span>
-              </div>
-            </>
-          )}
-        </Panel>
+        {/*
+          The same chart the admin overview draws over seven days. Shared so
+          the two screens cannot disagree about a quantity they both show.
+        */}
+        <IscTimelineChart points={timeline} />
       </div>
     </div>
   )
