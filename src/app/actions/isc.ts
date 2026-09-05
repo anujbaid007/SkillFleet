@@ -301,7 +301,7 @@ export async function entryFormAction(
 
   revalidatePath(`/isc/${track.slug}`)
   revalidatePath('/isc')
-  return { ok: 'Entry submitted. You can still edit it until the deadline.' }
+  return { ok: 'Entry submitted. It is now final, and this is what the judges will see.' }
 }
 
 export async function getTrackDeadline(track: IscTrackId): Promise<string | null> {
