@@ -548,7 +548,11 @@ async function CertificatesSection({ studentId }: { studentId: string }) {
               </span>
               <span className="flex-1 text-xs text-muted">{formatIstDay(istDay(c.created_at))}</span>
               <span className="text-sm font-semibold text-foreground shrink-0">
-                {c.status === 'approved' ? `+${c.points_approved} pts` : `${c.points_provisional} pts pending`}
+                {c.status === 'approved'
+                  ? `+${c.points_approved} pts`
+                  : c.status === 'pending'
+                    ? `${c.points_provisional} pts pending`
+                    : 'Not awarded'}
               </span>
             </Link>
           ))}
