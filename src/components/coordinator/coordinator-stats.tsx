@@ -1,5 +1,5 @@
 import { GraduationCap, Layers, Rocket, Trophy, Users } from 'lucide-react'
-import { ISC_TRACKS } from '@/lib/isc/tracks'
+import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { countdownLabel } from '@/lib/isc/validate'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { Panel, PanelEmpty } from '@/components/dashboard/panel'
@@ -144,6 +144,18 @@ export function CoordinatorStats({
                 </div>
               )
             })}
+            {/* Played live, so registered rather than submitted, and a window
+                rather than a countdown. */}
+            <div>
+              <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                <span className="text-[13px] font-semibold text-foreground">{PUZZLE_MASTER.name}</span>
+                <span className="text-[11px] text-muted shrink-0">{PUZZLE_MASTER.window}</span>
+              </div>
+              <p className="text-[11px] text-muted">
+                <span className="font-bold text-emerald-600 tabular-nums">{counts.byTrack[PUZZLE_MASTER.id].submitted}</span>{' '}
+                registered · played live, nothing to submit
+              </p>
+            </div>
           </div>
         </Panel>
 

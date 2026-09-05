@@ -1,6 +1,6 @@
 import { CLASS_OPTIONS } from '@/lib/profile/details'
 import { isEligibleClass } from '@/lib/isc/validate'
-import { ISC_TRACKS, type IscTrackId } from '@/lib/isc/tracks'
+import { ISC_TRACKS, PUZZLE_MASTER_ID, type IscTrackId } from '@/lib/isc/tracks'
 import { iscGroupForClass, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 
 /**
@@ -34,7 +34,7 @@ export interface EntryCounts {
   total: number
   submitted: number
   draft: number
-  byTrack: Record<IscTrackId, { submitted: number; draft: number }>
+  byTrack: Record<IscTrackId | typeof PUZZLE_MASTER_ID, { submitted: number; draft: number }>
 }
 
 export interface ClassParticipation {
@@ -83,12 +83,12 @@ export function rosterSummary(students: RosterEntryStatus[]): RosterSummary {
 
 /** How much work the school has produced, by entry rather than by student. */
 export function entryCounts(entries: { track: string; status: string }[]): EntryCounts {
-  const byTrack = ISC_TRACKS.reduce(
-    (acc, t) => {
-      acc[t.id] = { submitted: 0, draft: 0 }
+  const byTrack = [...ISC_TRACKS.map((t) => t.id), PUZZLE_MASTER_ID].reduce(
+    (acc, id) => {
+      acc[id] = { submitted: 0, draft: 0 }
       return acc
     },
-    {} as Record<IscTrackId, { submitted: number; draft: number }>
+    {} as Record<IscTrackId | typeof PUZZLE_MASTER_ID, { submitted: number; draft: number }>
   )
 
   let submitted = 0
@@ -100,7 +100,7 @@ export function entryCounts(entries: { track: string; status: string }[]): Entry
     // A track this build does not know about still counts toward the total but
     // gets no row: inventing one would put a heading on the page for a
     // championship that cannot be entered here.
-    const row = byTrack[e.track as IscTrackId]
+    const row = byTrack[e.track as IscTrackId | typeof PUZZLE_MASTER_ID]
     if (!row) continue
     if (e.status === 'submitted') row.submitted += 1
     else row.draft += 1

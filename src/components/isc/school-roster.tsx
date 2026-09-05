@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronRight, Search, Users, X } from 'lucide-react'
 import { Panel } from '@/components/dashboard/panel'
-import { ISC_TRACKS } from '@/lib/isc/tracks'
+import { ISC_TRACKS, PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { ISC_GROUPS, iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 import {
   buildStudentProfile,
@@ -149,6 +149,7 @@ export function SchoolRoster({
                 {t.name}
               </option>
             ))}
+            <option value={PUZZLE_MASTER.id}>{PUZZLE_MASTER.name}</option>
           </select>
 
           <select

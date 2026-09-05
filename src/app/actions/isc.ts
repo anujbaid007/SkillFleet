@@ -10,6 +10,7 @@ import {
   type IscTrackId,
 } from '@/lib/isc/tracks'
 import { readSubmission } from '@/lib/isc/submission'
+import { PUZZLE_MASTER_ID } from '@/lib/isc/tracks'
 import { firstInvalidField } from '@/lib/isc/validate'
 import { checkLink } from '@/lib/isc/link-check'
 
@@ -533,3 +534,31 @@ export async function leaveTeamAction(
   redirect('/isc')
 }
 
+
+export type PuzzleRegisterState = { error?: string; ok?: boolean } | undefined
+
+/**
+ * Puzzle Master has nothing to upload: registering is the entry. Start the
+ * entry, then submit it straight away; the database accepts an empty
+ * submission for this one track (docs/isc-puzzle-master-registration.sql).
+ */
+export async function registerForPuzzleMasterAction(): Promise<PuzzleRegisterState> {
+  const supabase = await createClient()
+  const started = await supabase.rpc('isc_start_entry', { p_track: PUZZLE_MASTER_ID })
+  if (started.error) {
+    // Before the registration patch is applied the track is refused outright.
+    return { error: 'Registration for Puzzle Master is not open yet. Please try again soon.' }
+  }
+  const start = started.data as { ok: boolean; entry_id?: string; error?: string } | null
+  if (!start?.ok || !start.entry_id) return { error: iscError(start?.error) }
+  const submitted = await supabase.rpc('isc_submit_entry', { p_entry_id: start.entry_id })
+  const sub = submitted.data as { ok: boolean; error?: string } | null
+  if (submitted.error || !sub?.ok) {
+    // Already registered on a previous try counts as registered.
+    if (sub?.error === 'entry_submitted') { revalidatePath('/isc'); return { ok: true } }
+    return { error: iscError(sub?.error) }
+  }
+  revalidatePath('/isc')
+  revalidatePath('/isc/puzzle-master')
+  return { ok: true }
+}

@@ -10,7 +10,7 @@ import { loadCoordinatorSchoolData } from '@/lib/coordinator/school-data'
 import { computeFunnel } from '@/lib/isc/funnel'
 import { classParticipation, groupParticipation } from '@/lib/coordinator/analytics'
 import { staleDrafts } from '@/lib/isc/analytics'
-import { ISC_TRACKS } from '@/lib/isc/tracks'
+import { trackNameFor } from '@/lib/isc/tracks'
 
 /**
  * The school's numbers, one level deeper than the dashboard.
@@ -39,7 +39,7 @@ export default async function CoordinatorAnalyticsPage() {
   const groups = groupParticipation(students)
   const stale = staleDrafts(school.entries, new Date())
 
-  const trackName = (id: string) => ISC_TRACKS.find((t) => t.id === id)?.name ?? id
+  const trackName = (id: string) => trackNameFor(id)
 
   return (
     <div className="space-y-6">

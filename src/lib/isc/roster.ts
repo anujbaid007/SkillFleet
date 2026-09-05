@@ -1,4 +1,4 @@
-import { ISC_TRACKS, trackById, type IscTrackId } from '@/lib/isc/tracks'
+import { ISC_TRACKS, PUZZLE_MASTER_ID, trackById, type IscTrackId } from '@/lib/isc/tracks'
 import type { AnalyticsEntry } from '@/lib/isc/analytics'
 
 export interface RosterStudent {
@@ -107,7 +107,7 @@ export interface StudentProfile {
 
 // Fixed track order, so a profile's blocks read in the same order as every
 // other track list in the app rather than in whatever order rows arrived.
-const TRACK_ORDER = new Map(ISC_TRACKS.map((t, i) => [t.id, i]))
+const TRACK_ORDER = new Map<string, number>([...ISC_TRACKS.map((t, i) => [t.id, i] as [string, number]), [PUZZLE_MASTER_ID, ISC_TRACKS.length]])
 
 function acceptance(m: RosterMember): MemberAcceptance {
   if (!m.userId) return 'unregistered_invite'

@@ -78,10 +78,17 @@ describe('entryCounts', () => {
     expect(c.byTrack.content_creator).toEqual({ submitted: 0, draft: 0 })
   })
 
-  it('ignores a track it does not recognise rather than inventing a row', () => {
+  it('counts a Puzzle Master registration under its own row', () => {
     const c = entryCounts([{ track: 'puzzle_master', status: 'submitted' }])
     expect(c.total).toBe(1)
-    expect(Object.keys(c.byTrack)).toHaveLength(3)
+    expect(c.byTrack.puzzle_master).toEqual({ submitted: 1, draft: 0 })
+    expect(Object.keys(c.byTrack)).toHaveLength(4)
+  })
+
+  it('ignores a track it does not recognise rather than inventing a row', () => {
+    const c = entryCounts([{ track: 'robotics', status: 'submitted' }])
+    expect(c.total).toBe(1)
+    expect(Object.keys(c.byTrack)).toHaveLength(4)
   })
 })
 
