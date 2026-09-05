@@ -110,7 +110,7 @@ export default async function IscTrackPage({
         daysLeft={daysLeft}
       />
 
-      <TrackAbout name={track.name} description={track.description} tools={track.tools} accent={track.accent} />
+      <TrackAbout name={track.name} description={track.description} sections={track.sections} tools={track.tools} accent={track.accent} />
 
       <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
 

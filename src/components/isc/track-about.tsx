@@ -1,4 +1,5 @@
 import { ExternalLink, Wrench } from 'lucide-react'
+import type { TrackSection } from '@/lib/isc/tracks'
 
 /*
   The full brief for one championship: a few short paragraphs a student can
@@ -8,11 +9,13 @@ import { ExternalLink, Wrench } from 'lucide-react'
 export function TrackAbout({
   name,
   description,
+  sections,
   tools,
   accent,
 }: {
   name: string
   description: string[]
+  sections?: TrackSection[]
   tools?: { name: string; url: string; note: string }[]
   accent: string
 }) {
@@ -27,6 +30,30 @@ export function TrackAbout({
         ))}
       </div>
 
+      {sections && sections.length > 0 && (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {sections.map((sec) => {
+            const List = sec.ordered ? 'ol' : 'ul'
+            return (
+              <div key={sec.title} className="rounded-2xl border border-black/[0.05] bg-white/70 p-4">
+                <h3 className="text-sm font-semibold text-foreground">{sec.title}</h3>
+                {sec.body && <p className="mt-1 text-xs leading-relaxed text-muted">{sec.body}</p>}
+                {sec.items && (
+                  <List className={`mt-2 space-y-1.5 ${sec.ordered ? 'list-decimal pl-4' : ''}`}>
+                    {sec.items.map((item) => (
+                      <li key={item} className="flex gap-2 text-xs leading-relaxed text-muted">
+                        {!sec.ordered && <span aria-hidden className={`mt-[7px] h-1 w-1 shrink-0 rounded-full ${accent.replace('text-', 'bg-')}`} />}
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </List>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {tools && tools.length > 0 && (
         <div className="mt-5 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
           <p className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -34,7 +61,7 @@ export function TrackAbout({
             Where you can build it
           </p>
           <p className="mt-1 text-xs text-muted">
-            Each of these turns a plain-English description into a working app with a link you can share. Pick one, or use your own tools.
+            Suggestions, not requirements: each turns a plain-English description into a working app with a link you can share. Any language or platform is fine.
           </p>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {tools.map((tool) => (

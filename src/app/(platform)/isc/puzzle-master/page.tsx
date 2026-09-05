@@ -6,6 +6,8 @@ import { TrackHero } from '@/components/isc/track-hero'
 import { TrackFacts } from '@/components/isc/track-facts'
 import { TrackAbout } from '@/components/isc/track-about'
 import { PracticeGames } from '@/components/isc/practice-games'
+import { PuzzleRegister } from '@/components/isc/puzzle-register'
+import { getMyIscEntries } from '@/app/actions/isc'
 
 /**
  * Puzzle Master.
@@ -14,14 +16,16 @@ import { PracticeGames } from '@/components/isc/practice-games'
  * one: the other three championships are entered by saving a submission, and
  * everything that route does — the entry lookup, the team panel, the form, the
  * deadline lock — exists to serve that. Puzzle Master is played live, so the
- * page briefs the student and hands them the practice games instead. There is
- * deliberately no "Ready when you are" block: there is nothing to open.
+ * page briefs the student and hands them the practice games instead. The one
+ * act is registering, which creates the entry the coordinator sees.
  */
 export default async function PuzzleMasterPage() {
   // Memoised by the layout for this request, so it costs no round trip.
   const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
   if (!isEligibleClass(profile.school_class)) redirect('/isc')
+  const entries = await getMyIscEntries()
+  const registered = entries.some((e) => e.track === PUZZLE_MASTER.id && e.status === 'submitted')
 
   return (
     <div className="space-y-6">
@@ -38,13 +42,15 @@ export default async function PuzzleMasterPage() {
         daysLeft={null}
       />
 
-      <TrackAbout name={PUZZLE_MASTER.name} description={PUZZLE_MASTER.description} accent={PUZZLE_MASTER.accent} />
+      <TrackAbout name={PUZZLE_MASTER.name} description={PUZZLE_MASTER.description} sections={PUZZLE_MASTER.sections} accent={PUZZLE_MASTER.accent} />
 
       <TrackFacts
         prize={PUZZLE_MASTER.prize}
         prepare={PUZZLE_MASTER.prepare}
         accent={PUZZLE_MASTER.accent}
       />
+
+      <PuzzleRegister registered={registered} />
 
       <PracticeGames />
     </div>

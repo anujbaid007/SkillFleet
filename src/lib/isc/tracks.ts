@@ -65,8 +65,18 @@ export interface IscTrack {
   prepare: string[]
   /** The full brief, a few short paragraphs, shown on the championship's own page. */
   description: string[]
+  /** Titled parts of the brief: a sentence, a list, or both. */
+  sections?: TrackSection[]
   /** Where a student can build the thing without setting up anything. */
   tools?: { name: string; url: string; note: string }[]
+}
+
+export interface TrackSection {
+  title: string
+  body?: string
+  items?: string[]
+  /** Numbered rather than bulleted, for a sequence like the parts of a pitch. */
+  ordered?: boolean
 }
 
 export const ISC_TRACKS: IscTrack[] = [
@@ -93,15 +103,66 @@ export const ISC_TRACKS: IscTrack[] = [
       'A short written explanation of the problem and how you solved it',
     ],
     description: [
-      'Start with a real problem you have seen with your own eyes, then build an AI tool that solves it. It can come from anywhere: your home, your school, a shop, a farm, a hobby. It does not have to be a social cause. A stock tracker for a shopkeeper, a homework helper in your own language, an app that spots plant disease from a photo, a tool that turns a doctor’s note into plain words, all of these count. What matters is that a real person would use it, and that it works when we open the link.',
-      'Judges look at four things: how real and clearly stated the problem is, whether the AI genuinely does the job rather than decorating it, whether it works for a stranger on first try, and how honestly you explain what it can and cannot do. A small tool that works beats a big idea that does not.',
-      'You can build it however you like. The platforms below let you describe what you want in plain English and give you a working app with a shareable link in an afternoon, no installation needed. Use one of them, or code it yourself, then paste the public link in your entry. Make sure the link opens in a private window, because that is exactly how the judges will open it.',
+      'AI for Impact is a practical innovation challenge: use artificial intelligence to build a working application, website or digital tool that solves a real-world problem. It is not limited to social causes. Any genuine problem faced by individuals, schools, communities, businesses or society counts, as long as a real person would use what you build and it works when we open the link.',
+      'Look at the world around you, pick one specific problem, and make a tool that is genuinely useful to the people who have it. A simple, focused tool that works well beats an ambitious idea that cannot be demonstrated.',
+    ],
+    sections: [
+      {
+        title: 'Where a problem can come from',
+        body: 'Any of these, or somewhere we have not thought of:',
+        items: [
+          'Education and personalised learning',
+          'Healthcare and wellness',
+          'Agriculture, environment and sustainability',
+          'Accessibility',
+          'Personal productivity and everyday household problems',
+          'School administration and local businesses',
+          'Financial literacy and public services',
+          'Safety and emergency response',
+          'Career guidance and communication',
+        ],
+      },
+      {
+        title: 'What you can build',
+        items: [
+          'An AI-powered web app, assistant or chatbot',
+          'An educational, recommendation or productivity tool',
+          'A data-analysis, research, planning or decision-support tool',
+          'An accessibility solution',
+          'An AI-powered game or interactive experience',
+          'A school or business management tool',
+          'Any other working AI solution to a real problem',
+        ],
+      },
+      {
+        title: 'What your entry needs',
+        body: 'A working public or unlisted link to the app, a demo video of a minute or less, and a written explanation that covers:',
+        items: [
+          'The real-world problem, and who experiences it',
+          'Your solution, and how AI is used inside it',
+          'The benefit or outcome you expect for the people who use it',
+        ],
+      },
+      {
+        title: 'Keep the link open',
+        body: 'The link must stay live for the whole evaluation period, and judges must be able to open and test it without special access or a subscription. Check it in a private window, because that is how they will open it. Never put passwords, confidential information or sensitive personal data into the app.',
+      },
+      {
+        title: 'What judges look for',
+        items: [
+          'A clear, relevant real-world problem',
+          'A genuinely useful solution that works',
+          'AI that does real work in the solution, not an AI label on an unrelated site',
+          'Originality, ease of use, and room to improve',
+          'A clear presentation and explanation',
+        ],
+      },
     ],
     tools: [
-      { name: 'Google AI Studio', url: 'https://aistudio.google.com', note: 'Build and publish an app on Gemini from a prompt, free with a Google account.' },
-      { name: 'Emergent', url: 'https://emergent.sh', note: 'Describe the app, and it writes and hosts the whole thing for you.' },
-      { name: 'Replit', url: 'https://replit.com', note: 'Chat your way to an app, edit the code if you want to, share a live link.' },
-      { name: 'Lovable', url: 'https://lovable.dev', note: 'Good for websites and web apps with a polished look, from a description.' },
+      { name: 'Google AI Studio', url: 'https://ai.google.dev/gemini-api/docs/aistudio-build-mode', note: 'Build and share a full-stack AI web app on Gemini.' },
+      { name: 'Emergent', url: 'https://emergent.sh/ai-app-builder', note: 'Full-stack apps and websites from plain-language instructions.' },
+      { name: 'Replit Agent', url: 'https://docs.replit.com/build/your-first-app', note: 'Describe, build, test and publish an app inside Replit.' },
+      { name: 'Lovable', url: 'https://docs.lovable.dev/introduction/welcome', note: 'Create and deploy a web app from natural-language prompts.' },
     ],
   },
   {
@@ -127,9 +188,53 @@ export const ISC_TRACKS: IscTrack[] = [
       'A pitch video of one minute or less',
     ],
     description: [
-      'Find something people around you pay for, wait for, or put up with, and design a business that does it better. It can be a product, a service, a subscription, a marketplace, or a school-gate stall that grew. You do not need to have started it, but the more you have tested with real people, the stronger your entry.',
-      'Your write-up answers six questions in plain words: what the problem is, what you would sell, who exactly would buy it, why they would choose you, how the numbers work, and what would stop you. Then a one-minute pitch on video, as if you were in front of an investor with a bus to catch.',
-      'Judges reward ideas that are specific, that show you spoke to a real customer, and that could actually start with the money and time a student has. Ambition is welcome, but a clear first step beats a grand plan every time.',
+      'Identify a real problem and develop an original startup or business idea to solve it. You do not need a registered company or a finished product. What counts is how well you understand the problem, how thoughtful your solution is, and how clearly you explain the difference it could make.',
+      'Your entry is two things: a structured idea document and a one-minute video pitch, both in English or Hindi.',
+    ],
+    sections: [
+      {
+        title: 'The idea document',
+        ordered: true,
+        items: [
+          'A clear, memorable name',
+          'The problem: what it is, who has it, how often, why it matters, and what happens if nobody solves it',
+          'Your solution: what you would make, how it works, how people use it, and what makes it different from what exists',
+          'Who it is for: the people, schools, communities or businesses that would use it',
+          'The impact: what changes for users, how many could benefit, and how you would measure it',
+          'Feasibility: the resources, technology, people or partners you would need',
+          'How it sustains itself: sales, subscriptions, commissions, sponsorship, partnerships, advertising or another model',
+          'Where it could go beyond your first users',
+        ],
+      },
+      {
+        title: 'The one-minute pitch, in four parts',
+        body: 'Present it yourselves, in this order, as if the investor has a bus to catch:',
+        ordered: true,
+        items: [
+          'The problem: what it is, who faces it, why it matters and why it deserves solving. About fifteen seconds.',
+          'Your solution: what it does, how it works, why it is practical and what makes it different. About twenty seconds.',
+          'The impact: who benefits, what improves, how it could grow, and why the judges should believe in it. About fifteen seconds.',
+          'How you will make money: what people pay for, and how the venture keeps going. About ten seconds.',
+        ],
+      },
+      {
+        title: 'Video rules',
+        items: [
+          'Sixty seconds at most, with clear audio',
+          'You or your team present it; do not simply read the document aloud',
+          'Slides, prototypes or demonstrations are welcome',
+          'No expensive equipment needed: clarity of thought matters more than production',
+        ],
+      },
+      {
+        title: 'What judges look for',
+        items: [
+          'Understanding of the problem and the people who have it',
+          'Originality and practicality of the idea',
+          'Potential impact, feasibility, and a way to sustain it',
+          'Confidence and clarity within one minute',
+        ],
+      },
     ],
   },
   {
@@ -155,9 +260,43 @@ export const ISC_TRACKS: IscTrack[] = [
       'A short note on how it answers the theme',
     ],
     description: [
-      'One minute, one idea, your voice. This year’s theme is on your entry form. Make a video that answers it in a way only you could, a story, an explainer, a mini documentary, a song, a skit, animation, whatever you are good at. Phone footage is fine; a clear idea and a strong first five seconds matter far more than the camera.',
-      'The work must be your own. You can use editing apps, music you have the right to use, and AI tools for captions or effects, but the idea, the script and the presence on screen are yours. Tell us in the note what you used.',
-      'Judges look at whether the video actually answers the theme, whether it holds attention for the full minute, how well it is made with what you had, and how original it is. Upload it anywhere with a public link, YouTube unlisted or Google Drive both work, and check the link in a private window before you submit.',
+      'A national platform for creativity, communication and digital storytelling. Make one original video, sixty seconds at most, that answers this year’s theme from Skill Fleet, in English or Hindi. The skills it builds, storytelling, video, presentation, editing, design and holding an audience, are the skills of India’s growing creative economy.',
+      'The theme is announced by Skill Fleet and is on your entry form. It may touch education, innovation, technology, entrepreneurship, culture, community, sustainability, youth, future skills, social change or everyday student life.',
+    ],
+    sections: [
+      {
+        title: 'A structure that works',
+        ordered: true,
+        items: [
+          'An opening hook: a question, a striking image, a surprising line, a situation everyone recognises',
+          'The central idea or story, kept on the theme',
+          'Creative execution: performance, interviews, demonstration, graphics, animation, humour, music, whatever you are good at',
+          'A memorable ending: a message, an insight, a call to action, a moment that stays',
+        ],
+      },
+      {
+        title: 'The rules',
+        items: [
+          'Original work, no longer than sixty seconds, answering the official theme directly',
+          'You must have permission for any music, images or footage you did not make',
+          'AI tools are allowed, but say so if a significant part is AI-generated, and be able to explain your own contribution',
+          'Do not imitate or reproduce another creator’s work',
+          'Production quality counts, but expensive equipment is not required; phone footage with a clear idea is fine',
+        ],
+      },
+      {
+        title: 'What judges look for',
+        items: [
+          'Relevance to the theme, and the strength of the central idea',
+          'Originality and storytelling',
+          'Communication, engagement and creative use of one minute',
+          'Visual and audio execution, memorability, overall impact',
+        ],
+      },
+      {
+        title: 'Handing it in',
+        body: 'Upload it anywhere with a public or unlisted link, YouTube and Google Drive both work, give it a title, write a short note on how it answers the theme, and check the link in a private window before you submit.',
+      },
     ],
   },
 ]
@@ -172,7 +311,10 @@ export const ISC_TRACKS: IscTrack[] = [
 /** What isc_entries.track holds for a Puzzle Master entry. */
 export const PUZZLE_MASTER_TRACK_ID = 'puzzle_master'
 
+export const PUZZLE_MASTER_ID = 'puzzle_master' as const
+
 export const PUZZLE_MASTER = {
+  id: PUZZLE_MASTER_ID,
   slug: 'puzzle-master',
   name: 'Puzzle Master',
   tagline: 'Logic, speed and nerve — played live.',
@@ -196,10 +338,50 @@ export const PUZZLE_MASTER = {
     'Nothing to prepare or upload beforehand: you play on the day',
   ],
   description: [
-    'Puzzle Master is the one championship with nothing to build. You play a set of timed logic, memory and reasoning games live, against the clock and against everyone else in your division, and your score is your entry. Rounds run between 1 October and 30 December 2026; the exact dates for your school come from your coordinator.',
-    'The games test speed, pattern-spotting, working memory and nerve under a timer, not what you have memorised. Practice games are free below and are not scored, so play them until the formats feel familiar.',
-    'On the day you need a device, a steady connection and a quiet half hour, because a live round cannot be paused or restarted. Two divisions, Classes 5 to 8 and Classes 9 to 12, are scored separately.',
+    'Think faster, reason better. Puzzle Master is an individual online competition that tests how you think, not what you have memorised: logic, patterns, memory, attention, numbers, space, decisions and speed, under time pressure. It is built to recognise kinds of intelligence that exam marks miss.',
+    'You play designated online games on the ISC platform within a fixed window, 1 October to 30 December 2026, and your scores are your entry. The exact games, durations and instructions come before each round; the dates for your school come from your coordinator.',
   ],
+  sections: [
+    {
+      title: 'What the games test',
+      items: [
+        'Logical and analytical reasoning',
+        'Pattern recognition and spatial thinking',
+        'Memory, attention and concentration',
+        'Numerical reasoning and problem-solving',
+        'Emotional intelligence and decision-making',
+        'Speed and accuracy',
+      ],
+    },
+    {
+      title: 'How it runs',
+      items: [
+        'Individual entry only; teams are not permitted',
+        'Two divisions, Classes 5 to 8 and Classes 9 to 12, scored separately',
+        'Each challenge may have a time limit, a maximum score, and scoring by accuracy, completion or time, with time as the tie-break',
+        'Use a stable connection and a laptop, desktop or supported device; a live round cannot be paused or restarted',
+      ],
+    },
+    {
+      title: 'Preparation',
+      body: 'The practice games below, from Brainweave, are free and optional. Play them until the formats feel familiar. Practice scores are never counted: only games played inside the official competition window are.',
+    },
+    {
+      title: 'What the scoring considers',
+      items: [
+        'Accuracy and the number of challenges completed',
+        'Logical approach, problem-solving and decision quality',
+        'Consistency, and speed where a challenge measures it',
+        'Performance within the time limit',
+      ],
+    },
+  ],
+}
+
+/** Every championship a student can be entered in, including Puzzle Master. */
+export function trackNameFor(id: string): string {
+  if (id === PUZZLE_MASTER_ID) return PUZZLE_MASTER.name
+  return ISC_TRACKS.find((t) => t.id === id)?.name ?? id
 }
 
 export function trackBySlug(slug: string): IscTrack | null {
