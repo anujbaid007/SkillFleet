@@ -144,6 +144,9 @@ export const ISC_TRACKS: IscTrack[] = [
  * instead. Kept apart from ISC_TRACKS for exactly that reason — everything
  * that iterates ISC_TRACKS is entry machinery that does not apply.
  */
+/** What isc_entries.track holds for a Puzzle Master entry. */
+export const PUZZLE_MASTER_TRACK_ID = 'puzzle_master'
+
 export const PUZZLE_MASTER = {
   slug: 'puzzle-master',
   name: 'Puzzle Master',
@@ -176,6 +179,24 @@ export function trackBySlug(slug: string): IscTrack | null {
 export function trackById(id: string): IscTrack | null {
   return ISC_TRACKS.find((t) => t.id === id) ?? null
 }
+
+/**
+ * The display name for any value that can appear in isc_entries.track, Puzzle
+ * Master included -- it is absent from ISC_TRACKS because it has no entry
+ * form, but the column still carries it. An id nobody recognises is returned
+ * as it stands rather than hidden behind "Unknown": on an admin screen the raw
+ * value is the thing worth seeing.
+ */
+export function trackName(id: string): string {
+  if (id === PUZZLE_MASTER_TRACK_ID) return PUZZLE_MASTER.name
+  return trackById(id)?.name ?? id
+}
+
+/** Every track a filter can offer, in the order the championships are listed. */
+export const TRACK_FILTER_OPTIONS: { value: string; label: string }[] = [
+  ...ISC_TRACKS.map((t) => ({ value: t.id as string, label: t.name })),
+  { value: PUZZLE_MASTER_TRACK_ID, label: PUZZLE_MASTER.name },
+]
 
 export interface FieldSpec {
   key: string

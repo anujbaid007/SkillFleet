@@ -1,258 +1,153 @@
-import { AlarmClock, CalendarDays, GraduationCap, Landmark, Layers, Trophy } from 'lucide-react'
-import { formatIstDay, istDay } from '@/lib/isc/dates'
-import { trackById } from '@/lib/isc/tracks'
+import { CalendarDays, Languages, Layers, ListChecks } from 'lucide-react'
 import { Panel, PanelEmpty } from '@/components/dashboard/panel'
-import { RankedBars, ProgressRow } from '@/components/dashboard/charts'
-import {
-  topSchools,
-  byState,
-  byBoard,
-  byGroup,
-  classDistribution,
-  submissionTimeline,
-  staleDrafts,
-  type AnalyticsEntry,
-} from '@/lib/isc/analytics'
+import { formatIstDay } from '@/lib/isc/dates'
+import { iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
+import type { CountRow, IscSummary, TimelinePoint } from '@/lib/admin/isc'
 
-/** Right-aligned numeric column, kept in one place so the tables agree. */
-const NUM = 'text-right tabular-nums whitespace-nowrap pl-4'
+function n(value: number): string {
+  return value.toLocaleString('en-IN')
+}
+
+const DIVISION_LABEL = (key: string) =>
+  key === 'group1' || key === 'group2' ? iscGroupLabel(key as IscGroup) : 'Division not recorded'
+
+const STATUS_LABEL: Record<string, string> = { draft: 'Draft', submitted: 'Submitted' }
+
+/**
+ * A list of counts with its unit written into the panel, not left to be
+ * inferred.
+ *
+ * This is the whole reason these three panels sit apart from the by-track
+ * figures in the funnel strip above: by_track counts STUDENTS while these
+ * three count ENTRIES, and four lists side by side with no units would read as
+ * four cuts of one quantity when they are two different quantities.
+ */
+function CountList({ rows, label }: { rows: CountRow[]; label: (key: string) => string }) {
+  const total = rows.reduce((sum, r) => sum + r.count, 0)
+  if (rows.length === 0) return <PanelEmpty>Nothing entered here yet.</PanelEmpty>
+  return (
+    <ul className="space-y-2.5">
+      {rows.map((r) => (
+        <li key={r.key} className="flex items-baseline justify-between gap-3">
+          <span className="truncate text-[13px] font-semibold text-foreground">
+            {label(r.key)}
+          </span>
+          <span className="shrink-0 text-xs text-muted">
+            <span className="text-sm font-bold tabular-nums text-foreground">{n(r.count)}</span>{' '}
+            {r.count === 1 ? 'entry' : 'entries'}
+          </span>
+        </li>
+      ))}
+      <li className="border-t border-black/[0.05] pt-2.5 text-[11px] text-muted">
+        {n(total)} {total === 1 ? 'entry' : 'entries'} in total
+      </li>
+    </ul>
+  )
+}
 
 /**
  * The panels that answer "how is the cycle going", as opposed to the roster,
- * which answers "what did this one student send".
+ * which answers "what did this one team send".
  *
  * Every panel reads the scope it is given — a state page shows that state's
- * board split and timeline, not the country's.
+ * split and timeline, not the country's.
+ *
+ * Three panels that used to live here are gone rather than faked: top schools,
+ * the class distribution and drafts going cold. All three needed every row in
+ * scope loaded into memory, which is exactly what this rewrite removes. The
+ * comparison chart ranks schools now, and a draft that has gone quiet is found
+ * by filtering the entries below to Draft.
  */
 export function IscInsights({
-  entries,
-  classByStudent,
-  now,
+  summary,
+  timeline,
 }: {
-  entries: AnalyticsEntry[]
-  classByStudent: Map<string, string | null>
-  now: Date
+  summary: IscSummary
+  timeline: TimelinePoint[]
 }) {
-  const schools = topSchools(entries, 10)
-  const states = byState(entries)
-  const boards = byBoard(entries)
-  const groups = byGroup(entries)
-  const classes = classDistribution(entries, classByStudent)
-  const timeline = submissionTimeline(entries)
-  const stale = staleDrafts(entries, now, 7)
-  const totalStudents = classes.reduce((sum, c) => sum + c.count, 0)
+  const peak = Math.max(1, ...timeline.map((p) => Math.max(p.started, p.submitted)))
+  const started = timeline.reduce((sum, p) => sum + p.started, 0)
+  const submitted = timeline.reduce((sum, p) => sum + p.submitted, 0)
 
   return (
     <div className="grid gap-4 lg:grid-cols-12">
-      <div className="lg:col-span-7">
-        <Panel
-          title="Top schools"
-          subtitle="Ranked by submitted entries"
-          icon={Trophy}
-          padded={false}
-        >
-          {schools.length === 0 ? (
-            <div className="px-5 pb-5">
-              <PanelEmpty>No entries yet.</PanelEmpty>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-muted uppercase tracking-wider border-y border-black/[0.05] bg-slate-50/60">
-                    <th className="text-left font-bold py-2.5 pl-5">School</th>
-                    <th className={`font-bold py-2.5 ${NUM}`}>Entries</th>
-                    <th className={`font-bold py-2.5 ${NUM}`}>Submitted</th>
-                    <th className={`font-bold py-2.5 pr-5 ${NUM}`}>Students</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/[0.04]">
-                  {schools.map((s) => (
-                    <tr key={s.schoolId} className="hover:bg-slate-50/60">
-                      <td className="py-2.5 pl-5 pr-3">
-                        <span className="block text-foreground font-semibold">{s.schoolName}</span>
-                        <span className="block text-muted text-[11px]">
-                          {s.state || 'State not recorded'}
-                        </span>
-                      </td>
-                      <td className={`py-2.5 text-muted ${NUM}`}>{s.entries}</td>
-                      <td className={`py-2.5 text-emerald-600 font-bold ${NUM}`}>{s.submitted}</td>
-                      <td className={`py-2.5 pr-5 text-muted ${NUM}`}>{s.students}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Panel>
-      </div>
-
-      <div className="lg:col-span-5">
-        <Panel
-          title="Submissions per day"
-          subtitle="Indian Standard Time"
-          icon={CalendarDays}
-          className="h-full"
-        >
-          {timeline.length === 0 ? (
-            <PanelEmpty>Nothing has been submitted yet.</PanelEmpty>
-          ) : (
-            <div className="max-h-72 overflow-y-auto pr-1">
-              <RankedBars
-                rows={timeline.map((p) => ({
-                  key: p.day,
-                  label: formatIstDay(p.day),
-                  value: p.count,
-                }))}
-                barClass="bg-gradient-to-r from-accent-pink to-accent-purple"
-                valueClass="text-accent-pink"
-              />
-            </div>
-          )}
-        </Panel>
-      </div>
-
       <div className="lg:col-span-4">
         <Panel
-          title="By class"
-          subtitle="Students taking part, not entries"
-          icon={GraduationCap}
-          className="h-full"
-        >
-          {classes.length === 0 ? (
-            <PanelEmpty>No students have entered yet.</PanelEmpty>
-          ) : (
-            <ul className="space-y-3">
-              {classes.map((c) => (
-                <ProgressRow
-                  key={c.label}
-                  label={c.label}
-                  value={c.count}
-                  of={totalStudents}
-                  barClass="bg-primary"
-                />
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
-
-      <div className="lg:col-span-4">
-        <Panel
-          title="By board"
-          subtitle="From each school's record"
-          icon={Landmark}
-          className="h-full"
-        >
-          {boards.length === 0 ? (
-            <PanelEmpty>No entries yet.</PanelEmpty>
-          ) : (
-            <RankedBars
-              rows={boards.map((b) => ({ key: b.label, label: b.label, value: b.count }))}
-              barClass="bg-gradient-to-r from-accent-teal to-emerald-400"
-              valueClass="text-accent-teal"
-            />
-          )}
-        </Panel>
-      </div>
-
-      <div className="lg:col-span-4">
-        <Panel
-          title="By group"
-          subtitle="Group 1: Classes 5–8 · Group 2: Classes 9–12"
+          title="Entries by division"
+          subtitle="Counted in entries, one division per entry"
           icon={Layers}
           className="h-full"
         >
-          {groups.length === 0 ? (
-            <PanelEmpty>No entries yet.</PanelEmpty>
-          ) : (
-            <div className="space-y-3">
-              {groups.map((g) => (
-                <div key={g.group} className="rounded-xl bg-slate-50 border border-black/[0.04] p-3.5">
-                  <p className="text-[13px] font-bold text-foreground">{g.label}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-muted">
-                    <span>
-                      <span className="font-bold text-foreground tabular-nums">{g.entries}</span>{' '}
-                      {g.entries === 1 ? 'entry' : 'entries'}
-                    </span>
-                    <span>
-                      <span className="font-bold text-emerald-600 tabular-nums">{g.submitted}</span>{' '}
-                      submitted
-                    </span>
-                    <span>
-                      <span className="font-bold text-foreground tabular-nums">{g.students}</span>{' '}
-                      {g.students === 1 ? 'student' : 'students'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <CountList rows={summary.by_division} label={DIVISION_LABEL} />
         </Panel>
       </div>
 
-      {states.length > 1 && (
-        <div className="lg:col-span-12">
-          <Panel title="By state" subtitle="Schools and entries in each state" icon={Landmark} padded={false}>
-            <div className="overflow-x-auto max-h-80 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0">
-                  <tr className="text-muted uppercase tracking-wider border-y border-black/[0.05] bg-slate-50">
-                    <th className="text-left font-bold py-2.5 pl-5">State</th>
-                    <th className={`font-bold py-2.5 ${NUM}`}>Schools</th>
-                    <th className={`font-bold py-2.5 ${NUM}`}>Entries</th>
-                    <th className={`font-bold py-2.5 pr-5 ${NUM}`}>Submitted</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/[0.04]">
-                  {states.map((s) => (
-                    <tr key={s.state} className="hover:bg-slate-50/60">
-                      <td className="py-2.5 pl-5 pr-3 text-foreground font-semibold">{s.state}</td>
-                      <td className={`py-2.5 text-muted ${NUM}`}>{s.schools}</td>
-                      <td className={`py-2.5 text-muted ${NUM}`}>{s.entries}</td>
-                      <td className={`py-2.5 pr-5 text-emerald-600 font-bold ${NUM}`}>
-                        {s.submitted}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
-        </div>
-      )}
+      <div className="lg:col-span-4">
+        <Panel
+          title="Entries by status"
+          subtitle="Counted in entries, one status per entry"
+          icon={ListChecks}
+          className="h-full"
+        >
+          <CountList rows={summary.by_status} label={(k) => STATUS_LABEL[k] ?? k} />
+        </Panel>
+      </div>
+
+      <div className="lg:col-span-4">
+        <Panel
+          title="Entries by language"
+          subtitle="Counted in entries, taken from what was submitted"
+          icon={Languages}
+          className="h-full"
+        >
+          <CountList
+            rows={summary.by_language}
+            label={(k) => (k === 'unknown' ? 'Language not chosen yet' : k)}
+          />
+        </Panel>
+      </div>
 
       <div className="lg:col-span-12">
         <Panel
-          title="Drafts going cold"
-          subtitle="Started, then untouched for a week or more — the entries most likely to be lost"
-          icon={AlarmClock}
+          title="Each day"
+          subtitle="Counted in entries, by Indian Standard Time — how many entries were started that day, and how many were submitted"
+          icon={CalendarDays}
         >
-          {stale.length === 0 ? (
-            <PanelEmpty>No draft has been sitting untouched for a week.</PanelEmpty>
+          {timeline.length === 0 ? (
+            <PanelEmpty>No days to show yet.</PanelEmpty>
           ) : (
             <>
-              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {stale.slice(0, 15).map((e) => (
-                  <li
-                    key={e.entryId}
-                    className="rounded-xl bg-amber-50/60 border border-amber-200/60 px-3.5 py-2.5"
-                  >
-                    <span className="block text-[13px] text-foreground font-semibold truncate">
-                      {e.schoolName}
-                    </span>
-                    <span className="block text-[11px] text-muted mt-0.5">
-                      {trackById(e.track)?.name ?? e.track} · last edited{' '}
-                      {formatIstDay(istDay(e.updatedAt))}
-                    </span>
+              <ul className="flex h-28 items-end gap-[3px]" aria-hidden="true">
+                {timeline.map((p) => (
+                  <li key={p.day} className="flex h-full flex-1 items-end justify-center gap-[2px]">
+                    <span
+                      className="w-1/2 rounded-t-sm bg-primary/70"
+                      style={{ height: `${Math.max(2, (p.started / peak) * 100)}%` }}
+                      title={`${formatIstDay(p.day)}: ${n(p.started)} started`}
+                    />
+                    <span
+                      className="w-1/2 rounded-t-sm bg-emerald-500"
+                      style={{ height: `${Math.max(2, (p.submitted / peak) * 100)}%` }}
+                      title={`${formatIstDay(p.day)}: ${n(p.submitted)} submitted`}
+                    />
                   </li>
                 ))}
               </ul>
-              {stale.length > 15 && (
-                <p className="text-[11px] text-muted mt-3">
-                  Showing the 15 oldest of {stale.length}. Filter by Draft to see them all.
-                </p>
-              )}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-black/[0.05] pt-3 text-[11px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-primary/70" />
+                  Started
+                  <span className="font-bold tabular-nums text-foreground">{n(started)}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Submitted
+                  <span className="font-bold tabular-nums text-foreground">{n(submitted)}</span>
+                </span>
+                <span>
+                  {formatIstDay(timeline[0].day)} to {formatIstDay(timeline[timeline.length - 1].day)}
+                </span>
+              </div>
             </>
           )}
         </Panel>

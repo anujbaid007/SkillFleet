@@ -47,7 +47,9 @@ export function RankedBars({
               <span className="text-[13px] font-semibold text-foreground truncate">{r.label}</span>
               <span className="flex items-baseline gap-2 shrink-0">
                 {r.meta && <span className="text-[11px] text-muted">{r.meta}</span>}
-                <span className={`text-sm font-bold tabular-nums ${valueClass}`}>{r.value}</span>
+                <span className={`text-sm font-bold tabular-nums ${valueClass}`}>
+                  {r.value.toLocaleString('en-IN')}
+                </span>
                 {r.href && <ChevronRight className="w-3.5 h-3.5 text-muted" aria-hidden="true" />}
               </span>
             </div>

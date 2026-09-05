@@ -3,40 +3,59 @@ import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
-import { computeFunnel } from '@/lib/isc/funnel'
-import { buildSchoolRoster } from '@/lib/isc/roster'
-import { loadIscAdminData } from '@/lib/isc/admin-data'
+import { getIscRoster, getIscSummary, getIscTimeline } from '@/lib/admin/isc'
+import { parseRosterFilters, type IscScope, type SearchParams } from '@/lib/admin/scope'
+import { MigrationMissing } from '@/components/admin/migration-missing'
+import { SectionFailed } from '@/components/admin/section-failed'
 import { IscBreadcrumb } from '@/components/admin/isc-breadcrumb'
 import { IscFunnelPanel } from '@/components/admin/isc-funnel-panel'
-import { IscRoster } from '@/components/admin/isc-roster'
+import { IscInsights } from '@/components/admin/isc-insights'
+import { IscExport } from '@/components/admin/isc-export'
+import { IscRosterTable } from '@/components/admin/isc-roster-table'
 
 /**
  * The bottom of the drill-down.
  *
- * No filter bar, no comparison chart and no outreach panel here: there is
- * nowhere further to drill, a cold-schools list of one school says nothing,
- * and the roster already shows every student's state at a glance — filtering
- * it would only hide the rows an admin came here to see.
+ * No comparison chart and no cold-schools list here: there is nowhere further
+ * to drill, and a list of schools yet to start that contains one school says
+ * nothing. The entries table stays, filters and all — at one school it is the
+ * cheapest query on any of these pages.
+ *
+ * The school's own name comes straight from the schools table rather than from
+ * any of the admin functions, so the heading and the way back up the
+ * breadcrumb are there even before the migration has been run.
  */
 export default async function AdminIscSchoolPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ state: string; district: string; schoolId: string }>
+  searchParams: Promise<SearchParams>
 }) {
   const { state: stateParam, district: districtParam, schoolId } = await params
   const state = decodeURIComponent(stateParam)
   const district = decodeURIComponent(districtParam)
+  const sp = await searchParams
+  const filters = parseRosterFilters(sp)
+  const scope: IscScope = { schoolId }
+  const basePath = `/admin/isc/state/${encodeURIComponent(state)}/district/${encodeURIComponent(
+    district
+  )}/school/${schoolId}`
   const supabase = await createClient()
-  const data = await loadIscAdminData(supabase, { state, district, schoolId })
 
-  const school = data.schools.find((s) => s.schoolId === schoolId)
-  if (!school) notFound()
+  const [school, summary, timeline, roster] = await Promise.all([
+    supabase.from('schools').select('name').eq('id', schoolId).maybeSingle(),
+    getIscSummary(supabase, scope),
+    getIscTimeline(supabase, scope),
+    getIscRoster(supabase, scope, filters),
+  ])
 
-  const funnel = computeFunnel(data.eligible, data.entries, data.funnelMembers)
-  const roster = buildSchoolRoster(data.rosterStudents, data.entries, data.rosterMembers)
+  // A missing row or an id that is not a uuid both land here, and both mean
+  // the address is wrong rather than the data.
+  if (!school.data) notFound()
 
-  return (
-    <div className="space-y-8">
+  const header = (
+    <>
       <IscBreadcrumb
         segments={[
           { label: 'All India', href: '/admin/isc' },
@@ -46,30 +65,57 @@ export default async function AdminIscSchoolPage({
             href: `/admin/isc/state/${encodeURIComponent(state)}/district/${encodeURIComponent(district)}`,
           },
         ]}
-        current={school.schoolName}
+        current={school.data.name}
       />
-
       <PageHeader
         eyebrow="ISC 2026"
         icon={Trophy}
-        title={school.schoolName}
-        subtitle={`${district}, ${state} · ${data.eligible.length} eligible ${
-          data.eligible.length === 1 ? 'student' : 'students'
-        }`}
+        title={school.data.name}
+        subtitle={`${district}, ${state}. Read-only.`}
       />
+    </>
+  )
+
+  if (!summary.ok && summary.kind === 'migration-missing') {
+    return (
+      <div className="space-y-8">
+        {header}
+        <MigrationMissing message={summary.message} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-8">
+      {header}
 
       <Reveal delay={0.03}>
-        <IscFunnelPanel funnel={funnel} />
+        {summary.ok ? (
+          <IscFunnelPanel summary={summary.data} showSchools={false} />
+        ) : (
+          <SectionFailed title="The headline numbers" message={summary.message} />
+        )}
       </Reveal>
 
-      <Reveal delay={0.04}>
-        <IscRoster
-          rows={roster}
-          students={data.rosterStudents}
-          entries={data.entries}
-          members={data.rosterMembers}
-          submissionByEntry={data.submissionByEntry}
-        />
+      <div className="flex justify-end">
+        <IscExport scope={scope} filters={filters} />
+      </div>
+
+      {summary.ok && timeline.ok && (
+        <Reveal delay={0.04}>
+          <IscInsights summary={summary.data} timeline={timeline.data} />
+        </Reveal>
+      )}
+      {summary.ok && !timeline.ok && (
+        <SectionFailed title="The day-by-day chart" message={timeline.message} />
+      )}
+
+      <Reveal delay={0.05}>
+        {roster.ok ? (
+          <IscRosterTable page={roster.data} filters={filters} scope={scope} basePath={basePath} />
+        ) : (
+          <SectionFailed title="Entries" message={roster.message} />
+        )}
       </Reveal>
     </div>
   )

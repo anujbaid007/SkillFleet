@@ -15,7 +15,7 @@ interface RawMessage {
  *
  * No role check here: RLS already scopes support_messages to the caller's own
  * conversation, or lets an admin read any — the same division of labour as
- * every other read in this project (see admin-data.ts).
+ * every other read in this project.
  */
 export async function loadConversation(
   supabase: Awaited<ReturnType<typeof createClient>>,

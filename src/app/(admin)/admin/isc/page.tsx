@@ -2,115 +2,146 @@ import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
-import { LANGUAGE_OPTIONS } from '@/lib/isc/tracks'
-import { byState } from '@/lib/isc/analytics'
-import { computeFunnel } from '@/lib/isc/funnel'
-import { coldSchools, coordinatorCoverage } from '@/lib/isc/outreach'
-import { loadIscAdminData } from '@/lib/isc/admin-data'
-import { applyIscFilters, type IscFilterParams } from '@/lib/isc/admin-filters'
+import {
+  getColdSchools,
+  getIscBreakdown,
+  getIscRoster,
+  getIscSummary,
+  getIscTimeline,
+} from '@/lib/admin/isc'
+import { MAX_PAGE, parseRosterFilters, type IscScope, type SearchParams } from '@/lib/admin/scope'
+import { MigrationMissing } from '@/components/admin/migration-missing'
+import { SectionFailed } from '@/components/admin/section-failed'
 import { IscFunnelPanel } from '@/components/admin/isc-funnel-panel'
 import { IscComparisonChart } from '@/components/admin/isc-comparison-chart'
-import { IscOutreach } from '@/components/admin/isc-outreach'
 import { IscInsights } from '@/components/admin/isc-insights'
-import { IscFilters } from '@/components/admin/isc-filters'
 import { IscExport } from '@/components/admin/isc-export'
+import { IscRosterTable } from '@/components/admin/isc-roster-table'
+import { IscColdSchools } from '@/components/admin/isc-cold-schools'
+
+const BASE_PATH = '/admin/isc'
 
 /**
- * The country holds far more schools than anyone will read in one list, so the
- * outreach panel shows the biggest opportunities and says it has done so.
+ * All of India.
+ *
+ * Every number on this page is worked out by Postgres and arrives already
+ * counted. Nothing here loads a row per student, which is what the page used
+ * to do — and what silently stopped being true past ten thousand profiles.
+ *
+ * The one thing this page will not do unasked is list entries. admin_isc_roster
+ * works out its total with a count across every entry in the country: a second
+ * and a half of database time for a list of eight hundred thousand that nobody
+ * intends to page through. So the roster reads its filters, says so plainly,
+ * and only queries once a filter or a search narrows it. Open a state and it
+ * costs single-digit milliseconds instead.
  */
-const COLD_SCHOOLS_LIMIT = 50
-
 export default async function AdminIscPage({
   searchParams,
 }: {
-  searchParams: Promise<IscFilterParams>
+  searchParams: Promise<SearchParams>
 }) {
-  const params = await searchParams
+  const sp = await searchParams
+  const filters = parseRosterFilters(sp)
+  const coldPage = Math.min(MAX_PAGE, Math.max(1, Number.parseInt(String(sp.cold ?? '1'), 10) || 1))
+  const scope: IscScope = {}
+  const narrowed = Boolean(
+    filters.track || filters.status || filters.division || filters.language || filters.q
+  )
   const supabase = await createClient()
-  const data = await loadIscAdminData(supabase, {})
 
-  const { entries, funnelMembers } = applyIscFilters(
-    data.entries,
-    data.funnelMembers,
-    data.submissionByEntry,
-    params
+  const [summary, breakdown, timeline, cold, roster] = await Promise.all([
+    getIscSummary(supabase, scope),
+    getIscBreakdown(supabase, scope),
+    getIscTimeline(supabase, scope),
+    getColdSchools(supabase, scope, coldPage),
+    narrowed ? getIscRoster(supabase, scope, filters) : Promise.resolve(null),
+  ])
+
+  const header = (
+    <PageHeader
+      eyebrow="ISC 2026"
+      icon={Trophy}
+      title="All India"
+      subtitle="Drill into a state, then a district, then a school. Read-only."
+    />
   )
 
-  const funnel = computeFunnel(data.eligible, entries, funnelMembers)
-  const states = byState(entries)
-  const cold = coldSchools(data.schools, entries, data.eligibleBySchool, COLD_SCHOOLS_LIMIT)
-  const coverage = coordinatorCoverage(data.coordinatorSchools)
+  // The founder has not pasted the migration yet. That is a setup step, not a
+  // fault, so the page keeps its heading and says what to do.
+  if (!summary.ok && summary.kind === 'migration-missing') {
+    return (
+      <div className="space-y-8">
+        {header}
+        <MigrationMissing message={summary.message} />
+      </div>
+    )
+  }
 
-  // The export carries the leader's name, which the loader has already
-  // resolved for the roster — no second lookup for one column.
-  const leaderNameByEntry = new Map(
-    data.rosterMembers.filter((m) => m.isLeader).map((m) => [m.entryId, m.displayName])
-  )
+  const empty =
+    summary.ok &&
+    summary.data.eligible === 0 &&
+    summary.data.started === 0 &&
+    breakdown.ok &&
+    breakdown.data.length === 0
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow="ISC 2026"
-        icon={Trophy}
-        title="All India"
-        subtitle="Drill into a state, then a district, then a school. Read-only."
-      />
+      {header}
+
+      {empty && (
+        <p className="text-sm text-muted">
+          No student has signed up anywhere yet, so there is nothing to count.
+        </p>
+      )}
 
       <Reveal delay={0.03}>
-        <IscFunnelPanel funnel={funnel} schoolCount={data.schools.length} />
+        {summary.ok ? (
+          <IscFunnelPanel summary={summary.data} />
+        ) : (
+          <SectionFailed title="The headline numbers" message={summary.message} />
+        )}
       </Reveal>
 
-      <div className="flex items-start gap-3 flex-wrap">
-        <div className="flex-1 min-w-[280px]">
-          <IscFilters
-            languages={LANGUAGE_OPTIONS}
-            showing={entries.length}
-            total={data.entries.length}
-          />
-        </div>
-        <IscExport
-          rows={entries.map((e) => ({
-            schoolName: e.schoolName,
-            schoolState: e.state,
-            schoolDistrict: e.district,
-            leaderName: leaderNameByEntry.get(e.entryId) ?? 'Unknown student',
-            track: e.track,
-            teamSize: e.studentIds.length,
-            status: e.status,
-            language: (data.submissionByEntry.get(e.entryId)?.language as string) ?? null,
-            submittedAt: e.submittedAt,
-            updatedAt: e.updatedAt,
-          }))}
-          filename={`isc-2026-all-india-${new Date().toISOString().slice(0, 10)}.csv`}
-        />
+      <div className="flex justify-end">
+        <IscExport scope={scope} filters={filters} />
       </div>
 
       <Reveal delay={0.04}>
-        <IscComparisonChart
-          title="States"
-          sub="Ranked by submitted entries — open one to see its districts"
-          empty="No entries anywhere yet."
-          rows={states.map((s) => ({
-            label: s.state,
-            count: s.submitted,
-            sub: `${s.schools} ${s.schools === 1 ? 'school' : 'schools'}`,
-            href: `/admin/isc/state/${encodeURIComponent(s.state)}`,
-          }))}
-        />
+        {breakdown.ok ? (
+          <IscComparisonChart rows={breakdown.data} level="state" basePath={BASE_PATH} />
+        ) : (
+          <SectionFailed title="States" message={breakdown.message} />
+        )}
       </Reveal>
 
-      <Reveal delay={0.05}>
-        <IscInsights entries={entries} classByStudent={data.classByStudent} now={new Date()} />
-      </Reveal>
+      {summary.ok && timeline.ok && (
+        <Reveal delay={0.05}>
+          <IscInsights summary={summary.data} timeline={timeline.data} />
+        </Reveal>
+      )}
+      {summary.ok && !timeline.ok && (
+        <SectionFailed title="The day-by-day chart" message={timeline.message} />
+      )}
 
       <Reveal delay={0.06}>
-        <IscOutreach
-          coldSchools={cold}
-          coordinatorCoverage={coverage}
-          coldSchoolsCapped={cold.length === COLD_SCHOOLS_LIMIT}
-          filenamePrefix="isc-2026-all-india"
-        />
+        {roster === null || roster.ok ? (
+          <IscRosterTable
+            page={roster === null ? null : roster.data}
+            filters={filters}
+            scope={scope}
+            basePath={BASE_PATH}
+          />
+        ) : (
+          <SectionFailed title="Entries" message={roster.message} />
+        )}
+      </Reveal>
+
+      <Reveal delay={0.07}>
+        {cold.ok ? (
+          <IscColdSchools page={cold.data} filters={filters} basePath={BASE_PATH} />
+        ) : (
+          <SectionFailed title="Schools yet to start" message={cold.message} />
+        )}
       </Reveal>
     </div>
   )
