@@ -14,7 +14,7 @@ interface RawSchool {
 /**
  * A dedicated picker, separate from the applications list.
  *
- * `/admin/coordinators?status=approved` answers "who applied and got approved"
+ * `/admin/coordinators/claims?status=approved` answers "who applied and got approved"
  * — reusing it here meant clicking "Message a coordinator" visibly switched
  * tabs and showed review chrome nobody asked for. This page exists only to
  * find one coordinator out of a list that will keep growing, so it is just a
