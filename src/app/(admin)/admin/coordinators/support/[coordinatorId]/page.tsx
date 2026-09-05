@@ -6,12 +6,16 @@ import { PageHeader } from '@/components/ui/page-header'
 import { loadConversation } from '@/lib/support/data'
 import { SupportThread } from '@/components/support/support-thread'
 import { sendAdminMessageAction } from '@/app/actions/support'
+import { requireAdmin } from '@/lib/admin/guard'
 
 export default async function AdminSupportThreadPage({
   params,
 }: {
   params: Promise<{ coordinatorId: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { coordinatorId } = await params
   const supabase = await createClient()
 

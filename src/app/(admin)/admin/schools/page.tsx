@@ -16,6 +16,7 @@ import {
   type SimilarSchool,
 } from '@/lib/admin/queues'
 import type { SearchParams } from '@/lib/admin/scope'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const BASE_PATH = '/admin/schools'
 const DEFAULT_STATUS = 'pending'
@@ -54,6 +55,9 @@ export default async function AdminSchoolsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
   const query = parseQueueQuery(sp, DEFAULT_STATUS)
   const supabase = await createClient()

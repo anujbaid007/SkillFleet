@@ -17,6 +17,7 @@ import {
 } from '@/lib/admin/coordinators'
 import { parseQueueQuery, queueQueryToString } from '@/lib/admin/queues'
 import type { IscScope, SearchParams } from '@/lib/admin/scope'
+import { requireAdmin } from '@/lib/admin/guard'
 
 /**
  * All of India, for the people who bring schools in.
@@ -38,6 +39,9 @@ export default async function AdminCoordinatorsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
 
   // The queue's parameters, on the page the queue used to live at. Parsed

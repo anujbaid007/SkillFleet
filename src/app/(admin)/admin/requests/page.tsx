@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Megaphone, ArrowBigUp, Plus } from 'lucide-react'
 import { RequestStatusForm } from '@/components/admin/request-status-form'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RequestRow {
   id: string
@@ -25,6 +26,9 @@ function fmtDate(dateStr: string) {
 }
 
 export default async function AdminRequestsPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const { data: requests } = (await supabase

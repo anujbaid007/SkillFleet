@@ -26,6 +26,7 @@ import { DashboardStates } from '@/components/admin/dashboard-states'
 import { getDashboard, getDeskCounts } from '@/lib/admin/dashboard'
 import { getCoordinatorSummary } from '@/lib/admin/coordinators'
 import { formatIstDay, istDay } from '@/lib/isc/dates'
+import { requireAdmin } from '@/lib/admin/guard'
 
 function n(value: number): string {
   return value.toLocaleString('en-IN')
@@ -58,6 +59,9 @@ function pct(value: number): string {
  * search boxes on the same page.
  */
 export default async function AdminOverviewPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   // Both cheap, both awaited here so the top of the page is one paint: eight

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Store } from 'lucide-react'
 import { AddVendorForm } from '@/components/admin/add-vendor-form'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface VendorRow {
   id: string
@@ -11,6 +12,9 @@ interface VendorRow {
 }
 
 export default async function AdminVendorsPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const [{ data: vendors }, { data: vendorOfferings }] = await Promise.all([

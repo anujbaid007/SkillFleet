@@ -130,76 +130,77 @@
 -- 200,000 students / 1,000 schools / 800,000 entries / ~1.16 M
 -- isc_entry_members rows, in pglite (single-threaded wasm, work_mem = 4MB).
 -- Supabase has real statistics, parallel workers and more memory, so every
--- number below is a ceiling and not a prediction. 63 checks, exit 0.
+-- number below is a ceiling and not a prediction. 64 checks, exit 0.
 --
---   seeded 200000 students, 1000 schools, 800000 entries in 54015 ms
---   analyzed every table in 658 ms - plans below use real statistics
+--   seeded 200000 students, 1000 schools, 800000 entries in 53326 ms
+--   analyzed every table in 587 ms - plans below use real statistics
 --   ┌─────────┬────────────────────────────────────────────────────────────────────────┬───────┐
 --   │ (index) │ name                                                                   │ ms    │
 --   ├─────────┼────────────────────────────────────────────────────────────────────────┼───────┤
 --   │ 0       │ 'section A: every index exists'                                        │ 2     │
 --   │ 1       │ 'section A: indexes are actually used'                                 │ 4     │
---   │ 2       │ 'isc_division_for_class maps every class'                              │ 1     │
---   │ 3       │ 'division backfill'                                                    │ 706   │
+--   │ 2       │ 'isc_division_for_class maps every class'                              │ 0     │
+--   │ 3       │ 'division backfill'                                                    │ 682   │
 --   │ 4       │ 'division trigger'                                                     │ 5     │
---   │ 5       │ 'migration is safe to run twice'                                       │ 676   │
---   │ 6       │ 'admin_isc_summary national'                                           │ 6205  │
+--   │ 5       │ 'migration is safe to run twice'                                       │ 663   │
+--   │ 6       │ 'admin_isc_summary national'                                           │ 6042  │
 --   │ 7       │ 'admin_isc_summary school scope'                                       │ 8     │
 --   │ 8       │ 'admin_isc_summary empty scope'                                        │ 1     │
---   │ 9       │ 'admin_isc_breakdown levels'                                           │ 5878  │
---   │ 10      │ 'admin_isc_breakdown agrees with admin_isc_summary'                    │ 10650 │
---   │ 11      │ 'admin_isc_timeline'                                                   │ 1529  │
---   │ 12      │ 'ISC summaries on a hand-computed fixture'                             │ 2362  │
---   │ 13      │ 'a district without a state is refused'                                │ 88    │
+--   │ 9       │ 'admin_isc_breakdown levels'                                           │ 5765  │
+--   │ 10      │ 'admin_isc_breakdown agrees with admin_isc_summary'                    │ 10710 │
+--   │ 11      │ 'admin_isc_timeline'                                                   │ 2926  │
+--   │ 12      │ 'ISC summaries on a hand-computed fixture'                             │ 2327  │
+--   │ 13      │ 'a district without a state is refused'                                │ 89    │
 --   │ 14      │ 'section C functions are admin only'                                   │ 1     │
---   │ 15      │ 'TIMING admin_isc_summary() national'                                  │ 2569  │
---   │ 16      │ 'TIMING admin_isc_breakdown() national'                                │ 2285  │
---   │ 17      │ 'TIMING admin_isc_timeline() 30 days'                                  │ 553   │
---   │ 18      │ 'admin_isc_roster pages are lossless and totally ordered'              │ 299   │
---   │ 19      │ 'admin_isc_roster: every filter filters'                               │ 9213  │
---   │ 20      │ 'admin_isc_roster: caps, edges and row contents'                       │ 10628 │
---   │ 21      │ 'admin_isc_export_chunk walks the whole set exactly once'              │ 431   │
---   │ 22      │ 'admin_isc_export_chunk: refusals and caps'                            │ 367   │
---   │ 23      │ 'admin_isc_cold_schools'                                               │ 19    │
---   │ 24      │ 'section D reads through the indexes'                                  │ 6     │
---   │ 25      │ 'TIMING admin_isc_roster() national page 1'                            │ 2813  │
---   │ 26      │ 'TIMING admin_isc_roster() one school'                                 │ 128   │
---   │ 27      │ 'TIMING admin_isc_roster() state + status'                             │ 506   │
---   │ 28      │ 'TIMING admin_isc_export_chunk() 1000 rows'                            │ 30    │
+--   │ 15      │ 'TIMING admin_isc_summary() national'                                  │ 2548  │
+--   │ 16      │ 'TIMING admin_isc_breakdown() national'                                │ 2196  │
+--   │ 17      │ 'TIMING admin_isc_timeline() 30 days'                                  │ 689   │
+--   │ 18      │ 'admin_isc_roster pages are lossless and totally ordered'              │ 303   │
+--   │ 19      │ 'admin_isc_roster: every filter filters'                               │ 9166  │
+--   │ 20      │ 'admin_isc_roster: caps, edges and row contents'                       │ 10730 │
+--   │ 21      │ 'admin_isc_export_chunk walks the whole set exactly once'              │ 424   │
+--   │ 22      │ 'admin_isc_export_chunk: refusals and caps'                            │ 377   │
+--   │ 23      │ 'admin_isc_cold_schools'                                               │ 16    │
+--   │ 24      │ 'section D reads through the indexes'                                  │ 5     │
+--   │ 25      │ 'TIMING admin_isc_roster() national page 1'                            │ 2833  │
+--   │ 26      │ 'TIMING admin_isc_roster() one school'                                 │ 131   │
+--   │ 27      │ 'TIMING admin_isc_roster() state + status'                             │ 532   │
+--   │ 28      │ 'TIMING admin_isc_export_chunk() 1000 rows'                            │ 31    │
 --   │ 29      │ 'TIMING admin_isc_cold_schools() national'                             │ 6     │
---   │ 30      │ 'admin_users_page pages are lossless and totally ordered'              │ 11783 │
---   │ 31      │ 'admin_users_page: filters, caps and the auth.users join'              │ 7986  │
+--   │ 30      │ 'admin_users_page pages are lossless and totally ordered'              │ 12021 │
+--   │ 31      │ 'admin_users_page: filters, caps and the auth.users join'              │ 8161  │
 --   │ 32      │ 'the trigram indexes fit the expressions the functions search with'    │ 2     │
---   │ 33      │ 'admin_search'                                                         │ 2825  │
---   │ 34      │ 'admin_dashboard'                                                      │ 9853  │
---   │ 35      │ 'admin_similar_schools_batch'                                          │ 8     │
---   │ 36      │ 'sections D and E are admin only'                                      │ 2     │
---   │ 37      │ 'sections D and E survive a second apply'                              │ 7331  │
---   │ 38      │ 'TIMING admin_users_page() page 1'                                     │ 305   │
---   │ 39      │ 'TIMING admin_users_page() search'                                     │ 367   │
---   │ 40      │ 'TIMING admin_search()'                                                │ 302   │
---   │ 41      │ 'TIMING admin_dashboard()'                                             │ 5022  │
+--   │ 33      │ 'admin_search'                                                         │ 2929  │
+--   │ 34      │ 'admin_dashboard'                                                      │ 10302 │
+--   │ 35      │ 'admin_similar_schools_batch'                                          │ 9     │
+--   │ 36      │ 'sections D and E are admin only'                                      │ 3     │
+--   │ 37      │ 'sections D and E survive a second apply'                              │ 7501  │
+--   │ 38      │ 'TIMING admin_users_page() page 1'                                     │ 297   │
+--   │ 39      │ 'TIMING admin_users_page() search'                                     │ 372   │
+--   │ 40      │ 'TIMING admin_search()'                                                │ 312   │
+--   │ 41      │ 'TIMING admin_dashboard()'                                             │ 5083  │
 --   │ 42      │ 'TIMING admin_similar_schools_batch() 20 schools'                      │ 5     │
---   │ 43      │ 'admin_coordinator_summary national'                                   │ 918   │
---   │ 44      │ 'admin_coordinator_summary scoped'                                     │ 1379  │
---   │ 45      │ 'admin_coordinator_breakdown levels and sums'                          │ 1469  │
---   │ 46      │ 'admin_coordinator_breakdown agrees with admin_coordinator_summary'    │ 6996  │
---   │ 47      │ 'admin_coordinator_trend'                                              │ 54    │
---   │ 48      │ 'admin_coordinators_page pages are lossless and totally ordered'       │ 8748  │
---   │ 49      │ 'admin_coordinators_page: filters, caps and row contents'              │ 3395  │
---   │ 50      │ 'admin_coordinators_page: the 200 cap is enforced inside the function' │ 411   │
---   │ 51      │ 'admin_coordinator_detail'                                             │ 67    │
---   │ 52      │ 'coordinator analytics on a hand-computed fixture'                     │ 3359  │
+--   │ 43      │ 'admin_coordinator_summary national'                                   │ 963   │
+--   │ 44      │ 'admin_coordinator_summary scoped'                                     │ 1443  │
+--   │ 45      │ 'admin_coordinator_breakdown levels and sums'                          │ 1471  │
+--   │ 46      │ 'admin_coordinator_breakdown agrees with admin_coordinator_summary'    │ 7140  │
+--   │ 47      │ 'admin_coordinator_trend'                                              │ 14    │
+--   │ 48      │ 'admin_coordinators_page pages are lossless and totally ordered'       │ 8898  │
+--   │ 49      │ 'admin_coordinators_page: filters, caps and row contents'              │ 3375  │
+--   │ 50      │ 'admin_coordinators_page: the 200 cap is enforced inside the function' │ 417   │
+--   │ 51      │ 'admin_coordinator_detail'                                             │ 55    │
+--   │ 52      │ 'coordinator analytics on a hand-computed fixture'                     │ 3309  │
 --   │ 53      │ 'section G reads through the indexes'                                  │ 4     │
---   │ 54      │ 'section G is admin only'                                              │ 2     │
---   │ 55      │ 'section G survives a second apply'                                    │ 1772  │
---   │ 56      │ 'TIMING admin_coordinator_summary() national'                          │ 509   │
---   │ 57      │ 'TIMING admin_coordinator_summary() one state'                         │ 386   │
---   │ 58      │ 'TIMING admin_coordinator_breakdown() national'                        │ 497   │
---   │ 59      │ 'TIMING admin_coordinator_trend() 30 days'                             │ 2     │
---   │ 60      │ 'TIMING admin_coordinators_page() page 1'                              │ 122   │
---   │ 61      │ 'TIMING admin_coordinators_page() search'                              │ 116   │
---   │ 62      │ 'TIMING admin_coordinator_detail()'                                    │ 1     │
+--   │ 54      │ 'section G is admin only'                                              │ 1     │
+--   │ 55      │ 'section G survives a second apply'                                    │ 1734  │
+--   │ 56      │ 'TIMING admin_coordinator_summary() national'                          │ 522   │
+--   │ 57      │ 'TIMING admin_coordinator_summary() one state'                         │ 405   │
+--   │ 58      │ 'TIMING admin_coordinator_breakdown() national'                        │ 524   │
+--   │ 59      │ 'TIMING admin_coordinator_trend() 30 days'                             │ 1     │
+--   │ 60      │ 'TIMING admin_coordinators_page() page 1'                              │ 124   │
+--   │ 61      │ 'TIMING admin_coordinators_page() search'                              │ 120   │
+--   │ 62      │ 'TIMING admin_coordinator_detail()'                                    │ 2     │
+--   │ 63      │ 'the day charts bucket by IST, not by the session zone'                │ 4     │
 --   └─────────┴────────────────────────────────────────────────────────────────────────┴───────┘
 --   all admin-scale checks passed
 --
@@ -210,10 +211,10 @@
 --
 -- THREE NUMBERS WORTH KNOWING BEFORE YOU BUILD ON THIS.
 --
---   1. admin_dashboard() is ~5.0 s here, and essentially all of it is the two
---      section C calls inside it: admin_isc_summary at 2.6 s and
---      admin_isc_breakdown at 2.3 s, timed on their own, account for the whole
---      5.0 s to within the run-to-run noise. Everything else in it -- eight
+--   1. admin_dashboard() is ~5.1 s here, and essentially all of it is the two
+--      section C calls inside it: admin_isc_summary at 2.5 s and
+--      admin_isc_breakdown at 2.2 s, timed on their own, account for the whole
+--      5.1 s to within the run-to-run noise. Everything else in it -- eight
 --      counts and a 7-day timeline -- disappears into that noise. That is why
 --      /admin reads its four queue counters straight from the tables and
 --      streams the championship block in behind them; do not put this
@@ -222,13 +223,13 @@
 --   2. A national admin_isc_roster() page is ~2.8 s and always reads all
 --      800,000 rows, because `total` is count(*) over () and counting the
 --      whole match set means touching it. The same call scoped to one school
---      is 128 ms. A roster screen should open on a scope, not on the nation --
+--      is 131 ms. A roster screen should open on a scope, not on the nation --
 --      /admin/isc does not list entries until a filter narrows it.
 --
 --   3. Everything else an admin page waits for is about half a second or
---      less: users page 305 ms, users search 367 ms, global search 302 ms,
---      coordinator summary 509 ms, coordinator breakdown 497 ms, coordinators
---      page 122 ms, coordinator detail 1 ms, cold schools 6 ms, similar
+--      less: users page 297 ms, users search 372 ms, global search 312 ms,
+--      coordinator summary 522 ms, coordinator breakdown 524 ms, coordinators
+--      page 124 ms, coordinator detail 2 ms, cold schools 6 ms, similar
 --      schools for 20 rows 5 ms. These are the ones you can await directly.
 -- ===============================================================
 
@@ -488,11 +489,26 @@ end $$;
 -- day is a calendar date; `started` and `submitted` here are ENTRY counts (how
 -- many entries were created / submitted that day), not student counts. Every day
 -- in the window is present, zero-filled, so a chart has no gaps.
+--
+-- THE DAY IS AN INDIAN STANDARD TIME DAY, which is what the pages drawing this
+-- chart say it is (src/lib/isc/dates.ts, and the chart subtitle "by Indian
+-- Standard Time"). Supabase runs the session in UTC, so `created_at::date` and
+-- `current_date` would bucket by the UTC day: every entry made between 00:00 and
+-- 05:29 IST would be counted on the day before the child made it, and until
+-- 05:30 each morning the last column of the chart -- "today" -- would be
+-- yesterday and today's work would be invisible.
 create or replace function admin_isc_timeline(
   p_state text default null, p_district text default null, p_school_id uuid default null, p_days int default 30
 ) returns table(day date, started bigint, submitted bigint)
 language plpgsql security definer set search_path = public as $$
-declare v_from date := current_date - greatest(p_days, 1) + 1;
+declare
+  v_today date := (now() at time zone 'Asia/Kolkata')::date;
+  v_from  date := v_today - greatest(p_days, 1) + 1;
+  -- The same edge as an instant: midnight IST on v_from, which is 18:30 UTC the
+  -- day before. The filters below compare a timestamptz to THIS rather than
+  -- bucketing first, so they stay sargable and keep using
+  -- isc_entries_created_idx and isc_entries_submitted_idx.
+  v_from_at timestamptz := (v_from::timestamp) at time zone 'Asia/Kolkata';
 begin
   if not is_admin() then raise exception 'admin only'; end if;
   if p_district is not null and p_state is null then
@@ -505,18 +521,19 @@ begin
     where (p_school_id is null or e.school_id = p_school_id)
       and (p_school_id is not null or p_state is null or s.state = p_state)
       and (p_school_id is not null or p_district is null or s.district = p_district)
-      and (e.created_at >= v_from or e.submitted_at >= v_from)
+      and (e.created_at >= v_from_at or e.submitted_at >= v_from_at)
   ),
-  c as (select created_at::date d, count(*) n from scoped where created_at >= v_from group by 1),
-  s as (select submitted_at::date d, count(*) n from scoped where submitted_at >= v_from group by 1)
+  c as (select (created_at at time zone 'Asia/Kolkata')::date d, count(*) n from scoped where created_at >= v_from_at group by 1),
+  s as (select (submitted_at at time zone 'Asia/Kolkata')::date d, count(*) n from scoped where submitted_at >= v_from_at group by 1)
   -- Integer series, not generate_series(date, date, interval): the date/interval
   -- form is resolved to the timestamptz overload, so the day column would come
   -- back as a timestamptz needing a cast, and the boundaries would depend on the
-  -- session timezone. `current_date - int` is plain date arithmetic.
-  select (current_date - g.i)::date, coalesce(c.n, 0), coalesce(s.n, 0)
+  -- session timezone. `v_today - int` is plain date arithmetic on a day that has
+  -- already been pinned to IST.
+  select (v_today - g.i)::date, coalesce(c.n, 0), coalesce(s.n, 0)
   from generate_series(0, greatest(p_days, 1) - 1) g(i)
-  left join c on c.d = current_date - g.i
-  left join s on s.d = current_date - g.i
+  left join c on c.d = v_today - g.i
+  left join s on s.d = v_today - g.i
   order by 1;
 end $$;
 
@@ -1159,11 +1176,21 @@ end $$;
 -- that as an event chart would conclude recruitment had stopped and cut it. The
 -- column names have to make the misread impossible at the call site, because the
 -- call site is all a page author sees.
+--
+-- The day is an INDIAN STANDARD TIME day, for the reason spelled out over
+-- admin_isc_timeline: the session runs in UTC on Supabase, the chart says IST,
+-- and a coordinator who signs up at 02:00 IST belongs to the day they signed up
+-- on rather than the one before.
 create or replace function admin_coordinator_trend(
   p_state text default null, p_days int default 30
 ) returns table(day date, coordinators bigint, cohort_claimed bigint, cohort_approved bigint)
 language plpgsql security definer set search_path = public as $$
-declare v_from date := current_date - greatest(p_days, 1) + 1;
+declare
+  v_today date := (now() at time zone 'Asia/Kolkata')::date;
+  v_from  date := v_today - greatest(p_days, 1) + 1;
+  -- Midnight IST on v_from as an instant, so the filter stays sargable on
+  -- user_profiles_created_idx instead of bucketing every row first.
+  v_from_at timestamptz := (v_from::timestamp) at time zone 'Asia/Kolkata';
 begin
   if not is_admin() then raise exception 'admin only'; end if;
   return query
@@ -1174,21 +1201,21 @@ begin
     group by s.coordinator_id
   ),
   c as (
-    select p.created_at::date d, count(*) n,
+    select (p.created_at at time zone 'Asia/Kolkata')::date d, count(*) n,
            count(cl.cid) cohort_claimed,
            count(*) filter (where cl.approved) cohort_approved
     from user_profiles p
     left join cl on cl.cid = p.id
-    where p.role = 'coordinator' and p.created_at >= v_from
+    where p.role = 'coordinator' and p.created_at >= v_from_at
       and (p_state is null or cl.cid is not null)
     group by 1
   )
   -- Integer series for the same reason as admin_isc_timeline: the
   -- generate_series(date, date, interval) form resolves to the timestamptz
   -- overload and would make the boundaries depend on the session timezone.
-  select (current_date - g.i)::date, coalesce(c.n, 0), coalesce(c.cohort_claimed, 0), coalesce(c.cohort_approved, 0)
+  select (v_today - g.i)::date, coalesce(c.n, 0), coalesce(c.cohort_claimed, 0), coalesce(c.cohort_approved, 0)
   from generate_series(0, greatest(p_days, 1) - 1) g(i)
-  left join c on c.d = current_date - g.i
+  left join c on c.d = v_today - g.i
   order by 1;
 end $$;
 

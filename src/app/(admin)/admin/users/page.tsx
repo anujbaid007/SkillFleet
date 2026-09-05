@@ -9,6 +9,7 @@ import { Pagination } from '@/components/admin/pagination'
 import { getUsersPage, parseUsersQuery, usersQueryToString, type UsersSort } from '@/lib/admin/users'
 import type { SearchParams } from '@/lib/admin/scope'
 import { formatIstDay, istDay } from '@/lib/isc/dates'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const BASE_PATH = '/admin/users'
 
@@ -43,6 +44,9 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
   const query = parseUsersQuery(sp)
   const supabase = await createClient()

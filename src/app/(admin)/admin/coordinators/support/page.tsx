@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { CoordinatorHeader } from '@/components/admin/coordinator-header'
 import { SupportConfigForm } from '@/components/admin/support-config-form'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface ConversationRow {
   coordinatorId: string
@@ -13,6 +14,9 @@ interface ConversationRow {
 }
 
 export default async function AdminSupportInboxPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const { data: conversations } = await supabase

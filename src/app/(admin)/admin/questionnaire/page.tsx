@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { toggleQuestionActiveAction } from './actions'
 import { PageHeader } from '@/components/ui/page-header'
 import { HelpCircle } from 'lucide-react'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawQuestion {
   id: string
@@ -13,6 +14,9 @@ interface RawQuestion {
 }
 
 export default async function QuestionnairePage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const { data: questions } = (await supabase

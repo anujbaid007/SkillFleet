@@ -17,6 +17,7 @@ import { getCoordinatorDetail, strongestClaim } from '@/lib/admin/coordinators'
 // and passes the roster in from the table, exactly as the ISC school page does.
 import { loadCoordinatorSchoolData } from '@/lib/coordinator/school-data'
 import { buildSchoolRoster } from '@/lib/isc/roster'
+import { requireAdmin } from '@/lib/admin/guard'
 
 /** The same ceiling the ISC school page uses: one school's register is bounded. */
 const STUDENT_CEILING = 5_000
@@ -51,6 +52,9 @@ export default async function AdminCoordinatorDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 

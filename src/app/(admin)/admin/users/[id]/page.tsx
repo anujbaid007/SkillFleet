@@ -11,6 +11,7 @@ import { SectionFailed } from '@/components/admin/section-failed'
 import { formatIstDay, istDay } from '@/lib/isc/dates'
 import { iscGroupLabel, type IscGroup } from '@/lib/isc/groups'
 import { trackName } from '@/lib/isc/tracks'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawProfile {
   id: string
@@ -78,6 +79,9 @@ export default async function UserDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 
@@ -340,9 +344,34 @@ interface RawIscEntry {
   id: string
   track: string
   status: string
-  division: string | null
+  /** Absent, not just null, before the migration -- see ENTRY_COLUMNS below. */
+  division?: string | null
   submitted_at: string | null
   school_id: string
+}
+
+/*
+  isc_entries.division arrives with section B of docs/admin-scale-migration.sql.
+  Until the founder pastes that, the column does not exist and PostgREST answers
+  42703 (undefined_column) -- which turned this whole section into "column
+  isc_entries.division does not exist" on every student who had entered, while
+  every other page showed the calm migration panel.
+
+  It cannot show that panel instead, because nothing else in this section needs
+  the migration: the entries, their tracks, their schools and their teammates
+  are all plain columns, and a panel would hide all of them. So the read asks
+  for `division` and, if the column is not there yet, asks again without it. The
+  only thing lost pre-migration is the group badge, which the ISC roster shows
+  anyway -- and the badge comes back by itself the moment the migration lands,
+  with no second deploy.
+*/
+const ENTRY_COLUMNS = 'id, track, status, division, submitted_at, school_id'
+const ENTRY_COLUMNS_WITHOUT_DIVISION = 'id, track, status, submitted_at, school_id'
+const UNDEFINED_COLUMN = '42703'
+
+type EntryRead = {
+  data: RawIscEntry[] | null
+  error: { code?: string; message: string } | null
 }
 
 /**
@@ -387,10 +416,13 @@ async function IscEntriesSection({ studentId }: { studentId: string }) {
     )
   }
 
-  const { data: entryRows, error: entryError } = (await supabase
-    .from('isc_entries')
-    .select('id, track, status, division, submitted_at, school_id')
-    .in('id', entryIds)) as { data: RawIscEntry[] | null; error: { message: string } | null }
+  const readEntries = async (columns: string): Promise<EntryRead> =>
+    (await supabase.from('isc_entries').select(columns).in('id', entryIds)) as EntryRead
+
+  let { data: entryRows, error: entryError } = await readEntries(ENTRY_COLUMNS)
+  if (entryError?.code === UNDEFINED_COLUMN) {
+    ;({ data: entryRows, error: entryError } = await readEntries(ENTRY_COLUMNS_WITHOUT_DIVISION))
+  }
 
   if (entryError) {
     return <SectionFailed title="Championships" message={entryError.message} />

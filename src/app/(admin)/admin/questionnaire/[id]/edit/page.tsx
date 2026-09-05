@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { QuestionDetailsForm } from '@/components/admin/question-details-form'
 import { QuestionOptionRow } from '@/components/admin/question-option-row'
 import { AddOptionForm } from '@/components/admin/add-option-form'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawQuestion {
   id: string
@@ -35,6 +36,9 @@ export default async function EditQuestionPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 

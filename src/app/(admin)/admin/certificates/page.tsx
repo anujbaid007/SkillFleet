@@ -11,6 +11,7 @@ import { bulkReviewCertificates } from '@/app/(admin)/admin/queues/actions'
 import { getCertificatesQueue, parseQueueQuery, queueQueryToString } from '@/lib/admin/queues'
 import type { SearchParams } from '@/lib/admin/scope'
 import { formatIstDay, istDay } from '@/lib/isc/dates'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const BASE_PATH = '/admin/certificates'
 const DEFAULT_STATUS = 'pending'
@@ -55,6 +56,9 @@ export default async function CertificatesPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
   const query = parseQueueQuery(sp, DEFAULT_STATUS)
   const supabase = await createClient()

@@ -18,6 +18,7 @@ import { IscInsights } from '@/components/admin/isc-insights'
 import { IscExport } from '@/components/admin/isc-export'
 import { IscRosterTable } from '@/components/admin/isc-roster-table'
 import { IscColdSchools } from '@/components/admin/isc-cold-schools'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const BASE_PATH = '/admin/isc'
 
@@ -40,6 +41,9 @@ export default async function AdminIscPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
   const filters = parseRosterFilters(sp)
   const coldPage = Math.min(MAX_PAGE, Math.max(1, Number.parseInt(String(sp.cold ?? '1'), 10) || 1))

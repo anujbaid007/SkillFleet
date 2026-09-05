@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { TaxonomyManager } from '@/components/admin/taxonomy-manager'
 import { PageHeader } from '@/components/ui/page-header'
 import { FolderTree } from 'lucide-react'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawTopic {
   id: string
@@ -20,6 +21,9 @@ interface RawCategory {
 }
 
 export default async function TaxonomyPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const [{ data: cats }, { data: topics }] = (await Promise.all([

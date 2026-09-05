@@ -1,26 +1,23 @@
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import type { ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentProfile, getCurrentUser } from '@/lib/supabase/session'
 import { AdminNav } from '@/components/admin/admin-nav'
 import { GlobalSearch } from '@/components/admin/global-search'
 import { MobileNavDrawer } from '@/components/mobile-nav-drawer'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const profile = await getCurrentProfile()
 
-  // Secure role check in layout — proxy only checks authentication
+  // The role check the proxy does not do — the proxy only checks that somebody
+  // is signed in. It stays here so the shell itself is never drawn for a
+  // non-admin, but it is NOT what protects the pages: a layout does not control
+  // whether its route segments render, so every page under admin/ awaits
+  // requireAdmin() too. See src/lib/admin/guard.ts. Read through the same
+  // request-memoised helpers that guard uses, so the two checks are one lookup.
   if (profile?.role !== 'admin') redirect('/')
 
   return (

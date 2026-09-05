@@ -6,6 +6,7 @@ import { CoordinatorHeader } from '@/components/admin/coordinator-header'
 import { CoordinatorQueue, CLAIMS_DEFAULT_STATUS } from '@/components/admin/coordinator-queue'
 import { getCoordinatorsQueue, parseQueueQuery } from '@/lib/admin/queues'
 import type { SearchParams } from '@/lib/admin/scope'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const BASE_PATH = '/admin/coordinators/claims'
 
@@ -26,6 +27,9 @@ export default async function AdminCoordinatorClaimsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
   const query = parseQueueQuery(sp, CLAIMS_DEFAULT_STATUS)
   const supabase = await createClient()

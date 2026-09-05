@@ -3,12 +3,16 @@ import { OfferingForm } from '@/components/admin/offering-form'
 import { createOfferingAction } from '../actions'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { requireAdmin } from '@/lib/admin/guard'
 
 export default async function NewOfferingPage({
   searchParams,
 }: {
   searchParams: Promise<{ from_request?: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { from_request } = await searchParams
   const supabase = await createClient()
 

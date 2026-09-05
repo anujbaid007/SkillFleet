@@ -4,6 +4,7 @@ import { AddParameterForm } from '@/components/admin/add-parameter-form'
 import { ScoreLevelRow } from '@/components/admin/score-level-row'
 import { PageHeader } from '@/components/ui/page-header'
 import { Sliders } from 'lucide-react'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawParameter {
   id: string
@@ -24,6 +25,9 @@ interface RawScoreLevel {
 }
 
 export default async function ParametersPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const [{ data: parameters }, { data: scoreLevels }] = (await Promise.all([

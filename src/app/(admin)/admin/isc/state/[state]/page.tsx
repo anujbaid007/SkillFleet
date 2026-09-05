@@ -19,6 +19,7 @@ import { IscInsights } from '@/components/admin/isc-insights'
 import { IscExport } from '@/components/admin/isc-export'
 import { IscRosterTable } from '@/components/admin/isc-roster-table'
 import { IscColdSchools } from '@/components/admin/isc-cold-schools'
+import { requireAdmin } from '@/lib/admin/guard'
 
 /**
  * One state: its districts, its entries, and the schools in it yet to start.
@@ -34,6 +35,9 @@ export default async function AdminIscStatePage({
   params: Promise<{ state: string }>
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { state: stateParam } = await params
   const state = decodeURIComponent(stateParam)
   const sp = await searchParams

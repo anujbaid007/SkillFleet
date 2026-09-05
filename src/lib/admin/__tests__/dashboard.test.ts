@@ -34,7 +34,24 @@ function keyOf(table: string, filters: Filter[]): string {
   return [table, ...filters].join('|')
 }
 
-function deskClient(answers: Record<string, Answer>, seen: string[] = []) {
+/**
+ * The admin gate that now opens getDeskCounts (src/lib/admin/guard.ts):
+ * auth.getUser(), then `user_profiles.select('role')`. It is answered here and
+ * kept out of `seen`, so `seen` stays the nine counts the reader itself sends.
+ * `role` defaults to 'admin'; the tests about the gate pass something else.
+ */
+function gateFor(role: string | null) {
+  return {
+    eq: () => ({ maybeSingle: async () => ({ data: role === null ? null : { role }, error: null }) }),
+  }
+}
+
+function deskClient(
+  answers: Record<string, Answer>,
+  seen: string[] = [],
+  opts: { role?: string | null; signedIn?: boolean } = {}
+) {
+  const role = opts.role === undefined ? 'admin' : opts.role
   const build = (table: string, filters: Filter[]): Record<string, unknown> => {
     const key = keyOf(table, filters)
     const answer = answers[key] ?? { count: null, error: { message: `unexpected query: ${key}` } }
@@ -47,16 +64,22 @@ function deskClient(answers: Record<string, Answer>, seen: string[] = []) {
         build(table, [...filters, `not:${col}.${op}.${val === null ? 'null' : String(val)}`]),
     }
   }
+  const getUser = vi.fn(async () => ({
+    data: { user: opts.signedIn === false ? null : { id: 'caller-1' } },
+  }))
   return {
     db: {
+      auth: { getUser },
       from: (table: string) => ({
-        select: (cols: string, opts: unknown) => {
-          seen.push(`${table}:${cols}:${JSON.stringify(opts)}`)
+        select: (cols: string, selectOpts: unknown) => {
+          if (table === 'user_profiles' && cols === 'role') return gateFor(role)
+          seen.push(`${table}:${cols}:${JSON.stringify(selectOpts)}`)
           return build(table, [])
         },
       }),
     } as never,
     seen,
+    getUser,
   }
 }
 
@@ -146,7 +169,13 @@ describe('getDeskCounts', () => {
       sent = val
       return anything
     }
-    const db = { from: () => ({ select: () => anything }) } as never
+    const db = {
+      auth: { getUser: async () => ({ data: { user: { id: 'caller-1' } } }) },
+      from: (table: string) => ({
+        select: (cols: string) =>
+          table === 'user_profiles' && cols === 'role' ? gateFor('admin') : anything,
+      }),
+    } as never
     await getDeskCounts(db)
     const days = (Date.now() - Date.parse(sent)) / 86_400_000
     expect(days).toBeGreaterThan(ACTIVE_SUPPORT_DAYS - 0.01)
@@ -158,6 +187,46 @@ describe('getDeskCounts', () => {
     const result = await getDeskCounts(db)
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.kind).toBe('failed')
+  })
+
+  /*
+    THE BUG THIS EXISTS FOR. These nine are plain table reads, so a signed-in
+    student's client does not get an error from them -- it gets its own
+    row-level-security view, which is one profile (their own) and no queues.
+    The (admin) layout redirects that student, but in this version of Next a
+    layout does not stop the page segment under it from rendering, so the
+    reader still ran and stored "Students 1" under a cache key with no user in
+    it, for every admin on the isolate to read for the next minute.
+
+    So the role is checked BEFORE the cache is touched, and the refusal is not
+    stored: the student never reaches a table, and the admin that follows still
+    has to.
+  */
+  it('refuses a student, reads nothing, and leaves the cache empty for the next admin', async () => {
+    invalidateAdminCache()
+    const student = deskClient(HAPPY, [], { role: 'student' })
+    const denied = await getDeskCounts(student.db)
+    expect(denied.ok).toBe(false)
+    if (!denied.ok) expect(denied.kind).toBe('failed')
+    expect(student.seen).toHaveLength(0)
+
+    const admin = deskClient(HAPPY)
+    const allowed = await getDeskCounts(admin.db)
+    expect(allowed.ok).toBe(true)
+    // The point of the test: the admin's call still had to go to the database,
+    // so nothing of the student's was waiting in the cache for them.
+    expect(admin.seen).toHaveLength(9)
+    if (allowed.ok) expect(allowed.data.students).toBe(200000)
+  })
+
+  it('refuses a coordinator, a caller with no profile row, and a caller with no session', async () => {
+    for (const opts of [{ role: 'coordinator' }, { role: null }, { signedIn: false }]) {
+      invalidateAdminCache()
+      const { db, seen } = deskClient(HAPPY, [], opts)
+      const result = await getDeskCounts(db)
+      expect(result.ok).toBe(false)
+      expect(seen).toHaveLength(0)
+    }
   })
 
   it('serves a second call from the cache, and never caches a failure', async () => {

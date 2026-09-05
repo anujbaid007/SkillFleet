@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { CertReviewForm } from '@/components/admin/cert-review-form'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawCert {
   id: string
@@ -23,6 +24,9 @@ export default async function CertDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 

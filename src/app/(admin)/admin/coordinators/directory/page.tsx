@@ -10,6 +10,7 @@ import {
   parseCoordinatorsQuery,
 } from '@/lib/admin/coordinators'
 import type { SearchParams } from '@/lib/admin/scope'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const BASE_PATH = '/admin/coordinators/directory'
 
@@ -26,6 +27,9 @@ export default async function AdminCoordinatorsDirectoryPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const sp = await searchParams
   const query = parseCoordinatorsQuery(sp)
   const supabase = await createClient()

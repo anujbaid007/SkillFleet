@@ -34,6 +34,7 @@
 */
 
 import { cachedOk, cacheKey } from '@/lib/admin/cache'
+import { assertAdmin } from '@/lib/admin/guard'
 import { field, toNumber, toText } from '@/lib/admin/coerce'
 import { mapRpcError, ok, type AdminResult } from '@/lib/admin/errors'
 import type { BreakdownRow, CountRow, IscSummary, TimelinePoint } from '@/lib/admin/isc'
@@ -281,8 +282,18 @@ function n(response: CountResponse): number {
  * queue's coordinator_id filter and `pending_completions` carries the
  * completions page's own three conditions -- see DeskCounts for both. The
  * other predicates are admin_dashboard()'s line for line.
+ *
+ * IT ALSO CHECKS THE ROLE ITSELF, before it touches the cache. These are plain
+ * table reads, so a non-admin's client does not get an error from them -- it
+ * gets its own row-level-security view, one profile and no queues, which would
+ * then be stored under a cache key that is not scoped to a user. The pages
+ * gate too (src/lib/admin/guard.ts); this is the guard that survives a page
+ * being added later without one.
  */
-export function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
+export async function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
+  const gate = await assertAdmin(db)
+  if (!gate.ok) return gate
+
   return cachedOk(cacheKey('admin_desk_counts', {}), async () => {
     const since = new Date(Date.now() - ACTIVE_SUPPORT_DAYS * DAY_MS).toISOString()
 

@@ -3,6 +3,7 @@ import { ArrowLeft, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { CoordinatorMessageList, type MessageableCoordinator } from '@/components/admin/coordinator-message-list'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawSchool {
   coordinator_id: string | null
@@ -21,6 +22,9 @@ interface RawSchool {
  * search box and a flat list — no tabs, no review affordances.
  */
 export default async function AdminMessageCoordinatorPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const { data: schools } = (await supabase

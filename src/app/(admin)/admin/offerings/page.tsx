@@ -5,6 +5,7 @@ import { Reveal } from '@/components/ui/reveal'
 import { PageHeader } from '@/components/ui/page-header'
 import { OfferingReviewControls } from '@/components/admin/offering-review-controls'
 import { Package, Bell, Store } from 'lucide-react'
+import { requireAdmin } from '@/lib/admin/guard'
 
 const STATUS_STYLE: Record<string, string> = {
   live: 'bg-green-50 text-green-700',
@@ -46,6 +47,9 @@ function formatPrice(p: number) {
 }
 
 export default async function OfferingsPage() {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const supabase = await createClient()
 
   const [{ data: offerings }, { data: vendors }] = await Promise.all([

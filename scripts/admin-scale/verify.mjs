@@ -7,6 +7,13 @@ const arg = (name, dflt) => { const i = process.argv.indexOf(`--${name}`); retur
 const scale = { students: arg('students', 2000), schools: arg('schools', 40), entries: arg('entries', 8000) }
 
 const db = new PGlite({ extensions: { pg_trgm } })
+// SUPABASE RUNS THE SESSION IN UTC, and PGlite does not: it picks the session
+// zone up from the host, so on a laptop in India it was Etc/GMT-5 and every
+// `::date` cast and `current_date` in the migration silently behaved as if it
+// were bucketing in IST. That made a whole class of timezone fault invisible
+// here and live on the founder's database. Pin it to UTC so what passes here is
+// what Supabase will do.
+await db.exec(`set time zone 'UTC'`)
 const t0 = Date.now()
 await db.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
 await seed(db, scale)
@@ -63,6 +70,24 @@ const CHECKS = []
 //     const { rows } = await db.query('select * from admin_isc_roster($1)', [50])
 //     assertEqual(rows.length, 50, 'page size')
 //   }))
+
+// ---------------------------------------------------------------------------
+// Indian Standard Time, which is the only day these charts have
+// ---------------------------------------------------------------------------
+//
+// admin_isc_timeline and admin_coordinator_trend bucket by the IST day, because
+// that is the day the pages drawing them label (src/lib/isc/dates.ts). PGlite,
+// like Supabase, runs the session in UTC, so every reference query below has to
+// bucket in IST too or it would be checking the function against the bug.
+//
+// It also matters for the FIXTURES. A row anchored to `current_date` is anchored
+// to a UTC day, and between 18:30 and 24:00 UTC the IST day is already the next
+// one -- so a fixture that expected its row in the middle column of a chart would
+// find it one column further back, depending on what time of day the harness ran.
+// istDaysAgo(n) is midnight IST n days ago, as an instant, so a fixture lands in
+// the bucket it says it does whenever the harness runs.
+const IST_TODAY = `(now() at time zone 'Asia/Kolkata')::date`
+const istDaysAgo = (n) => `((${IST_TODAY} - ${n})::timestamp at time zone 'Asia/Kolkata')`
 
 // ---------------------------------------------------------------------------
 // Task 2 — section A (indexes) and section B (division column, trigger, backfill)
@@ -193,7 +218,7 @@ CHECKS.push(() => check('migration is safe to run twice', async () => {
 // passes without the function ever having counted anything.
 const timelineDays = async () => {
   const { rows: [r] } = await db.query(
-    `select greatest((current_date - min(created_at)::date) + 1, 1)::int d from isc_entries`)
+    `select greatest((${IST_TODAY} - min(created_at at time zone 'Asia/Kolkata')::date) + 1, 1)::int d from isc_entries`)
   return r.d
 }
 
@@ -317,23 +342,26 @@ CHECKS.push(() => check('admin_isc_timeline', async () => {
   const days = await timelineDays()
   const { rows } = await db.query(`select * from admin_isc_timeline(null, null, null, $1)`, [days])
   assertEqual(rows.length, days, 'one row per day')
+  // The reference buckets in IST as well -- see istDaysAgo above. Written with
+  // ::date on the converted timestamp rather than reusing the function's own
+  // expression tree, so it is still an independent computation.
   const { rows: ref } = await db.query(`select g.d as day, coalesce(c.n, 0)::int as started, coalesce(s.n, 0)::int as submitted
-    from (select (current_date - i)::date d from generate_series(0, $1::int - 1) i) g
-    left join (select created_at::date d, count(*) n from isc_entries group by 1) c on c.d = g.d
-    left join (select submitted_at::date d, count(*) n from isc_entries where submitted_at is not null group by 1) s on s.d = g.d
+    from (select (${IST_TODAY} - i)::date d from generate_series(0, $1::int - 1) i) g
+    left join (select (created_at at time zone 'Asia/Kolkata')::date d, count(*) n from isc_entries group by 1) c on c.d = g.d
+    left join (select (submitted_at at time zone 'Asia/Kolkata')::date d, count(*) n from isc_entries where submitted_at is not null group by 1) s on s.d = g.d
     order by 1`, [days])
   assertEqual(rows.map((r) => [String(r.day), Number(r.started), Number(r.submitted)]),
     ref.map((r) => [String(r.day), Number(r.started), Number(r.submitted)]), 'every day matches an independent reference')
   const total = rows.reduce((a, r) => a + Number(r.started), 0)
   if (total === 0) throw new Error('the timeline window covered no entries at all, so this check proves nothing')
-  const { rows: [e] } = await db.query(`select count(*)::int n from isc_entries where created_at >= current_date - ($1::int - 1)`, [days])
+  const { rows: [e] } = await db.query(`select count(*)::int n from isc_entries where created_at >= ${istDaysAgo('($1::int - 1)')}`, [days])
   assertEqual(total, e.n, 'the timeline accounts for every entry in the window')
   // Scoping must narrow it, and must agree with a plain join to schools.
   const { rows: [st] } = await db.query(`select state from schools order by id limit 1`)
   const { rows: scoped } = await db.query(`select * from admin_isc_timeline($1, null, null, $2)`, [st.state, days])
   const { rows: [sref] } = await db.query(
     `select count(*)::int n from isc_entries e join schools s on s.id = e.school_id
-     where s.state = $1 and e.created_at >= current_date - ($2::int - 1)`, [st.state, days])
+     where s.state = $1 and e.created_at >= ${istDaysAgo('($2::int - 1)')}`, [st.state, days])
   assertEqual(scoped.reduce((a, r) => a + Number(r.started), 0), sref.n, `timeline scoped to ${st.state}`)
   if (!(sref.n > 0 && sref.n < e.n)) throw new Error(`state scope did not narrow the timeline: ${sref.n} of ${e.n}`)
 }))
@@ -363,13 +391,15 @@ CHECKS.push(() => check('ISC summaries on a hand-computed fixture', async () => 
       ($5,'student','Too young',   'Class 3', 'Zedland','Zedland District 1',$7),
       ($6,'student','Outsider',    'Class 11','Yedland','Yedland District 1',$8)`,
       [L1, A1, P1, N1, X1, O1, ZS, YS])
+    // Anchored to IST days, because the timeline assertion below reads these
+    // rows out of named columns of an IST-bucketed chart.
     await db.query(`insert into isc_entries (id, track, school_id, created_by, status, submission, submitted_at, created_at) values
-      ($1,'ai_for_impact',  $5,$7,'submitted','{"language":"Hindi"}',   current_date - 2, current_date - 2),
-      ($2,'entrepreneurship',$5,$7,'draft',    '{}',                     null,             current_date - 1),
-      ($3,'ai_for_impact',  $5,$8,'draft',    '{"language":"English"}', null,             current_date - 1),
-      ($4,'content_creator',$6,$7,'draft',    '{"language":"English"}', null,             current_date - 1),
-      ($9,'ai_for_impact',  $5,$7,'draft',    '{"language":"Hindi"}',   null,             current_date - 1),
-      ($10,'puzzle_master', $11,$7,'draft',   '{"language":"English"}', null,             current_date - 1)`,
+      ($1,'ai_for_impact',  $5,$7,'submitted','{"language":"Hindi"}',   ${istDaysAgo(2)}, ${istDaysAgo(2)}),
+      ($2,'entrepreneurship',$5,$7,'draft',    '{}',                     null,             ${istDaysAgo(1)}),
+      ($3,'ai_for_impact',  $5,$8,'draft',    '{"language":"English"}', null,             ${istDaysAgo(1)}),
+      ($4,'content_creator',$6,$7,'draft',    '{"language":"English"}', null,             ${istDaysAgo(1)}),
+      ($9,'ai_for_impact',  $5,$7,'draft',    '{"language":"Hindi"}',   null,             ${istDaysAgo(1)}),
+      ($10,'puzzle_master', $11,$7,'draft',   '{"language":"English"}', null,             ${istDaysAgo(1)})`,
       [E1, E2, E3, E4, ZS, WS, L1, X1, E5, E6, VS])
     // E3's member row carries track 'puzzle_master' while E3 itself is
     // 'ai_for_impact'. isc_entry_members.track is a denormalised copy that can
@@ -1475,7 +1505,7 @@ CHECKS.push(() => check('admin_coordinator_trend', async () => {
   // weaker test of the same shape (and `rows.length === 30` is true whatever the
   // data does -- the function zero-fills).
   const { rows: [w] } = await db.query(
-    `select greatest((current_date - min(created_at)::date) + 1, 1)::int d from user_profiles where role = 'coordinator'`)
+    `select greatest((${IST_TODAY} - min(created_at at time zone 'Asia/Kolkata')::date) + 1, 1)::int d from user_profiles where role = 'coordinator'`)
   const days = w.d
   const rows = (await db.query(`select * from admin_coordinator_trend(null, $1)`, [days])).rows
   assertEqual(rows.length, days, 'one row per day, zero-filled')
@@ -1488,9 +1518,9 @@ CHECKS.push(() => check('admin_coordinator_trend', async () => {
   const { rows: ref } = await db.query(`
     select g.d as day, coalesce(c.n, 0)::int as coordinators,
            coalesce(c.claimed, 0)::int as cohort_claimed, coalesce(c.approved, 0)::int as cohort_approved
-    from (select (current_date - i)::date d from generate_series(0, $1::int - 1) i) g
+    from (select (${IST_TODAY} - i)::date d from generate_series(0, $1::int - 1) i) g
     left join (
-      select p.created_at::date d, count(*) n,
+      select (p.created_at at time zone 'Asia/Kolkata')::date d, count(*) n,
         count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id)) claimed,
         count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id
                                          and s.coordinator_status = 'approved')) approved
@@ -1532,7 +1562,7 @@ CHECKS.push(() => check('admin_coordinator_trend', async () => {
   const { rows: [sref] } = await db.query(
     `select count(distinct s.coordinator_id)::int n from schools s
      join user_profiles p on p.id = s.coordinator_id and p.role = 'coordinator'
-     where s.state = $1 and p.created_at >= current_date - ($2::int - 1)`, [st.state, days])
+     where s.state = $1 and p.created_at >= ${istDaysAgo('($2::int - 1)')}`, [st.state, days])
   assertEqual(scoped.reduce((a, r) => a + Number(r.coordinators), 0), sref.n, `trend scoped to ${st.state}`)
   assertEqual(scoped.map((r) => Number(r.cohort_claimed)), scoped.map((r) => Number(r.coordinators)),
     'scoped, every counted coordinator has a claim by construction')
@@ -1894,13 +1924,13 @@ CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', asyn
     // from user_profiles instead of from the claimed school visibly wrong rather
     // than merely unproven.
     await db.query(`insert into user_profiles (id, role, full_name, phone, created_at, school_id, school_state, school_district) values
-      ($1,'coordinator','Gvcoord Zulu',   '7770000001', current_date - 1 + interval '3 hours', $7, 'Gvwrong', 'Gvwrong District 1'),
-      ($2,'coordinator','Gvcoord Yankee', '7770000002', current_date - 1 + interval '5 hours', null, null, null),
-      ($3,'coordinator','Gvcoord Xray',   '7770000003', current_date - 1 + interval '1 hour',  null, null, null),
-      ($4,'coordinator','Gvcoord Whiskey','7770000004', current_date - 1 + interval '4 hours', null, null, null),
-      ($5,'coordinator','Gvcoord Victor', '7770000005', current_date - 1 + interval '2 hours', null, null, null),
-      ($6,'coordinator','Gvcoord Uniform','7770000006', current_date - 1 + interval '6 hours', null, null, null),
-      ($8,'coordinator','Gvcoord Tango',  '7770000007', current_date - 1 + interval '7 hours', null, null, null)`,
+      ($1,'coordinator','Gvcoord Zulu',   '7770000001', ${istDaysAgo(1)} + interval '3 hours', $7, 'Gvwrong', 'Gvwrong District 1'),
+      ($2,'coordinator','Gvcoord Yankee', '7770000002', ${istDaysAgo(1)} + interval '5 hours', null, null, null),
+      ($3,'coordinator','Gvcoord Xray',   '7770000003', ${istDaysAgo(1)} + interval '1 hour',  null, null, null),
+      ($4,'coordinator','Gvcoord Whiskey','7770000004', ${istDaysAgo(1)} + interval '4 hours', null, null, null),
+      ($5,'coordinator','Gvcoord Victor', '7770000005', ${istDaysAgo(1)} + interval '2 hours', null, null, null),
+      ($6,'coordinator','Gvcoord Uniform','7770000006', ${istDaysAgo(1)} + interval '6 hours', null, null, null),
+      ($8,'coordinator','Gvcoord Tango',  '7770000007', ${istDaysAgo(1)} + interval '7 hours', null, null, null)`,
       [U(1), U(2), U(3), U(4), U(5), U(6), S(1), U(7)])
     await db.query(`insert into auth.users (id, email) values
       ($1,'zulu@gv.test'), ($2,'yankee@gv.test'), ($3,'xray@gv.test'), ($4,'victor@gv.test'),
@@ -2303,6 +2333,69 @@ CHECKS.push(() => check('TIMING admin_coordinator_detail()', async () => {
   const { rows: [{ v }] } = await db.query(
     `select admin_coordinator_detail((select coordinator_id from schools where coordinator_id is not null order by id limit 1)) v`)
   if (!v) throw new Error('no detail')
+}))
+
+// ---------------------------------------------------------------------------
+// The two day charts bucket by Indian Standard Time
+// ---------------------------------------------------------------------------
+
+CHECKS.push(() => check('the day charts bucket by IST, not by the session zone', async () => {
+  // 2026-08-10 23:30 UTC is 2026-08-11 05:00 IST: a child sitting down before
+  // school, and a teacher signing up on the same early morning. Under
+  // `created_at::date` in a UTC session -- which is what Supabase runs -- both
+  // are counted on the 10th, one column to the left of the day they happened on,
+  // while the chart's own subtitle says "by Indian Standard Time". The same
+  // arithmetic is what made the last column ("today") read as yesterday until
+  // 05:30 every morning.
+  //
+  // The window starts ON 2026-08-11, so under the old bucketing the entry and
+  // the coordinator fall off the left-hand edge entirely and both series read
+  // zero everywhere. This check fails loudly on the old code.
+  const AT = '2026-08-10 23:30:00+00'
+  const { rows: [w] } = await db.query(`select ((${IST_TODAY} - date '2026-08-11') + 1)::int d`)
+  if (w.d < 1) throw new Error(`this fixture is dated 2026-08-11 and the IST day is now before that (${w.d})`)
+
+  const U = (n) => `ab010000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const SCHOOL_ID = U(1), STUDENT = U(2), ENTRY = U(3), COORD = U(4)
+
+  await db.exec('begin')
+  try {
+    await db.query(`insert into schools (id, name, state, district, coordinator_id, coordinator_status)
+      values ($1, 'Tz School', 'Tzland', 'Tzland District 1', $2, 'approved')`, [SCHOOL_ID, COORD])
+    await db.query(`insert into user_profiles (id, role, full_name, school_class, school_state, school_district, school_id, created_at) values
+      ($1,'student','Tz Student','Class 9','Tzland','Tzland District 1',$3,$4::timestamptz),
+      ($2,'coordinator','Tz Coordinator',null,null,null,null,$4::timestamptz)`, [STUDENT, COORD, SCHOOL_ID, AT])
+    await db.query(`insert into isc_entries (id, track, school_id, created_by, status, submitted_at, created_at)
+      values ($1,'ai_for_impact',$2,$3,'submitted',$4::timestamptz,$4::timestamptz)`, [ENTRY, SCHOOL_ID, STUDENT, AT])
+    await db.query(`insert into isc_entry_members (entry_id, track, user_id, is_leader, accepted_at)
+      values ($1,'ai_for_impact',$2,true,$3::timestamptz)`, [ENTRY, STUDENT, AT])
+
+    // The window is [2026-08-11 .. today in IST], oldest first, so row 0 IS the
+    // 11th and nothing before it is in the chart at all.
+    const tl = (await db.query(`select * from admin_isc_timeline(null, null, $1, $2)`, [SCHOOL_ID, w.d])).rows
+    assertEqual(tl.length, w.d, 'one row per day')
+    assertEqual([Number(tl[0].started), Number(tl[0].submitted)], [1, 1],
+      'the 23:30 UTC entry is counted on 2026-08-11, the IST day it was made on')
+    assertEqual([tl.reduce((a, r) => a + Number(r.started), 0), tl.reduce((a, r) => a + Number(r.submitted), 0)], [1, 1],
+      'and counted once: it has not also landed in some other bucket')
+
+    const tr = (await db.query(`select * from admin_coordinator_trend($1, $2)`, ['Tzland', w.d])).rows
+    assertEqual(tr.length, w.d, 'one row per day')
+    assertEqual([Number(tr[0].coordinators), Number(tr[0].cohort_claimed), Number(tr[0].cohort_approved)], [1, 1, 1],
+      'the 23:30 UTC signup is counted on 2026-08-11 too')
+    assertEqual(tr.slice(1).reduce((a, r) => a + Number(r.coordinators), 0), 0,
+      'and on no other day')
+
+    // The day the row carries is the IST day, not the UTC one. `day` comes back
+    // as a JS Date at local midnight, so read its calendar parts rather than
+    // toISOString(), which would re-zone it.
+    const asDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    assertEqual([asDay(tl[0].day), asDay(tr[0].day)], ['2026-08-11', '2026-08-11'], 'both charts label that column 2026-08-11')
+  } finally {
+    await db.exec('rollback')
+  }
+  assertEqual((await db.query(`select count(*)::int n from schools where state = 'Tzland'`)).rows[0].n, 0,
+    'the fixture was rolled back')
 }))
 
 // ============================================================================

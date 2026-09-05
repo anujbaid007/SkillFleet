@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { markCompleteAction } from './actions'
 import { PageHeader } from '@/components/ui/page-header'
 import { CheckSquare } from 'lucide-react'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawBooking {
   id: string
@@ -45,6 +46,9 @@ export default async function CompletionsPage({
 }: {
   searchParams: Promise<{ error?: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { error } = await searchParams
   const supabase = await createClient()
 

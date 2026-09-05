@@ -15,6 +15,7 @@ import {
   getCoordinatorTrend,
 } from '@/lib/admin/coordinators'
 import type { IscScope } from '@/lib/admin/scope'
+import { requireAdmin } from '@/lib/admin/guard'
 
 /**
  * One state: the same overview, scoped, plus its districts.
@@ -34,6 +35,9 @@ export default async function AdminCoordinatorsStatePage({
 }: {
   params: Promise<{ state: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { state: stateParam } = await params
   const state = decodeURIComponent(stateParam)
   const scope: Pick<IscScope, 'state' | 'district'> = { state }

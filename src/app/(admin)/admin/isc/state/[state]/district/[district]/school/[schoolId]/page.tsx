@@ -20,6 +20,7 @@ import { IscInsights } from '@/components/admin/isc-insights'
 import { IscExport } from '@/components/admin/isc-export'
 import { IscRosterTable } from '@/components/admin/isc-roster-table'
 import { SchoolRoster } from '@/components/isc/school-roster'
+import { requireAdmin } from '@/lib/admin/guard'
 
 /**
  * How many student profiles this page will read before it stops.
@@ -55,6 +56,9 @@ export default async function AdminIscSchoolPage({
   params: Promise<{ state: string; district: string; schoolId: string }>
   searchParams: Promise<SearchParams>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { state: stateParam, district: districtParam, schoolId } = await params
   const state = decodeURIComponent(stateParam)
   const district = decodeURIComponent(districtParam)

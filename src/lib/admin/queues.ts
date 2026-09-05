@@ -16,10 +16,14 @@
     trusts the wire type.
   * Successes are cached for sixty seconds and failures are not, keyed on the
     arguments -- src/lib/admin/cache.ts. THE CACHE IS NOT USER-SCOPED, so every
-    caller must gate on the admin role itself before reading. The (admin)
-    layout gates the pages; src/app/(admin)/admin/queues/actions.ts re-checks
-    inside every action, because a server action is a POST endpoint that the
-    layout never runs for.
+    caller must gate on the admin role itself before reading. These three
+    readers do it themselves, first thing, through assertAdmin() -- the (admin)
+    layout's redirect does NOT stop a page segment from rendering in this
+    version of Next, so the layout alone would let a signed-in student's own
+    row-level-security view into the shared cache. Every admin page awaits
+    requireAdmin() as well (src/lib/admin/guard.ts), and
+    src/app/(admin)/admin/queues/actions.ts re-checks inside every action,
+    because a server action is a POST endpoint that no layout runs for.
   * Every action that changes a row calls invalidateAdminCache(), or an admin
     would watch the row they just approved sit in the queue for another minute.
 
@@ -31,6 +35,7 @@
 */
 
 import { cachedOk, cacheKey } from '@/lib/admin/cache'
+import { assertAdmin } from '@/lib/admin/guard'
 import { field, toNullableText, toNumber, toText } from '@/lib/admin/coerce'
 import { mapRpcError, ok, type AdminResult } from '@/lib/admin/errors'
 import { MAX_PAGE_SIZE, type Page } from '@/lib/admin/isc'
@@ -327,11 +332,18 @@ async function matchingProfileIds(db: Db, term: string, role?: string): Promise<
  * the search had been dropped. With `q` and `status=all` it lands on a page
  * that contains it.
  */
-export function getSchoolsQueue(
+export async function getSchoolsQueue(
   db: Db,
   q: QueueQuery,
   size = QUEUE_PAGE
 ): Promise<AdminResult<Page<SchoolQueueRow>>> {
+  // The role, before the cache is even looked at. A plain table read does not
+  // fail for a non-admin -- it succeeds under their row-level security and
+  // returns their own slice, which would then be stored under a key no user
+  // scopes. See src/lib/admin/guard.ts.
+  const gate = await assertAdmin(db)
+  if (!gate.ok) return gate
+
   const page = atLeastOne(q.page)
   const clampedSize = Math.min(atLeastOne(size), MAX_PAGE_SIZE)
   const term = likeTerm(q.q)
@@ -433,11 +445,18 @@ export function getSimilarSchools(
  * it, so a search is two round trips -- names to ids, then ids into the queue
  * filter.
  */
-export function getCoordinatorsQueue(
+export async function getCoordinatorsQueue(
   db: Db,
   q: QueueQuery,
   size = QUEUE_PAGE
 ): Promise<AdminResult<Page<CoordinatorQueueRow>>> {
+  // The role, before the cache is even looked at. A plain table read does not
+  // fail for a non-admin -- it succeeds under their row-level security and
+  // returns their own slice, which would then be stored under a key no user
+  // scopes. See src/lib/admin/guard.ts.
+  const gate = await assertAdmin(db)
+  if (!gate.ok) return gate
+
   const page = atLeastOne(q.page)
   const clampedSize = Math.min(atLeastOne(size), MAX_PAGE_SIZE)
   const term = orTerm(q.q)
@@ -506,11 +525,18 @@ export function getCoordinatorsQueue(
  * the file name, the description and the student's name -- the last of those
  * the same two-step as the coordinators queue, and for the same reason.
  */
-export function getCertificatesQueue(
+export async function getCertificatesQueue(
   db: Db,
   q: QueueQuery,
   size = QUEUE_PAGE
 ): Promise<AdminResult<Page<CertificateQueueRow>>> {
+  // The role, before the cache is even looked at. A plain table read does not
+  // fail for a non-admin -- it succeeds under their row-level security and
+  // returns their own slice, which would then be stored under a key no user
+  // scopes. See src/lib/admin/guard.ts.
+  const gate = await assertAdmin(db)
+  if (!gate.ok) return gate
+
   const page = atLeastOne(q.page)
   const clampedSize = Math.min(atLeastOne(size), MAX_PAGE_SIZE)
   const term = orTerm(q.q)

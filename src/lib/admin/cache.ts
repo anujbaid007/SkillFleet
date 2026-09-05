@@ -14,10 +14,16 @@
 
   A caveat for whoever writes the pages: these entries are NOT scoped to a
   user. Every admin sees the same numbers, so that is fine -- but it does mean
-  the SQL's own `is_admin()` gate is not what protects a cached page. Gate the
-  route. cachedOk() also refuses to store a failure, which keeps a non-admin's
-  'admin only' error out of the next admin's cache and stops a five-second
-  timeout from being replayed for a minute.
+  the SQL's own `is_admin()` gate is not what protects a cached page, and a
+  layout's redirect is not either: in this version of Next a layout does not
+  stop its route segments from rendering. Gate the reader, with
+  assertAdmin(db) from src/lib/admin/guard.ts, and the page with
+  requireAdmin(). A reader over PLAIN TABLES is the one that must: it does not
+  fail for a non-admin, it succeeds under their row-level security and would
+  store that answer here for every admin to read. cachedOk() also refuses to
+  store a failure, which keeps a non-admin's 'admin only' error out of the next
+  admin's cache and stops a five-second timeout from being replayed for a
+  minute.
 */
 
 import type { AdminResult } from './errors'

@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { OfferingForm } from '@/components/admin/offering-form'
 import { updateOfferingAction } from '../../actions'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawContribution {
   parameter_id: string
@@ -15,6 +16,9 @@ export default async function EditOfferingPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 

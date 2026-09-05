@@ -24,13 +24,36 @@ interface Call {
 type Response = { data: unknown; error: unknown; count?: number | null }
 
 /**
+ * The admin gate's own lookup: `user_profiles`, `select('role')`. It is
+ * answered inside fakeDb and kept OUT of `calls`, so the call indices a test
+ * asserts on are the reader's own queries and nothing else. The queues read
+ * user_profiles for names too -- that one selects 'id, full_name, phone', so
+ * the two never collide.
+ */
+function isGateLookup(call: Call): boolean {
+  return (
+    call.table === 'user_profiles' &&
+    call.ops.some(([name, a]) => name === 'select' && a[0] === 'role')
+  )
+}
+
+/**
  * Every method returns the same chain and the chain is thenable, so a reader
  * can build any filter it likes and the test sees the whole sequence. The
  * response is chosen when the query is awaited, by which point every filter
  * has been recorded.
+ *
+ * `role` is what the caller's own profile says. It defaults to 'admin' because
+ * that is what every test about a queue's SQL is about; the tests that are
+ * about the gate pass 'student' or null.
  */
-function fakeDb(respond: (call: Call) => Response) {
+function fakeDb(
+  respond: (call: Call) => Response,
+  opts: { role?: string | null; signedIn?: boolean } = {}
+) {
   const calls: Call[] = []
+  const role = opts.role === undefined ? 'admin' : opts.role
+  const user = opts.signedIn === false ? null : { id: 'caller-1' }
   const from = vi.fn((table: string) => {
     const call: Call = { table, ops: [] }
     calls.push(call)
@@ -38,7 +61,14 @@ function fakeDb(respond: (call: Call) => Response) {
     const proxy: unknown = new Proxy(chain, {
       get(_t, prop) {
         if (prop === 'then') {
-          return (resolve: (v: Response) => void) => resolve(respond(call))
+          return (resolve: (v: Response) => void) => {
+            if (isGateLookup(call)) {
+              const at = calls.indexOf(call)
+              if (at >= 0) calls.splice(at, 1)
+              return resolve({ data: role === null ? null : { role }, error: null })
+            }
+            resolve(respond(call))
+          }
         }
         return (...args: unknown[]) => {
           call.ops.push([String(prop), args])
@@ -48,7 +78,8 @@ function fakeDb(respond: (call: Call) => Response) {
     })
     return proxy
   })
-  return { db: { from } as never, calls, from }
+  const auth = { getUser: vi.fn(async () => ({ data: { user } })) }
+  return { db: { from, auth } as never, calls, from, auth }
 }
 
 function args(call: Call | undefined, name: string): unknown[] | undefined {
@@ -244,7 +275,7 @@ describe('getSchoolsQueue', () => {
 
   it('does not ask twice for a failure that is not a range overrun', async () => {
     invalidateAdminCache()
-    const { db, from } = fakeDb(() => ({
+    const { db, calls } = fakeDb(() => ({
       data: null,
       error: { code: '42501', message: 'permission denied' },
     }))
@@ -252,13 +283,15 @@ describe('getSchoolsQueue', () => {
       ok: false,
       kind: 'failed',
     })
-    expect(from).toHaveBeenCalledTimes(1)
+    // `calls` counts the reader's own queries; the admin gate's profile lookup
+    // is answered inside fakeDb and kept out of it.
+    expect(calls).toHaveLength(1)
   })
 
   it('reports a failure, and does not cache it', async () => {
     invalidateAdminCache()
     let n = 0
-    const { db, from } = fakeDb(() => {
+    const { db, calls } = fakeDb(() => {
       n++
       return n === 1
         ? { data: null, error: { code: '57014', message: 'statement timeout' }, count: null }
@@ -269,17 +302,17 @@ describe('getSchoolsQueue', () => {
       kind: 'failed',
     })
     expect(await getSchoolsQueue(db, { status: 'pending', page: 1 })).toMatchObject({ ok: true })
-    expect(from).toHaveBeenCalledTimes(2)
+    expect(calls).toHaveLength(2)
   })
 
   it('serves a repeat of the same query from the cache, but not a different page', async () => {
     invalidateAdminCache()
-    const { db, from } = fakeDb(() => ({ data: [], error: null, count: 0 }))
+    const { db, calls } = fakeDb(() => ({ data: [], error: null, count: 0 }))
     await getSchoolsQueue(db, { status: 'pending', page: 1 })
     await getSchoolsQueue(db, { status: 'pending', page: 1 })
-    expect(from).toHaveBeenCalledTimes(1)
+    expect(calls).toHaveLength(1)
     await getSchoolsQueue(db, { status: 'pending', page: 2 })
-    expect(from).toHaveBeenCalledTimes(2)
+    expect(calls).toHaveLength(2)
   })
 })
 
@@ -500,5 +533,94 @@ describe('getCertificatesQueue', () => {
     )
     // A certificate search looks at every student, not one role.
     expect(every(calls.find((c) => c.table === 'user_profiles'), 'eq')).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------
+// The admin gate inside the readers
+// ---------------------------------------------------------------
+
+/*
+  THE BUG THIS EXISTS FOR. These three readers are plain table reads, so a
+  signed-in student's client does not get an error from them -- it gets its own
+  row-level-security view: no schools queue, no claims, its own certificates.
+  The (admin) layout redirects that student, but in this version of Next a
+  layout does not stop the page segment under it from rendering, so the reader
+  still ran and stored that view under a cache key with no user in it. Every
+  admin on the isolate then read empty queues for a minute, and the student
+  could do it again every minute.
+
+  So: the role is checked BEFORE the cache is touched, and the failure is not
+  stored. Each test proves both halves -- the student never reaches the table,
+  and the admin that follows still has to.
+*/
+describe('the admin gate inside the queue readers', () => {
+  it('refuses a student on the schools queue and leaves the cache empty', async () => {
+    invalidateAdminCache()
+    const student = fakeDb(() => ({ data: [SCHOOL], error: null, count: 1 }), {
+      role: 'student',
+    })
+    const denied = await getSchoolsQueue(student.db, { status: 'pending', page: 1 })
+    expect(denied).toMatchObject({ ok: false, kind: 'failed' })
+    expect(student.calls).toHaveLength(0)
+
+    const admin = fakeDb(() => ({ data: [SCHOOL], error: null, count: 1 }))
+    const allowed = await getSchoolsQueue(admin.db, { status: 'pending', page: 1 })
+    expect(allowed.ok).toBe(true)
+    // The point of the test: the admin's call still had to go to the database,
+    // so nothing of the student's was waiting in the cache for them.
+    expect(admin.calls.length).toBeGreaterThan(0)
+    if (allowed.ok) expect(allowed.data.total).toBe(1)
+  })
+
+  it('refuses a student on the coordinators queue and leaves the cache empty', async () => {
+    invalidateAdminCache()
+    const student = fakeDb(() => ({ data: [], error: null, count: 0 }), { role: 'student' })
+    expect(await getCoordinatorsQueue(student.db, { status: 'pending', page: 1 })).toMatchObject({
+      ok: false,
+      kind: 'failed',
+    })
+    expect(student.calls).toHaveLength(0)
+
+    const admin = fakeDb(() => ({ data: [], error: null, count: 0 }))
+    expect((await getCoordinatorsQueue(admin.db, { status: 'pending', page: 1 })).ok).toBe(true)
+    expect(admin.calls.length).toBeGreaterThan(0)
+  })
+
+  it('refuses a student on the certificates queue and leaves the cache empty', async () => {
+    invalidateAdminCache()
+    const student = fakeDb(() => ({ data: [], error: null, count: 0 }), { role: 'student' })
+    expect(await getCertificatesQueue(student.db, { status: 'pending', page: 1 })).toMatchObject({
+      ok: false,
+      kind: 'failed',
+    })
+    expect(student.calls).toHaveLength(0)
+
+    const admin = fakeDb(() => ({ data: [], error: null, count: 0 }))
+    const allowed = await getCertificatesQueue(admin.db, { status: 'pending', page: 1 })
+    expect(allowed.ok).toBe(true)
+    expect(admin.calls.length).toBeGreaterThan(0)
+  })
+
+  it('refuses a coordinator, and a caller with no profile row at all', async () => {
+    invalidateAdminCache()
+    for (const role of ['coordinator', null]) {
+      const { db, calls } = fakeDb(() => ({ data: [], error: null, count: 0 }), { role })
+      expect(await getSchoolsQueue(db, { status: 'pending', page: 1 })).toMatchObject({
+        ok: false,
+        kind: 'failed',
+      })
+      expect(calls).toHaveLength(0)
+    }
+  })
+
+  it('refuses a caller with no session before it asks for a profile', async () => {
+    invalidateAdminCache()
+    const { db, calls } = fakeDb(() => ({ data: [], error: null, count: 0 }), { signedIn: false })
+    expect(await getSchoolsQueue(db, { status: 'pending', page: 1 })).toMatchObject({
+      ok: false,
+      kind: 'failed',
+    })
+    expect(calls).toHaveLength(0)
   })
 })

@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { AssessmentDetailsForm } from '@/components/admin/assessment-details-form'
 import { AssessmentQuestionBlock } from '@/components/admin/assessment-question-block'
 import { AddAssessmentQuestionForm } from '@/components/admin/add-assessment-question-form'
+import { requireAdmin } from '@/lib/admin/guard'
 
 interface RawAssessment {
   id: string
@@ -43,6 +44,9 @@ export default async function EditAssessmentPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  // The gate. First statement, before any reader: a layout does not stop this
+  // page from rendering for a non-admin. See src/lib/admin/guard.ts.
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 
