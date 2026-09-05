@@ -17,15 +17,27 @@ const GROUP_LABEL: Record<SearchHit['kind'], string> = {
 const MIN_LENGTH = 2
 const DEBOUNCE_MS = 250
 
-function hrefFor(hit: SearchHit): string {
+/**
+ * Null means "nowhere honest to send this hit yet" -- rendered as a
+ * non-clickable row rather than a link, never as a link to the wrong page.
+ */
+function hrefFor(hit: SearchHit): string | null {
   switch (hit.kind) {
     case 'student':
       return `/admin/users/${hit.id}`
     case 'school':
-      // The schools page does not read `q` yet -- that lands in a later
-      // task -- but the parameter is harmless today and correct once it does.
-      return `/admin/schools?q=${encodeURIComponent(hit.title)}`
+      // /admin/schools takes no query param and hard-filters to
+      // review_status = 'pending' -- landing an approved school's search hit
+      // there would not merely be unfiltered, it would be WRONG: the school
+      // is not on that page at all, with nothing to say the search term was
+      // dropped. Left inert until a page exists that can show one school by
+      // name or id; see the coordinator case below for the "genuinely inert,
+      // and that is fine" version of this problem.
+      return null
     case 'coordinator':
+      // /admin/coordinators lists every coordinator and simply does not
+      // filter by `q` yet -- landing there is a real page with the right
+      // person somewhere on it, just not scrolled-to. Inert, not wrong.
       return `/admin/coordinators?q=${encodeURIComponent(hit.title)}`
   }
 }
@@ -106,13 +118,18 @@ export function GlobalSearch() {
       ),
     [hits]
   )
-  const flat = useMemo(() => grouped.flatMap((g) => g.items), [grouped])
+  // Only hits with somewhere honest to go take part in arrow-key cycling and
+  // Enter -- a school hit renders in the list (see below) but is not one of
+  // these, so it can never become "active" or be opened.
+  const navigable = useMemo(() => grouped.flatMap((g) => g.items).filter((h) => hrefFor(h) !== null), [grouped])
 
   function go(hit: SearchHit) {
+    const href = hrefFor(hit)
+    if (!href) return
     setOpen(false)
     setQuery('')
     setHits([])
-    router.push(hrefFor(hit))
+    router.push(href)
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -121,16 +138,16 @@ export function GlobalSearch() {
       e.currentTarget.blur()
       return
     }
-    if (!open || flat.length === 0) return
+    if (!open || navigable.length === 0) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex((i) => (i + 1) % flat.length)
+      setActiveIndex((i) => (i + 1) % navigable.length)
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActiveIndex((i) => (i - 1 + flat.length) % flat.length)
-    } else if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < flat.length) {
+      setActiveIndex((i) => (i - 1 + navigable.length) % navigable.length)
+    } else if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < navigable.length) {
       e.preventDefault()
-      go(flat[activeIndex])
+      go(navigable[activeIndex])
     }
   }
 
@@ -182,7 +199,7 @@ export function GlobalSearch() {
           role="listbox"
           className="clay-card absolute left-0 right-0 top-full z-40 mt-2 max-h-96 overflow-y-auto p-2"
         >
-          {loading && flat.length === 0 && <p className="px-3 py-2 text-sm text-muted">Searching…</p>}
+          {loading && hits.length === 0 && <p className="px-3 py-2 text-sm text-muted">Searching…</p>}
           {!loading && failed && <p className="px-3 py-2 text-sm text-muted">Search failed. Try again.</p>}
           {!loading && !failed && hits.length === 0 && (
             <p className="px-3 py-2 text-sm text-muted">No matches.</p>
@@ -193,7 +210,23 @@ export function GlobalSearch() {
                 {GROUP_LABEL[g.kind]}
               </p>
               {g.items.map((hit) => {
-                const index = flat.indexOf(hit)
+                const href = hrefFor(hit)
+                if (href === null) {
+                  // Not a link to anywhere, honest about it rather than
+                  // pointing at the wrong page -- see hrefFor's school case.
+                  return (
+                    <div
+                      key={`${hit.kind}-${hit.id}`}
+                      aria-disabled="true"
+                      className="flex w-full flex-col items-start rounded-lg px-3 py-2 text-left opacity-60"
+                    >
+                      <span className="text-sm font-medium text-foreground">{hit.title}</span>
+                      {hit.subtitle && <span className="text-xs text-muted">{hit.subtitle}</span>}
+                      <span className="text-xs text-muted">Not linked to a page yet.</span>
+                    </div>
+                  )
+                }
+                const index = navigable.indexOf(hit)
                 const active = index === activeIndex
                 return (
                   <button

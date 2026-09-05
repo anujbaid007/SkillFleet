@@ -51,6 +51,14 @@ const CERT_STATUS_STYLE: Record<string, string> = {
   rejected: 'bg-red-50 text-red-600',
 }
 
+/**
+ * Date-ONLY columns, such as date_of_birth: a calendar day with no instant
+ * behind it, so there is no timezone to get wrong. Never use this for a
+ * timestamptz -- Joined and every score-activity date below go through
+ * formatIstDay(istDay(...)) instead, because this renders in UTC on
+ * Cloudflare Workers and toLocaleDateString would print the previous day for
+ * anything before 5:30am IST.
+ */
 function fmtDate(dateStr: string | null) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -116,7 +124,7 @@ export default async function UserDetailPage({
 
       <div className="clay-card p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <DetailRow label="Joined" value={fmtDate(profile.created_at)} />
+          <DetailRow label="Joined" value={formatIstDay(istDay(profile.created_at))} />
           <DetailRow label="Phone" value={profile.phone} />
           {profile.role === 'student' && (
             <>
@@ -293,7 +301,9 @@ async function StudentSections({
                 <span className={`text-sm font-semibold shrink-0 ${c.points < 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {c.points > 0 ? `+${c.points}` : c.points}
                 </span>
-                <span className="text-xs text-muted shrink-0 hidden sm:inline">{fmtDate(c.created_at)}</span>
+                <span className="text-xs text-muted shrink-0 hidden sm:inline">
+                  {formatIstDay(istDay(c.created_at))}
+                </span>
               </div>
             ))}
           </div>
@@ -309,6 +319,21 @@ async function StudentSections({
 interface RawIscEntryMember {
   entry_id: string
   user_id: string | null
+  is_leader: boolean
+  accepted_at: string | null
+}
+
+/**
+ * A member row counts as actually on the team when it is the leader or an
+ * accepted invite -- the same gate admin_isc_summary (migration ~line 130)
+ * and admin_isc_roster's member_count (migration ~line 318) apply in SQL,
+ * and src/lib/coordinator/school-data.ts:122 applies for the coordinator's
+ * own roster. isc_claim_invites sets user_id at signup while leaving
+ * accepted_at null, so a claimed-but-unaccepted invite already has a
+ * user_id and would otherwise read as a full member.
+ */
+function isAcceptedMember(m: { is_leader: boolean; accepted_at: string | null }): boolean {
+  return m.is_leader || m.accepted_at !== null
 }
 
 interface RawIscEntry {
@@ -321,11 +346,13 @@ interface RawIscEntry {
 }
 
 /**
- * Which championships this student has entered, and who else is on each
- * team. Three separate queries, not a nested select: isc_entries and
- * isc_entry_members carry no foreign-key relationship PostgREST can embed
- * (see section F, item 1 of docs/admin-scale-migration.sql), so this joins
- * by hand in JavaScript the same way the family lookup above already does.
+ * Which championships this student has actually ENTERED -- leader or an
+ * accepted invite, never a claimed-but-unanswered one, see isAcceptedMember
+ * above -- and who else is on each team. Three separate queries, not a
+ * nested select: isc_entries and isc_entry_members carry no foreign-key
+ * relationship PostgREST can embed (see section F, item 1 of
+ * docs/admin-scale-migration.sql), so this joins by hand in JavaScript the
+ * same way the family lookup above already does.
  *
  * A failure here shows SectionFailed for this section only -- the rest of
  * the page, including Family and Certificates below it, still renders.
@@ -336,7 +363,14 @@ async function IscEntriesSection({ studentId }: { studentId: string }) {
   const { data: memberRows, error: memberError } = (await supabase
     .from('isc_entry_members')
     .select('entry_id')
-    .eq('user_id', studentId)) as { data: { entry_id: string }[] | null; error: { message: string } | null }
+    .eq('user_id', studentId)
+    // Only entries this student has actually joined -- see isAcceptedMember
+    // above. Without this, a championship the child was only ever invited to
+    // (and never accepted) would list here as entered, "Submitted" included.
+    .or('is_leader.eq.true,accepted_at.not.is.null')) as {
+    data: { entry_id: string }[] | null
+    error: { message: string } | null
+  }
 
   if (memberError) {
     return <SectionFailed title="Championships" message={memberError.message} />
@@ -372,10 +406,13 @@ async function IscEntriesSection({ studentId }: { studentId: string }) {
   const schoolNameById = new Map((schoolRows ?? []).map((s) => [s.id, s.name]))
 
   // Every member of every one of this student's entries -- the team, not just
-  // this student's own row -- so teammates can be listed underneath.
+  // this student's own row -- so teammates can be listed underneath. Fetched
+  // unfiltered: a teammate who has not accepted yet is still worth showing,
+  // just labelled as a pending invite rather than silently dropped or, worse,
+  // silently counted as if they had joined.
   const { data: allMemberRows, error: allMembersError } = (await supabase
     .from('isc_entry_members')
-    .select('entry_id, user_id')
+    .select('entry_id, user_id, is_leader, accepted_at')
     .in(
       'entry_id',
       entries.map((e) => e.id)
@@ -398,8 +435,12 @@ async function IscEntriesSection({ studentId }: { studentId: string }) {
   const teammatesByEntry = new Map<string, string[]>()
   for (const m of allMemberRows ?? []) {
     if (!m.user_id || m.user_id === studentId) continue
+    const name = nameById.get(m.user_id) ?? 'Unnamed teammate'
     const list = teammatesByEntry.get(m.entry_id) ?? []
-    list.push(nameById.get(m.user_id) ?? 'Unnamed teammate')
+    // "Invited -- waiting for them to accept": the same wording
+    // src/components/admin/isc-student-profile.tsx uses for this exact state,
+    // so an admin comparing the two screens is not reading two vocabularies.
+    list.push(isAcceptedMember(m) ? name : `${name} (invited — waiting to accept)`)
     teammatesByEntry.set(m.entry_id, list)
   }
 
