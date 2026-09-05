@@ -1479,38 +1479,51 @@ CHECKS.push(() => check('admin_coordinator_trend', async () => {
   const days = w.d
   const rows = (await db.query(`select * from admin_coordinator_trend(null, $1)`, [days])).rows
   assertEqual(rows.length, days, 'one row per day, zero-filled')
+  // The columns are cohort_claimed / cohort_approved, not claims / approvals: an
+  // approval is plotted on its coordinator's SIGNUP day, so on any window shorter
+  // than the whole history the second name would be read as an event count and be
+  // wrong. Asserting the names here means a rename cannot pass silently.
+  assertEqual(Object.keys(rows[0]).sort(), ['cohort_approved', 'cohort_claimed', 'coordinators', 'day'],
+    'the trend columns are named as the cohort figures they are')
   const { rows: ref } = await db.query(`
     select g.d as day, coalesce(c.n, 0)::int as coordinators,
-           coalesce(c.claims, 0)::int as claims, coalesce(c.approvals, 0)::int as approvals
+           coalesce(c.claimed, 0)::int as cohort_claimed, coalesce(c.approved, 0)::int as cohort_approved
     from (select (current_date - i)::date d from generate_series(0, $1::int - 1) i) g
     left join (
       select p.created_at::date d, count(*) n,
-        count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id)) claims,
+        count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id)) claimed,
         count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id
-                                         and s.coordinator_status = 'approved')) approvals
+                                         and s.coordinator_status = 'approved')) approved
       from user_profiles p where p.role = 'coordinator' group by 1) c on c.d = g.d
     order by 1`, [days])
   // `day` is a SQL date, so it arrives as a JS Date, not a string. Compare like
   // with like, and the bigints as numbers.
-  assertEqual(rows.map((r) => [String(r.day), Number(r.coordinators), Number(r.claims), Number(r.approvals)]),
-    ref.map((r) => [String(r.day), r.coordinators, r.claims, r.approvals]), 'every day matches an independent reference')
+  assertEqual(rows.map((r) => [String(r.day), Number(r.coordinators), Number(r.cohort_claimed), Number(r.cohort_approved)]),
+    ref.map((r) => [String(r.day), r.coordinators, r.cohort_claimed, r.cohort_approved]), 'every day matches an independent reference')
   const total = (k) => rows.reduce((a, r) => a + Number(r[k]), 0)
   const { rows: [n] } = await db.query(`select
     (select count(*)::int from user_profiles where role = 'coordinator') c,
     (select count(distinct coordinator_id)::int from schools where coordinator_id is not null) cl,
     (select count(distinct coordinator_id)::int from schools where coordinator_id is not null and coordinator_status = 'approved') ap`)
-  assertEqual([total('coordinators'), total('claims'), total('approvals')], [n.c, n.cl, n.ap],
+  assertEqual([total('coordinators'), total('cohort_claimed'), total('cohort_approved')], [n.c, n.cl, n.ap],
     'a window covering every signup accounts for every coordinator, claim and approval')
   // The funnel invariant: all three series are keyed on the same signup day, so
-  // coordinators >= claims >= approvals on every single day.
+  // coordinators >= cohort_claimed >= cohort_approved on every single day.
   for (const r of rows)
-    if (!(Number(r.coordinators) >= Number(r.claims) && Number(r.claims) >= Number(r.approvals)))
+    if (!(Number(r.coordinators) >= Number(r.cohort_claimed) && Number(r.cohort_claimed) >= Number(r.cohort_approved)))
       throw new Error(`the funnel inverts on ${r.day}: ${JSON.stringify(r)}`)
   if (!rows.some((r) => Number(r.coordinators) > 0)) throw new Error('the window covered no signups at all')
-  if (!rows.some((r) => Number(r.coordinators) > Number(r.claims)))
-    throw new Error('no day has a coordinator who never claimed, so the claims series is untested')
-  if (!rows.some((r) => Number(r.claims) > Number(r.approvals)))
-    throw new Error('no day has an unapproved claim, so the approvals series is untested')
+  if (!rows.some((r) => Number(r.coordinators) > Number(r.cohort_claimed)))
+    throw new Error('no day has a coordinator who never claimed, so cohort_claimed is untested')
+  if (!rows.some((r) => Number(r.cohort_claimed) > Number(r.cohort_approved)))
+    throw new Error('no day has an unapproved claim, so cohort_approved is untested')
+  // The reason the columns are not called `approvals`: a short window misses
+  // every approval whose coordinator signed up before it, so this is NOT the
+  // number of approved schools and must never be read as one.
+  const short = (await db.query(`select * from admin_coordinator_trend(null, 30)`)).rows
+  const shortApprovals = short.reduce((a, r) => a + Number(r.cohort_approved), 0)
+  if (!(shortApprovals < n.ap))
+    throw new Error(`a 30-day window summed to ${shortApprovals} of ${n.ap} approvals: the cohort/event gap this naming exists for is not present in the seed, so the naming rationale is untested`)
   if (!rows.some((r) => Number(r.coordinators) === 0)) throw new Error('no empty day, so the zero-fill is untested')
   // Scoping narrows, and a scoped coordinator IS a scoped claim -- a coordinator
   // has no state until they claim one.
@@ -1521,7 +1534,7 @@ CHECKS.push(() => check('admin_coordinator_trend', async () => {
      join user_profiles p on p.id = s.coordinator_id and p.role = 'coordinator'
      where s.state = $1 and p.created_at >= current_date - ($2::int - 1)`, [st.state, days])
   assertEqual(scoped.reduce((a, r) => a + Number(r.coordinators), 0), sref.n, `trend scoped to ${st.state}`)
-  assertEqual(scoped.map((r) => Number(r.claims)), scoped.map((r) => Number(r.coordinators)),
+  assertEqual(scoped.map((r) => Number(r.cohort_claimed)), scoped.map((r) => Number(r.coordinators)),
     'scoped, every counted coordinator has a claim by construction')
   if (!(sref.n > 0 && sref.n < n.c)) throw new Error(`the state scope did not narrow the trend: ${sref.n} of ${n.c}`)
   // Window edges: p_days 0, negative and null are all one day, as in section C.
@@ -1551,6 +1564,7 @@ const coordPageRef = async () => {
       coalesce((select s.coordinator_status from schools s where s.coordinator_id = p.id
         order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
                                            when 'rejected' then 2 else 3 end, s.name, s.id limit 1), 'none') claim_status,
+      (select count(*)::int from schools s where s.coordinator_id = p.id) schools_claimed,
       (select count(*)::int from user_profiles q where q.role = 'student'
         and q.school_id in (select s.id from schools s where s.coordinator_id = p.id)) students,
       (select count(*)::int from user_profiles q where q.role = 'student'
@@ -1695,10 +1709,22 @@ CHECKS.push(() => check('admin_coordinators_page: filters, caps and row contents
     const w = ref.get(r.id)
     if (!w) throw new Error(`${r.id} is not a coordinator`)
     assertEqual([r.full_name, r.email, r.phone, r.school_id, r.school_name, r.state, r.district, r.claim_status,
-      Number(r.students), Number(r.students_entered), String(r.joined_at)],
+      Number(r.schools_claimed), Number(r.students), Number(r.students_entered), String(r.joined_at)],
       [w.full_name, w.email, w.phone, w.school_id, w.school_name, w.state, w.district, w.claim_status,
-        w.students, w.students_entered, String(w.created_at)], `row ${r.id}`)
+        w.schools_claimed, w.students, w.students_entered, String(w.created_at)], `row ${r.id}`)
   }
+  // schools_claimed is what stops "4 students" beside one school name from being
+  // read as that school's roll when the person holds four. On this seed it is 1
+  // for everyone with a claim and 0 for everyone without; the two- and two-STATE
+  // cases are built by the fixture.
+  for (const r of rows)
+    if (Number(r.schools_claimed) !== (r.school_id === null ? 0 : 1))
+      throw new Error(`schools_claimed ${r.schools_claimed} with school_id ${r.school_id} on ${r.id}`)
+  if (!rows.some((r) => Number(r.schools_claimed) === 1))
+    throw new Error('no claimed coordinator on the page, so schools_claimed proves nothing')
+  // The 0 case is asserted on the claim-less rows below, which are fetched by
+  // status: they have no students, so page 1 of students_desc never holds one at
+  // any real scale.
   // The claim-less rows are listed, with nulls and zeros rather than dropped.
   // Fetched by status, not taken from page 1: they have 0 students, so under the
   // default students_desc sort they are on the LAST page at any real scale.
@@ -1711,8 +1737,9 @@ CHECKS.push(() => check('admin_coordinators_page: filters, caps and row contents
       [w.full_name, w.email, w.phone, String(w.created_at)], `claim-less row contents ${r.id}`)
   }
   for (const r of bare)
-    assertEqual([r.school_id, r.school_name, r.state, r.district, Number(r.students), Number(r.students_entered)],
-      [null, null, null, null, 0, 0], `claim-less row ${r.id}`)
+    assertEqual([r.school_id, r.school_name, r.state, r.district, Number(r.schools_claimed),
+      Number(r.students), Number(r.students_entered)],
+      [null, null, null, null, 0, 0, 0], `claim-less row ${r.id}`)
   // ...and the entered count is a strict subset of the reach somewhere, or a
   // function returning `students` twice would pass.
   if (!rows.some((r) => Number(r.students_entered) < Number(r.students) && Number(r.students) > 0))
@@ -1725,6 +1752,12 @@ CHECKS.push(() => check('admin_coordinators_page: filters, caps and row contents
   const cnt = async (args, params = []) => (await db.query(`select * from admin_coordinators_page(${args})`, params)).rows.length
   assertEqual(await cnt(`p_size => 0`), 1, 'p_size 0 becomes 1')
   assertEqual(await cnt(`p_size => -7`), 1, 'a negative p_size becomes 1')
+  // A NULL p_size is the DEFAULT (50), not 1 -- `least(greatest(coalesce(p_size,
+  // 50), 1), 200)` coalesces before it clamps. Asserted as "the same rows as 50"
+  // rather than "50 rows", which would be wrong wherever fewer than 50 match.
+  assertEqual((await db.query(`select id from admin_coordinators_page(p_size => null::int)`)).rows.map((r) => r.id),
+    (await db.query(`select id from admin_coordinators_page(p_size => 50)`)).rows.map((r) => r.id),
+    'a null p_size is the default 50, not 1')
   const p1 = (await db.query(`select id from admin_coordinators_page(p_page => 1, p_size => 3)`)).rows.map((r) => r.id)
   for (const page of [0, -5, null])
     assertEqual((await db.query(`select id from admin_coordinators_page(p_page => $1::int, p_size => 3)`, [page])).rows.map((r) => r.id),
@@ -1746,16 +1779,24 @@ CHECKS.push(() => check('admin_coordinators_page: the 200 cap is enforced inside
   const C = (n) => `ece00000-0000-4000-8000-${String(n).padStart(12, '0')}`
   await db.exec('begin')
   try {
-    const rows = Array.from({ length: 205 }, (_, i) => [C(i), 'coordinator', `Gvcap ${String(i).padStart(3, '0')}`])
+    // The names run BACKWARDS against the ids on purpose. All 205 rows have 0
+    // students and no claim, so the entire page is one tie and only the `id`
+    // tie-break decides it -- and because name order is the reverse of id order,
+    // a tie-break replaced by the name (or by anything correlated with it) comes
+    // back visibly reversed rather than plausibly shuffled.
+    const rows = Array.from({ length: 205 }, (_, i) => [C(i), 'coordinator', `Gvcap ${String(204 - i).padStart(3, '0')}`])
     await db.query(`insert into user_profiles (id, role, full_name) values ${
       rows.map((_, j) => `($${j * 3 + 1},$${j * 3 + 2},$${j * 3 + 3})`).join(',')}`, rows.flat())
     const q = async (args) => (await db.query(`select * from admin_coordinators_page(p_q => 'gvcap', ${args})`)).rows
     const wide = await q(`p_size => 5000`)
     assertEqual(wide.length, 200, 'p_size 5000 gives 200 rows')
+    assertEqual(wide.map((r) => r.id), Array.from({ length: 200 }, (_, i) => C(i)),
+      'a page that is entirely one tie comes back in id order')
     assertEqual(Number(wide[0].total), 205, 'total is the whole match set, not the page')
     assertEqual(wide.map((r) => r.id), (await q(`p_size => 200`)).map((r) => r.id), 'an over-large p_size behaves exactly like 200')
     const two = await q(`p_size => 5000, p_page => 2`)
     assertEqual(two.length, 5, 'page 2 of an over-large p_size is reachable and holds the remaining 5')
+    assertEqual(two.map((r) => r.id), Array.from({ length: 5 }, (_, i) => C(200 + i)), 'and holds the LAST five in id order')
     assertEqual(two.map((r) => r.id), (await q(`p_size => 200, p_page => 2`)).map((r) => r.id), 'page 2 is the same page either way')
     assertEqual(new Set(wide.concat(two).map((r) => r.id)).size, 205, 'the two pages together are all 205, none repeated')
   } finally { await db.exec('rollback') }
@@ -1829,10 +1870,12 @@ CHECKS.push(() => check('admin_coordinator_detail', async () => {
 
 CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', async () => {
   // Everything the seeded data cannot show, in one small world whose every
-  // number was worked out by hand: a coordinator holding TWO claims, a
-  // coordinator with no auth.users row, an approved claim on a school with no
-  // students, a pending invitee at a COVERED school (not entered), and a student
-  // who competes on another school's team (entered, for their own school).
+  // number was worked out by hand: a coordinator holding TWO claims, one holding
+  // claims in two STATES, a coordinator with no auth.users row, a coordinator
+  // whose own profile carries a school_id and a WRONG school_state, an approved
+  // claim on a school with no students, an APPROVED STATUS WITH NO COORDINATOR,
+  // a pending invitee at a covered school (not entered), and a student who
+  // competes on another school's team (entered, for their own school).
   const S = (n) => `e8e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
   const U = (n) => `e9e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
   const P = (n) => `eae00000-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -1840,102 +1883,162 @@ CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', asyn
   const D1 = 'Gvland District 1', D2 = 'Gvland District 2'
   await db.exec('begin')
   try {
-    // C1 holds S1 and S5, both approved. C2 pending, C3 rejected, C5 approved on
-    // an empty school, C4 nothing at all and no auth row either.
-    await db.query(`insert into user_profiles (id, role, full_name, phone, created_at) values
-      ($1,'coordinator','Gvcoord Zulu',   '7770000001', current_date - 1 + interval '3 hours'),
-      ($2,'coordinator','Gvcoord Yankee', '7770000002', current_date - 1 + interval '5 hours'),
-      ($3,'coordinator','Gvcoord Xray',   '7770000003', current_date - 1 + interval '1 hour'),
-      ($4,'coordinator','Gvcoord Whiskey','7770000004', current_date - 1 + interval '4 hours'),
-      ($5,'coordinator','Gvcoord Victor', '7770000005', current_date - 1 + interval '2 hours')`,
-      [U(1), U(2), U(3), U(4), U(5)])
+    // C1 holds S1 and S5, both approved, in two DISTRICTS. C6 holds S10 and S11,
+    // both approved, in two STATES. C2 pending, C3 rejected, C5 approved on an
+    // empty school, C4 nothing at all and no auth row either.
+    //
+    // C1's own profile carries school_id = S1 and a school_state that is a lie
+    // ('Gvwrong'). Both are load-bearing: the school_id makes a reach join that
+    // forgot `role = 'student'` count the coordinator as one of their own pupils,
+    // and the wrong state makes any function that took a coordinator's geography
+    // from user_profiles instead of from the claimed school visibly wrong rather
+    // than merely unproven.
+    await db.query(`insert into user_profiles (id, role, full_name, phone, created_at, school_id, school_state, school_district) values
+      ($1,'coordinator','Gvcoord Zulu',   '7770000001', current_date - 1 + interval '3 hours', $7, 'Gvwrong', 'Gvwrong District 1'),
+      ($2,'coordinator','Gvcoord Yankee', '7770000002', current_date - 1 + interval '5 hours', null, null, null),
+      ($3,'coordinator','Gvcoord Xray',   '7770000003', current_date - 1 + interval '1 hour',  null, null, null),
+      ($4,'coordinator','Gvcoord Whiskey','7770000004', current_date - 1 + interval '4 hours', null, null, null),
+      ($5,'coordinator','Gvcoord Victor', '7770000005', current_date - 1 + interval '2 hours', null, null, null),
+      ($6,'coordinator','Gvcoord Uniform','7770000006', current_date - 1 + interval '6 hours', null, null, null),
+      ($8,'coordinator','Gvcoord Tango',  '7770000007', current_date - 1 + interval '7 hours', null, null, null)`,
+      [U(1), U(2), U(3), U(4), U(5), U(6), S(1), U(7)])
     await db.query(`insert into auth.users (id, email) values
-      ($1,'zulu@gv.test'), ($2,'yankee@gv.test'), ($3,'xray@gv.test'), ($4,'victor@gv.test')`,
-      [U(1), U(2), U(3), U(5)])
+      ($1,'zulu@gv.test'), ($2,'yankee@gv.test'), ($3,'xray@gv.test'), ($4,'victor@gv.test'),
+      ($5,'uniform@gv.test'), ($6,'tango@gv.test')`,
+      [U(1), U(2), U(3), U(5), U(6), U(7)])
     // Postgres cannot infer the type of a bind parameter that appears in no
     // expression, so every parameter here is used at least once.
+    //
+    // S9 is the row section F probe 8 tells the founder to hunt for: status
+    // 'approved' with NO coordinator_id. It is NOT covered — nobody is running
+    // it — and its two students are uncovered. admin_dashboard, which reads the
+    // status alone, would count it; section G, which requires both halves, does
+    // not, and that is the disagreement probe 8 exists to explain.
     await db.query(`insert into schools (id, name, state, district, review_status, coordinator_id, coordinator_status, coordinator_notes) values
-      ($1,'Gv Approved One','Gvland',$7,'approved',$9, 'approved','looks legitimate'),
-      ($2,'Gv Pending',     'Gvland',$7,'approved',$10,'pending', null),
-      ($3,'Gv Rejected',    'Gvland',$7,'approved',$11,'rejected','not the head teacher'),
-      ($4,'Gv Unclaimed',   'Gvland',$7,'approved',null,'none',   null),
-      ($5,'Gv Approved Two','Gvland',$8,'approved',$9, 'approved',null),
-      ($6,'Gv Empty',       'Gvland',$8,'approved',$12,'approved',null),
+      ($1, 'Gv Approved One',   'Gvland',$7,'approved',$9,  'approved','looks legitimate'),
+      ($2, 'Gv Pending',        'Gvland',$7,'approved',$10, 'pending', null),
+      ($3, 'Gv Rejected',       'Gvland',$7,'approved',$11, 'rejected','not the head teacher'),
+      ($4, 'Gv Unclaimed',      'Gvland',$7,'approved',null,'none',    null),
+      ($5, 'Gv Approved Two',   'Gvland',$8,'approved',$9,  'approved',null),
+      ($6, 'Gv Empty',          'Gvland',$8,'approved',$12, 'approved',null),
+      ($13,'Gv Orphan Approval','Gvland',$7,'approved',null,'approved','approved, but nobody is attached'),
+      ($14,'Gv Split Home',     'Gvland',$8,'approved',$15, 'approved',null),
+      ($16,'Zz Far Away',       'Gvfar', 'Gvfar District 1','approved',$15,'approved',null),
+      -- C7 exists so the state's per-coordinator population is EVEN (six people:
+      -- 0, 1, 2, 3, 3, 10 students), which is the only shape that tells
+      -- percentile_cont from percentile_disc -- 2.5 against 2.
+      ($19,'Gv Late',           'Gvland',$8,'approved',$20, 'rejected','applied after the deadline'),
       -- A whole state nobody has claimed: it must still get a breakdown row.
-      ($13,'Gvbare One','Gvbare','Gvbare District 1','approved',null,'none',null),
-      ($14,'Gvbare Two','Gvbare','Gvbare District 1','approved',null,'none',null)`,
-      [S(1), S(2), S(3), S(4), S(5), S(6), D1, D2, U(1), U(2), U(3), U(5), S(7), S(8)])
+      ($17,'Gvbare One','Gvbare','Gvbare District 1','approved',null,'none',null),
+      ($18,'Gvbare Two','Gvbare','Gvbare District 1','approved',null,'none',null)`,
+      [S(1), S(2), S(3), S(4), S(5), S(6), D1, D2, U(1), U(2), U(3), U(5),
+       S(9), S(10), U(6), S(11), S(7), S(8), S(12), U(7)])
     const students = []
-    const add = (n, school, district) => students.push([P(n), 'student', `Gvpupil ${n}`, 'Class 9', 'Gvland', district, school])
+    const add = (n, school, district, state = 'Gvland') =>
+      students.push([P(n), 'student', `Gvpupil ${n}`, 'Class 9', state, district, school])
     for (let i = 1; i <= 4; i++) add(i, S(1), D1)        // S1: 4 students
     for (let i = 5; i <= 7; i++) add(i, S(2), D1)        // S2: 3
     for (let i = 8; i <= 9; i++) add(i, S(3), D1)        // S3: 2
     for (let i = 10; i <= 14; i++) add(i, S(4), D1)      // S4: 5
     for (let i = 15; i <= 20; i++) add(i, S(5), D2)      // S5: 6
-    for (let i = 21; i <= 23; i++) students.push([P(i), 'student', `Gvpupil ${i}`, 'Class 9', 'Gvbare', 'Gvbare District 1', S(7)])
+    for (let i = 21; i <= 23; i++) add(i, S(7), 'Gvbare District 1', 'Gvbare')
+    for (let i = 24; i <= 25; i++) add(i, S(9), D1)      // S9 (orphan approval): 2
+    for (let i = 26; i <= 28; i++) add(i, S(10), D2)     // S10: 3
+    for (let i = 29; i <= 32; i++) add(i, S(11), 'Gvfar District 1', 'Gvfar')  // S11: 4
+    add(33, S(12), D2)                                  // S12 (rejected claim): 1
     await db.query(`insert into user_profiles (id, role, full_name, school_class, school_state, school_district, school_id)
       values ${students.map((_, j) => `($${j * 7 + 1},$${j * 7 + 2},$${j * 7 + 3},$${j * 7 + 4},$${j * 7 + 5},$${j * 7 + 6},$${j * 7 + 7})`).join(',')}`,
       students.flat())
     await db.query(`insert into isc_entries (id, track, school_id, created_by, status, submitted_at, created_at) values
-      ($1,'ai_for_impact',   $7, $12,'submitted', current_date - 2, current_date - 2),
-      ($2,'entrepreneurship',$10,$13,'draft',     null,             current_date - 1),
-      ($3,'ai_for_impact',   $11,$14,'draft',     null,             current_date - 1),
-      ($4,'content_creator', $8, $15,'submitted', current_date - 1, current_date - 1),
-      ($5,'puzzle_master',   $9, $16,'draft',     null,             current_date - 1),
-      ($6,'entrepreneurship',$7, $12,'draft',     null,             current_date - 1)`,
-      [E(1), E(2), E(3), E(4), E(5), E(6), S(1), S(2), S(3), S(4), S(5),
-       P(1), P(10), P(15), P(5), P(8)])
+      ($1,'ai_for_impact',   $9, $15,'submitted', current_date - 2, current_date - 2),
+      ($2,'entrepreneurship',$12,$16,'draft',     null,             current_date - 1),
+      ($3,'ai_for_impact',   $13,$17,'draft',     null,             current_date - 1),
+      ($4,'content_creator', $10,$18,'submitted', current_date - 1, current_date - 1),
+      ($5,'puzzle_master',   $11,$19,'draft',     null,             current_date - 1),
+      ($6,'entrepreneurship',$9, $15,'draft',     null,             current_date - 1),
+      ($7,'ai_for_impact',   $14,$20,'draft',     null,             current_date - 1),
+      ($8,'puzzle_master',   $21,$22,'draft',     null,             current_date - 1)`,
+      [E(1), E(2), E(3), E(4), E(5), E(6), E(7), E(8), S(1), S(2), S(3), S(4), S(5), S(10),
+       P(1), P(10), P(15), P(5), P(8), P(26), S(11), P(29)])
     await db.query(`insert into isc_entry_members (entry_id, track, user_id, is_leader, accepted_at) values
-      ($1,'ai_for_impact',  $7, true,  current_date - 2),
-      ($2,'entrepreneurship',$8, true, current_date - 1),
-      ($2,'entrepreneurship',$9, false,current_date - 1),
-      ($2,'entrepreneurship',$10,false,null),
-      ($3,'ai_for_impact',  $11,true,  current_date - 1),
-      ($3,'ai_for_impact',  $12,false, current_date - 1),
-      ($3,'ai_for_impact',  $13,false, current_date - 1),
-      ($4,'content_creator',$14,true,  current_date - 1),
-      ($4,'content_creator',$15,false, current_date - 1),
-      ($4,'content_creator',$16,false, current_date - 1),
-      ($4,'content_creator',$17,false, null),
-      ($5,'puzzle_master',  $18,true,  current_date - 1),
-      ($6,'entrepreneurship',$7,true,  current_date - 1)`,
-      [E(1), E(2), E(3), E(4), E(5), E(6), P(1), P(10), P(2), P(11), P(15), P(16), P(17),
-       P(5), P(6), P(7), P(3), P(8)])
+      ($1,'ai_for_impact',   $9, true,  current_date - 2),
+      ($2,'entrepreneurship',$10,true,  current_date - 1),
+      ($2,'entrepreneurship',$11,false, current_date - 1),
+      ($2,'entrepreneurship',$12,false, null),
+      ($3,'ai_for_impact',   $13,true,  current_date - 1),
+      ($3,'ai_for_impact',   $14,false, current_date - 1),
+      ($3,'ai_for_impact',   $15,false, current_date - 1),
+      ($4,'content_creator', $16,true,  current_date - 1),
+      ($4,'content_creator', $17,false, current_date - 1),
+      ($4,'content_creator', $18,false, current_date - 1),
+      ($4,'content_creator', $19,false, null),
+      ($5,'puzzle_master',   $20,true,  current_date - 1),
+      ($6,'entrepreneurship',$9, true,  current_date - 1),
+      ($7,'ai_for_impact',   $21,true,  current_date - 1),
+      ($7,'ai_for_impact',   $22,false, current_date - 1),
+      ($8,'puzzle_master',   $23,true,  current_date - 1)`,
+      [E(1), E(2), E(3), E(4), E(5), E(6), E(7), E(8), P(1), P(10), P(2), P(11), P(15), P(16), P(17),
+       P(5), P(6), P(7), P(3), P(8), P(26), P(27), P(29)])
 
     // Entered, worked out by hand:
-    //   S1 (covered)   P1 leads E1 and E6; P2 is an ACCEPTED member of E2, which
-    //                  belongs to S4 -- a different school, and they still count
-    //                  for S1. P3 is an invitee on E4 who never accepted, so they
-    //                  do NOT. P4 is on nothing.               -> 2 of 4
-    //   S2 (pending)   P5 leads E4, P6 and P7 accepted.        -> 3 of 3, uncovered
-    //   S3 (rejected)  P8 leads E5, P9 on nothing.             -> 1 of 2, uncovered
-    //   S4 (unclaimed) P10 leads E2, P11 never accepted.       -> 1 of 5, uncovered
-    //   S5 (covered)   P15 leads E3, P16 and P17 accepted.     -> 3 of 6
-    //   S6 (covered)   no students at all.                     -> 0 of 0
+    //   S1  (covered)   P1 leads E1 and E6; P2 is an ACCEPTED member of E2, which
+    //                   belongs to S4 -- a different school, and they still count
+    //                   for S1. P3 is an invitee on E4 who never accepted, so they
+    //                   do NOT. P4 is on nothing.               -> 2 of 4
+    //   S2  (pending)   P5 leads E4, P6 and P7 accepted.        -> 3 of 3, uncovered
+    //   S3  (rejected)  P8 leads E5, P9 on nothing.             -> 1 of 2, uncovered
+    //   S4  (unclaimed) P10 leads E2, P11 never accepted.       -> 1 of 5, uncovered
+    //   S5  (covered)   P15 leads E3, P16 and P17 accepted.     -> 3 of 6
+    //   S6  (covered)   no students at all.                     -> 0 of 0
+    //   S9  (approved, NO coordinator) P24 and P25 on nothing.  -> 0 of 2, uncovered
+    //   S10 (covered)   P26 leads E7, P27 accepted, P28 not.    -> 2 of 3
+    //   S11 (covered, in Gvfar) P29 leads E8.                   -> 1 of 4
+    //   S12 (rejected)  P33 on nothing.                         -> 0 of 1, uncovered
     const v = (await db.query(`select admin_coordinator_summary('Gvland') v`)).rows[0].v
-    assertEqual([v.coordinators, v.approved, v.pending, v.rejected], [4, 2, 1, 1],
+    assertEqual([v.coordinators, v.approved, v.pending, v.rejected], [6, 3, 1, 2],
       'Gvland people: C4 has no claim so is not in a state at all')
-    assertEqual([v.schools_total, v.schools_claimed, v.schools_approved, v.schools_uncovered], [6, 5, 3, 3],
-      'Gvland schools: claimed-but-pending and rejected are NOT covered')
-    assertEqual([v.students_covered, v.students_uncovered, v.students_entered], [10, 10, 5], 'Gvland students')
-    assertEqual(v.entered_pct, 50, 'Gvland entered_pct is a real percentage')
-    // {C1: 10, C2: 3, C3: 2, C5: 0} -> sorted 0,2,3,10 -> (2+3)/2
-    assertEqual(v.median_students_per_coordinator, 2.5, 'Gvland median over an even population')
-    const d1 = (await db.query(`select admin_coordinator_summary('Gvland', $1) v`, [D1])).rows[0].v
-    assertEqual([d1.coordinators, d1.approved, d1.pending, d1.rejected], [3, 1, 1, 1], 'Gvland District 1 people')
-    assertEqual([d1.schools_total, d1.schools_claimed, d1.schools_approved], [4, 3, 1], 'Gvland District 1 schools')
-    assertEqual([d1.students_covered, d1.students_uncovered, d1.students_entered], [4, 10, 2], 'Gvland District 1 students')
-    assertEqual(d1.median_students_per_coordinator, 3, 'Gvland District 1 median over an odd population')
+    assertEqual([v.schools_total, v.schools_claimed, v.schools_approved, v.schools_uncovered], [9, 7, 4, 5],
+      'Gvland schools: pending, rejected AND an approved status with no coordinator are all uncovered')
+    assertEqual([v.students_covered, v.students_uncovered, v.students_entered], [13, 13, 7], 'Gvland students')
+    assertEqual(v.entered_pct, 53.8, 'Gvland entered_pct is a real percentage, rounded to one decimal')
+    // {C1: 10, C2: 3, C3: 2, C5: 0, C6: 3 (their Gvland school only), C7: 1}
+    // -> 0, 1, 2, 3, 3, 10 -> (2 + 3) / 2. percentile_disc would say 2.
+    assertEqual(v.median_students_per_coordinator, 2.5, 'Gvland median over an EVEN population')
+    // The orphan approval, called out on its own: an 'approved' status with no
+    // coordinator_id must not cover its two students.
+    const noCoord = (await db.query(`select admin_coordinator_summary('Gvland', $1) v`, [D1])).rows[0].v
+    assertEqual([noCoord.schools_total, noCoord.schools_claimed, noCoord.schools_approved], [5, 3, 1],  // District 1 is untouched by C7, which claimed in District 2
+      'Gvland District 1 schools: the approved-with-nobody row is counted as a school, not as a claim')
+    assertEqual([noCoord.coordinators, noCoord.approved, noCoord.pending, noCoord.rejected], [3, 1, 1, 1],
+      'Gvland District 1 people')
+    assertEqual([noCoord.students_covered, noCoord.students_uncovered, noCoord.students_entered], [4, 12, 2],
+      'Gvland District 1 students: the orphan approval\'s two pupils are uncovered')
+    assertEqual(noCoord.median_students_per_coordinator, 3, 'Gvland District 1 median over an odd population')
+    // ...and District 2, whose population {C1: 6, C5: 0, C6: 3, C7: 1} is even
+    // with an integer answer: 0, 1, 3, 6 -> (1 + 3) / 2 = 2, where
+    // percentile_disc would say 1.
+    const d2v = (await db.query(`select admin_coordinator_summary('Gvland', $1) v`, [D2])).rows[0].v
+    assertEqual(d2v.median_students_per_coordinator, 2, 'Gvland District 2 median')
+    // A coordinator's geography is their SCHOOL's, never their profile's. C1's
+    // profile says Gvwrong and C1 is counted in Gvland, not in Gvwrong.
+    const wrong = (await db.query(`select admin_coordinator_summary('Gvwrong') v`)).rows[0].v
+    assertEqual([wrong.coordinators, wrong.schools_total, wrong.students_covered], [0, 0, 0],
+      'the state on a coordinator\'s own profile is not their state')
 
-    const nat = (await db.query(`select * from admin_coordinator_breakdown()`)).rows.find((r) => r.key === 'Gvland')
+    const natRows = (await db.query(`select * from admin_coordinator_breakdown()`)).rows
+    const nat = natRows.find((r) => r.key === 'Gvland')
     assertEqual([Number(nat.coordinators), Number(nat.approved), Number(nat.schools_claimed),
       Number(nat.schools_total), Number(nat.students_covered), Number(nat.students_entered)],
-      [4, 2, 5, 6, 10, 5], 'the Gvland row of the national breakdown')
+      [6, 3, 7, 9, 13, 7], 'the Gvland row of the national breakdown')
+    const far = natRows.find((r) => r.key === 'Gvfar')
+    assertEqual([Number(far.coordinators), Number(far.approved), Number(far.schools_claimed),
+      Number(far.schools_total), Number(far.students_covered), Number(far.students_entered)],
+      [1, 1, 1, 1, 4, 1], 'the other state of the two-state coordinator gets its own row')
     // The state nobody has claimed. It is listed, with its schools and its
     // students, and every coordinator column at 0 -- that row IS the answer to
     // "which states have no coverage", so a breakdown that inner-joined the
     // claims would drop exactly the rows the founder is looking for.
-    const bare = (await db.query(`select * from admin_coordinator_breakdown()`)).rows.find((r) => r.key === 'Gvbare')
+    const bare = natRows.find((r) => r.key === 'Gvbare')
     if (!bare) throw new Error('a state with no coordinator vanished from the breakdown')
     assertEqual([Number(bare.coordinators), Number(bare.approved), Number(bare.schools_claimed),
       Number(bare.schools_total), Number(bare.students_covered), Number(bare.students_entered)],
@@ -1947,47 +2050,65 @@ CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', asyn
     const di = (await db.query(`select * from admin_coordinator_breakdown('Gvland')`)).rows
     assertEqual(di.map((r) => [r.key, Number(r.coordinators), Number(r.approved), Number(r.schools_claimed),
       Number(r.schools_total), Number(r.students_covered), Number(r.students_entered)]),
-      [[D2, 2, 2, 2, 2, 6, 3], [D1, 3, 1, 3, 4, 4, 2]], 'Gvland districts, most covered students first')
+      [[D2, 4, 3, 4, 4, 9, 5], [D1, 3, 1, 3, 5, 4, 2]], 'Gvland districts, most covered students first')
     // The documented multi-claim caveat, made visible. C1 holds a school in each
-    // district, so BOTH people columns double-count them: the districts add up to
-    // 5 coordinators and 2 approved where the state row says 4 and 2... and the
-    // approved column adds to 3, not 2. The three school and student columns are
-    // unaffected, because a school belongs to one district whoever claimed it.
-    // Section F probe 9 is how the founder finds out whether this is live.
-    assertEqual(di.reduce((a, r) => a + Number(r.coordinators), 0), 5, 'a two-claim coordinator is counted in both districts')
-    assertEqual(di.reduce((a, r) => a + Number(r.approved), 0), 3, '...and in both districts of the approved column too')
+    // district, so BOTH people columns double-count them: the districts add to 7
+    // coordinators and 4 approved where the state row says 6 and 3. The three
+    // school and student columns are unaffected, because a school belongs to one
+    // district whoever claimed it. Section F probe 9 is how the founder finds out
+    // whether this is live.
+    assertEqual(di.reduce((a, r) => a + Number(r.coordinators), 0), 7, 'a two-claim coordinator is counted in both districts')
+    assertEqual(di.reduce((a, r) => a + Number(r.approved), 0), 4, '...and in both districts of the approved column too')
     for (const k of ['schools_claimed', 'schools_total', 'students_covered', 'students_entered'])
       assertEqual(di.reduce((a, r) => a + Number(r[k]), 0), Number(nat[k]), `district ${k} still sums to the state`)
 
     // The page. p_state isolates the fixture; C4 is excluded because a claim is
     // the only thing that gives a coordinator a state.
     const page = (await db.query(`select * from admin_coordinators_page(p_state => 'Gvland', p_size => 50)`)).rows
-    assertEqual(page.map((r) => [r.full_name, Number(r.students), Number(r.students_entered), r.school_name, r.district, r.claim_status]),
-      [['Gvcoord Zulu', 10, 5, 'Gv Approved One', D1, 'approved'],
-       ['Gvcoord Yankee', 3, 3, 'Gv Pending', D1, 'pending'],
-       ['Gvcoord Xray', 2, 1, 'Gv Rejected', D1, 'rejected'],
-       ['Gvcoord Victor', 0, 0, 'Gv Empty', D2, 'approved']],
-      'the state page: students summed over BOTH of C1 schools, shown against the alphabetically first of them')
-    assertEqual(page.every((r) => Number(r.total) === 4), true, 'total on every row of the state page')
-    // Nationally the claim-less C4 is listed too, with a null email (no auth row)
-    // and nulls where the school would be.
+    assertEqual(page.map((r) => [r.full_name, Number(r.schools_claimed), Number(r.students),
+      Number(r.students_entered), r.school_name, r.district, r.claim_status]),
+      [['Gvcoord Zulu', 2, 10, 5, 'Gv Approved One', D1, 'approved'],
+       ['Gvcoord Yankee', 1, 3, 3, 'Gv Pending', D1, 'pending'],
+       // C6 holds a school in Gvland and one in Gvfar. Under p_state => 'Gvland'
+       // BOTH the reach and the entered count stop at the state line, and
+       // schools_claimed says 1, not 2 -- otherwise the row would advertise
+       // students the filtered page is not showing. It also ties C2 on 3
+       // students, so the id tie-break decides the order here.
+       ['Gvcoord Uniform', 1, 3, 2, 'Gv Split Home', D2, 'approved'],
+       ['Gvcoord Xray', 1, 2, 1, 'Gv Rejected', D1, 'rejected'],
+       ['Gvcoord Tango', 1, 1, 0, 'Gv Late', D2, 'rejected'],
+       ['Gvcoord Victor', 1, 0, 0, 'Gv Empty', D2, 'approved']],
+      'the state page: C1 summed over BOTH their schools, C6 stopped at the state line')
+    assertEqual(page.every((r) => Number(r.total) === 6), true, 'total on every row of the state page')
+    // ...and nationally the same person carries both schools and both counts.
     const all = (await db.query(`select * from admin_coordinators_page(p_q => 'gvcoord', p_size => 50)`)).rows
-    assertEqual(all.map((r) => r.full_name),
-      ['Gvcoord Zulu', 'Gvcoord Yankee', 'Gvcoord Xray', 'Gvcoord Whiskey', 'Gvcoord Victor'],
+    assertEqual(all.map((r) => [r.full_name, Number(r.schools_claimed), Number(r.students), Number(r.students_entered)]),
+      [['Gvcoord Zulu', 2, 10, 5], ['Gvcoord Uniform', 2, 7, 3], ['Gvcoord Yankee', 1, 3, 3],
+       ['Gvcoord Xray', 1, 2, 1], ['Gvcoord Tango', 1, 1, 0], ['Gvcoord Whiskey', 0, 0, 0],
+       ['Gvcoord Victor', 1, 0, 0]],
       'students_desc, with the two zero-student rows broken by id')
+    // C1's own profile carries school_id = S1. A reach join that forgot
+    // `role = 'student'` would count them as their own eleventh pupil.
+    assertEqual(Number(all[0].students), 10, 'a coordinator is not a student of their own school')
     const c4 = all.find((r) => r.full_name === 'Gvcoord Whiskey')
     assertEqual([c4.email, c4.school_id, c4.school_name, c4.state, c4.district, c4.claim_status,
-      Number(c4.students), Number(c4.students_entered)],
-      [null, null, null, null, null, 'none', 0, 0], 'a coordinator with no auth row and no claim is still listed')
+      Number(c4.schools_claimed), Number(c4.students), Number(c4.students_entered)],
+      [null, null, null, null, null, 'none', 0, 0, 0], 'a coordinator with no auth row and no claim is still listed')
     const order = async (sort) => (await db.query(
       `select full_name from admin_coordinators_page(p_q => 'gvcoord', p_sort => $1, p_size => 50)`, [sort])).rows.map((r) => r.full_name)
-    assertEqual(await order('students_asc'), ['Gvcoord Whiskey', 'Gvcoord Victor', 'Gvcoord Xray', 'Gvcoord Yankee', 'Gvcoord Zulu'], 'students_asc')
-    assertEqual(await order('name_asc'), ['Gvcoord Victor', 'Gvcoord Whiskey', 'Gvcoord Xray', 'Gvcoord Yankee', 'Gvcoord Zulu'], 'name_asc')
-    assertEqual(await order('joined_desc'), ['Gvcoord Yankee', 'Gvcoord Whiskey', 'Gvcoord Zulu', 'Gvcoord Victor', 'Gvcoord Xray'], 'joined_desc')
+    assertEqual(await order('students_asc'),
+      ['Gvcoord Whiskey', 'Gvcoord Victor', 'Gvcoord Tango', 'Gvcoord Xray', 'Gvcoord Yankee',
+       'Gvcoord Uniform', 'Gvcoord Zulu'], 'students_asc')
+    assertEqual(await order('name_asc'),
+      ['Gvcoord Tango', 'Gvcoord Uniform', 'Gvcoord Victor', 'Gvcoord Whiskey', 'Gvcoord Xray',
+       'Gvcoord Yankee', 'Gvcoord Zulu'], 'name_asc')
+    assertEqual(await order('joined_desc'),
+      ['Gvcoord Tango', 'Gvcoord Uniform', 'Gvcoord Yankee', 'Gvcoord Whiskey', 'Gvcoord Zulu',
+       'Gvcoord Victor', 'Gvcoord Xray'], 'joined_desc')
     assertEqual(await order('nonsense'), await order('students_desc'), 'an unknown p_sort behaves like students_desc')
     // Paging one row at a time visits the same order.
     const walk = []
-    for (let p = 1; p <= 8; p++) {
+    for (let p = 1; p <= 10; p++) {
       const { rows } = await db.query(`select full_name from admin_coordinators_page(p_q => 'gvcoord', p_page => $1, p_size => 1)`, [p])
       if (!rows.length) break
       walk.push(rows[0].full_name)
@@ -2002,6 +2123,12 @@ CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', asyn
       'detail shows the strongest claim, with its notes')
     assertEqual(dv.by_track, [{ key: 'ai_for_impact', count: 2 }, { key: 'entrepreneurship', count: 1 }],
       'detail by_track counts ENTRIES and sums to `entries`')
+    // The two-STATE coordinator. detail has no scope at all, so it always spans
+    // every claim: 3 + 4 students, 2 + 1 entered, one entry at each school.
+    const dv6 = (await db.query(`select admin_coordinator_detail($1) v`, [U(6)])).rows[0].v
+    assertEqual([dv6.schools_claimed, dv6.students, dv6.students_entered, dv6.entered_pct, dv6.entries, dv6.submitted],
+      [2, 7, 3, 42.9, 2, 0], 'detail spans both states, unlike a state-filtered page row')
+    assertEqual(dv6.school.name, 'Gv Split Home', 'detail shows the alphabetically first of two equal claims')
     const dv3 = (await db.query(`select admin_coordinator_detail($1) v`, [U(3)])).rows[0].v
     assertEqual([dv3.school.name, dv3.school.claim_status, dv3.school.notes, dv3.students, dv3.students_entered, dv3.entered_pct],
       ['Gv Rejected', 'rejected', 'not the head teacher', 2, 1, 50], 'a rejected claim still has a school and students')
@@ -2012,14 +2139,14 @@ CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', asyn
     assertEqual([dv5.school.name, dv5.students, dv5.students_entered, dv5.entered_pct, dv5.entries, dv5.by_track],
       ['Gv Empty', 0, 0, 0, 0, []], 'an approved claim on a school with no students')
 
-    // The trend, scoped so only the fixture is in it. All five signed up
+    // The trend, scoped so only the fixture is in it. All seven signed up
     // yesterday; C4 has no claim and therefore no state, so the scoped series
-    // sees four people, four claims and two approvals.
+    // sees six people, six claims and three approvals.
     const tr = (await db.query(`select * from admin_coordinator_trend('Gvland', 3)`)).rows
-    assertEqual(tr.map((r) => [Number(r.coordinators), Number(r.claims), Number(r.approvals)]),
-      [[0, 0, 0], [4, 4, 2], [0, 0, 0]], 'Gvland trend, oldest day first')
+    assertEqual(tr.map((r) => [Number(r.coordinators), Number(r.cohort_claimed), Number(r.cohort_approved)]),
+      [[0, 0, 0], [6, 6, 3], [0, 0, 0]], 'Gvland trend, oldest day first')
   } finally { await db.exec('rollback') }
-  assertEqual((await db.query(`select count(*)::int n from schools where state in ('Gvland', 'Gvbare')`)).rows[0].n, 0, 'the fixture was rolled back')
+  assertEqual((await db.query(`select count(*)::int n from schools where state in ('Gvland', 'Gvbare', 'Gvfar')`)).rows[0].n, 0, 'the fixture was rolled back')
   assertEqual((await db.query(`select count(*)::int n from user_profiles where full_name like 'Gvcoord%'`)).rows[0].n, 0, 'the coordinators were rolled back')
 }))
 
@@ -2054,10 +2181,8 @@ CHECKS.push(() => check('section G reads through the indexes', async () => {
   assertEqual(idx.n, 1, 'section G creates schools_coordinator_idx')
   // The honest counterpart, written out as the function actually runs it, so
   // nobody reads the three assertions above as a promise the directory is
-  // index-backed. It is not: p_q ORs a name, an email on auth.users and a school
-  // name, and `students` has to aggregate every student row before the LIMIT
-  // because it is the default sort key. Both are sequential scans at every
-  // scale, and that is accepted for an admin-only screen.
+  // index-backed. Two things are true of it at EVERY scale, and one thing that
+  // looks similar is not -- see below.
   const { rows: real } = await db.query(`explain
     select p.id, count(*) over () from user_profiles p
     left join auth.users u on u.id = p.id
@@ -2072,10 +2197,33 @@ CHECKS.push(() => check('section G reads through the indexes', async () => {
            or lower(coalesce(c.name, '')) like '%coordinator 1%')
     order by coalesce(r.students, 0) desc, p.id limit 50`)
   const plan = real.map((r) => Object.values(r)[0]).join('\n')
-  for (const [table, why] of [['users', 'the email branch of the search lives on auth.users'],
-    ['user_profiles', 'the students-per-coordinator aggregate reads every student row']])
-    if (!new RegExp(`Seq Scan on ${table}\\b`).test(plan))
-      throw new Error(`${table} is no longer sequentially scanned (${why}) -- good news, but update this check, the note above admin_coordinators_page in section G and section F item 6(d):\n${plan}`)
+  // (1) The students-per-coordinator aggregate reads EVERY student row. That is
+  // structural, not a costing accident: `students` is the default sort key and
+  // `total` counts the whole match set, so both have to be known before the
+  // LIMIT. It is the page's cost, and it is the reason `students_entered` is
+  // computed after the LIMIT instead of joining a second time here.
+  if (!/Seq Scan on user_profiles\b/.test(plan))
+    throw new Error(`the students-per-coordinator aggregate no longer reads every student row -- good news, but update this check and the PERFORMANCE note above admin_coordinators_page in section G:\n${plan}`)
+  // (2) The search stays a FILTER. p_q ORs a name on user_profiles, an email on
+  // auth.users and a school name on schools; a BitmapOr cannot span three tables,
+  // so no trigram index is reachable however many exist -- the same finding as
+  // admin_users_page, and the same remedy (get every searched value onto one
+  // table). Asserted on the plan's own Filter line rather than on a scan type,
+  // which is what makes it hold at every scale.
+  const filterLine = plan.split('\n').find((l) => /Filter:/.test(l) && /~~/.test(l))
+  if (!filterLine || !/full_name/.test(filterLine) || !/email/.test(filterLine) || !/c\.name/.test(filterLine))
+    throw new Error(`the three-branch search is no longer one filter over the join -- good news, but update this check, the PERFORMANCE note above admin_coordinators_page in section G and section F item 6(d):\n${plan}`)
+  if (/_trgm/.test(plan))
+    throw new Error(`a trigram index became reachable from the coordinators-page search:\n${plan}`)
+  // (3) What is NOT true, and was wrongly claimed here until the review caught
+  // it at target scale: auth.users is not read whole. Unlike admin_users_page,
+  // this query carries a highly selective `role = 'coordinator'` (807 of 210,807
+  // profiles at target scale), so the planner is free to walk
+  // user_profiles_role_idx and probe users_pkey once per coordinator -- which it
+  // does at 200k, while at the default scale it hashes the tiny table instead.
+  // Both plans are fine and neither is asserted; asserting a sequential scan on
+  // auth.users made this check fail at target scale for a plan that was better
+  // than the one documented.
 }))
 
 CHECKS.push(() => check('section G is admin only', async () => {

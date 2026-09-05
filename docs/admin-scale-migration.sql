@@ -700,8 +700,11 @@ end $$;
 --   of yours who joined a neighbouring school's team did compete, and telling
 --   their coordinator otherwise would be wrong; scoping the numerator by the
 --   entry's school would also be the very mixing of bases that makes the
---   state-level ratio exceed 1. Probe 11 in section F counts the people this
---   affects, if you want to see the size of the difference.
+--   state-level ratio exceed 1. Probe 11 in section F counts the people the two
+--   readings actually DISAGREE about -- students who compete only at somebody
+--   else's school -- which is 0 on the harness seed. It is not the count of
+--   cross-school team-mates, which is 12,583 there and would badly overstate what
+--   hangs on this.
 --
 -- UNITS, because they are not all the same:
 --   coordinators / approved / pending / rejected      -> PEOPLE
@@ -718,15 +721,27 @@ end $$;
 --   everything here that counts students for a person sums over EVERY school
 --   they have claimed -- never silently over one of them -- while the single
 --   school_* columns show their strongest claim (approved beats pending beats
---   rejected, then name, then id). admin_coordinator_detail returns
---   `schools_claimed` so a page can say when the numbers span more than one, and
---   probe 9 in section F counts the people it is true of. It should be 0.
+--   rejected, then name, then id). BOTH admin_coordinators_page and
+--   admin_coordinator_detail return `schools_claimed` beside those columns, so a
+--   page can say when the numbers span more than one school without sending the
+--   reader anywhere, and probe 9 in section F counts the people it is true of.
+--   It should be 0.
 -- ---------------------------------------------------------------
 
 -- Not in section A: section A is finished and reviewed, and this index exists
 -- only for section G. Partial, because most schools have no coordinator and a
 -- `coordinator_id = <uuid>` lookup is strict, so the planner can still use it.
 create index if not exists schools_coordinator_idx on schools (coordinator_id) where coordinator_id is not null;
+
+-- Both of these changed shape after their first version: admin_coordinator_trend
+-- renamed two columns and admin_coordinators_page gained one. `create or replace
+-- function` CANNOT change a return type, so a database that already holds the
+-- earlier section G would fail with "cannot change return type of existing
+-- function" and skip every statement after it. The drops make the script safe to
+-- paste over any earlier version as well as over itself; on a database that has
+-- neither, they do nothing.
+drop function if exists admin_coordinator_trend(text, int);
+drop function if exists admin_coordinators_page(text, text, text, text, int, int);
 
 -- The whole coordinator funnel in one round trip.
 --
@@ -891,20 +906,31 @@ end $$;
 -- database can answer.
 --
 -- What this returns instead is a SIGNUP COHORT: of the coordinators who signed
--- up on day D, how many have since claimed a school (`claims`) and how many of
--- those claims are approved (`approvals`). That makes the three series a funnel
--- on one axis, so `coordinators >= claims >= approvals` on every single day --
+-- up on day D, how many have since claimed a school (`cohort_claimed`) and how
+-- many of those claims are approved (`cohort_approved`). That makes the three
+-- series a funnel on one axis, so
+-- `coordinators >= cohort_claimed >= cohort_approved` on every single day --
 -- which a true event chart would not guarantee. If the founder wants real event
 -- dates, add `coordinator_claimed_at` and `coordinator_reviewed_at` to `schools`
 -- and set them in apply_as_coordinator / admin_review_coordinator_claim; this
 -- function is then a two-line change.
 --
 -- With p_state, a coordinator has no geography until they claim, so the scoped
--- `coordinators` series IS the `claims` series. The gap between the two only
--- exists nationally.
+-- `coordinators` series IS the `cohort_claimed` series. The gap between the two
+-- only exists nationally.
+--
+-- THE COLUMNS ARE NAMED cohort_claimed / cohort_approved, NOT claims / approvals,
+-- and that naming is load-bearing. On a day axis, `approvals` reads as "claims
+-- approved that day" and it is not: an approval is plotted on the day its
+-- coordinator SIGNED UP, so every approval of someone who signed up before the
+-- window is outside the chart entirely. Measured on the harness seed, a 30-day
+-- window shows 4 approvals while 19 schools are approved -- a founder reading
+-- that as an event chart would conclude recruitment had stopped and cut it. The
+-- column names have to make the misread impossible at the call site, because the
+-- call site is all a page author sees.
 create or replace function admin_coordinator_trend(
   p_state text default null, p_days int default 30
-) returns table(day date, coordinators bigint, claims bigint, approvals bigint)
+) returns table(day date, coordinators bigint, cohort_claimed bigint, cohort_approved bigint)
 language plpgsql security definer set search_path = public as $$
 declare v_from date := current_date - greatest(p_days, 1) + 1;
 begin
@@ -918,8 +944,8 @@ begin
   ),
   c as (
     select p.created_at::date d, count(*) n,
-           count(cl.cid) claims,
-           count(*) filter (where cl.approved) approvals
+           count(cl.cid) cohort_claimed,
+           count(*) filter (where cl.approved) cohort_approved
     from user_profiles p
     left join cl on cl.cid = p.id
     where p.role = 'coordinator' and p.created_at >= v_from
@@ -929,7 +955,7 @@ begin
   -- Integer series for the same reason as admin_isc_timeline: the
   -- generate_series(date, date, interval) form resolves to the timestamptz
   -- overload and would make the boundaries depend on the session timezone.
-  select (current_date - g.i)::date, coalesce(c.n, 0), coalesce(c.claims, 0), coalesce(c.approvals, 0)
+  select (current_date - g.i)::date, coalesce(c.n, 0), coalesce(c.cohort_claimed, 0), coalesce(c.cohort_approved, 0)
   from generate_series(0, greatest(p_days, 1) - 1) g(i)
   left join c on c.d = current_date - g.i
   order by 1;
@@ -942,24 +968,42 @@ end $$;
 -- a coordinator whose auth row has gone is the one an admin most needs to find,
 -- and an inner join would hide them with no error. `email` is therefore NULLABLE.
 --
--- `students` has to be known for every matching coordinator before the LIMIT --
--- it is the default sort key and `total` counts the whole match set anyway -- so
--- it is one aggregate over user_profiles per call. `students_entered` is NOT a
--- sort key, so it is computed AFTER the page, once per returned row, the way
--- section D computes member_count: at 200k students that is the difference
--- between one hash over 1.16M member rows and 50 index probes.
+-- PERFORMANCE, stated here because it is a property of the design. `students`
+-- has to be known for every matching coordinator before the LIMIT -- it is the
+-- default sort key and `total` counts the whole match set anyway -- so THIS PAGE
+-- READS EVERY STUDENT ROW on every call, at every scale. That is its cost:
+-- measured at 200k students it is ~130 ms, which is fine for an admin screen.
+-- `students_entered` is NOT a sort key, so it is computed AFTER the page, once
+-- per returned row, the way section D computes member_count: at 200k students
+-- that is the difference between one hash over 1.16M member rows and 50 index
+-- probes, and it is why the page is 130 ms rather than 1.6 s.
+--
+-- p_q is a substring search ORed across three columns on three different tables,
+-- so it stays a filter over the join and no trigram index can serve it -- the
+-- same story as admin_users_page, and the same remedy if it ever matters. It is
+-- NOT the same story for auth.users, though: `role = 'coordinator'` is selective
+-- (807 of 210,807 profiles at target scale), so the planner probes users_pkey
+-- per coordinator rather than reading that table whole. Section F item 6(d)
+-- shows the real plan.
 --
 -- A coordinator with no claim is listed with nulls in school_id, school_name,
 -- state and district, claim_status 'none' and zero students. Passing p_state
 -- excludes them, since a claim is the only thing that gives a coordinator a
 -- state.
+--
+-- `schools_claimed` sits beside the single school_* columns because those columns
+-- show ONE claim while `students` sums over all of them: without it somebody
+-- holding four schools reads as "N students" against one school's name, on the
+-- very screen the founder ranks people on, with the explanation a click away on
+-- the detail page. It is 1 for everybody in practice (section F probe 9); when it
+-- is not, the row says so where the row is read.
 create or replace function admin_coordinators_page(
   p_q text default null, p_status text default null, p_state text default null,
   p_sort text default 'students_desc', p_page int default 1, p_size int default 50
 ) returns table(
   id uuid, full_name text, email text, phone text, school_id uuid, school_name text,
-  state text, district text, claim_status text, students bigint, students_entered bigint,
-  joined_at timestamptz, total bigint
+  state text, district text, claim_status text, schools_claimed bigint,
+  students bigint, students_entered bigint, joined_at timestamptz, total bigint
 ) language plpgsql security definer set search_path = public as $$
 declare v_size int    := least(greatest(coalesce(p_size, 50), 1), 200);
         v_off  bigint := (greatest(coalesce(p_page, 1), 1)::bigint - 1) * v_size;
@@ -988,15 +1032,20 @@ begin
     from sch sh join user_profiles p on p.school_id = sh.id and p.role = 'student'
     group by sh.coordinator_id
   ),
+  -- Separate from `reach`, which is an INNER join and so has no row at all for a
+  -- coordinator whose only school has no students yet.
+  held as (select sh.coordinator_id cid, count(*) n from sch sh group by sh.coordinator_id),
   page as (
     select p.id, p.full_name, u.email, p.phone, c.sid, c.name as school_name,
            c.state, c.district, coalesce(c.st, 'none') as claim_status,
+           coalesce(h.n, 0)::bigint as schools_claimed,
            coalesce(r.students, 0)::bigint as students, p.created_at,
            count(*) over () as n_total
     from user_profiles p
     left join auth.users u on u.id = p.id
     left join claim c on c.cid = p.id
     left join reach r on r.cid = p.id
+    left join held h on h.cid = p.id
     where p.role = 'coordinator'
       and (p_state is null or c.cid is not null)
       and (p_status is null or coalesce(c.st, 'none') = p_status)
@@ -1017,7 +1066,7 @@ begin
     limit v_size offset v_off
   )
   select pg.id, pg.full_name, pg.email, pg.phone, pg.sid, pg.school_name,
-         pg.state, pg.district, pg.claim_status, pg.students,
+         pg.state, pg.district, pg.claim_status, pg.schools_claimed, pg.students,
          (select count(*) from schools sx
             join user_profiles px on px.school_id = sx.id and px.role = 'student'
            where sx.coordinator_id = pg.id
@@ -1245,11 +1294,21 @@ end $$;
 --
 --    (d) The coordinators-page search predicate, written OUT IN FULL. Like the
 --        users page it ORs a name, an email on auth.users and a school name, so
---        it is a Hash Left Join over sequential scans AND IT IS SUPPOSED TO BE.
---        Do not shorten it to the full_name branch: that one uses
+--        the whole thing stays a FILTER over the join: a BitmapOr cannot span
+--        three tables, no trigram index is reachable, AND THAT IS EXPECTED. Do
+--        not shorten it to the full_name branch: that one uses
 --        user_profiles_name_trgm and would report the directory as index-backed
 --        when it is not. The remedy, if it ever matters, is the one in the note
---        above admin_users_page -- get every searched value onto one table:
+--        above admin_users_page -- get every searched value onto one table.
+--
+--        Read the plan for two things. The `Filter:` line carrying all three
+--        `like` branches is the point above. The other is the students-per-
+--        coordinator aggregate at the bottom: a Seq Scan of user_profiles, which
+--        is this page's real cost and is structural (see the note above the
+--        function). What you should NOT expect is a sequential scan of
+--        auth.users: unlike admin_users_page this query has a highly selective
+--        `role = 'coordinator'`, so the planner walks user_profiles_role_idx and
+--        probes users_pkey per coordinator once the table is big enough:
 --
 --      explain analyze
 --      select p.id, count(*) over () from user_profiles p
@@ -1322,15 +1381,28 @@ end $$;
 --         and (p.school_id is null
 --              or not exists (select 1 from schools s where s.id = p.school_id));
 --
--- 11. Students competing at a school other than their own. `students_entered`
+-- 11. Students who are entered ONLY at somebody else's school. `students_entered`
 --     and `entered_pct` count a student as entered whatever school their entry
---     belongs to (see the top of section G); this is exactly how many people
---     that decision is visible for. It is not an error -- a cross-school team is
---     legal -- it is the size of the difference between the two readings:
+--     belongs to (see the top of section G), and this is the number of people
+--     that decision actually changes: they compete, but never on an entry
+--     belonging to their own school, so the narrower reading would report them as
+--     not entered. It is not an error -- a cross-school team is legal.
+--
+--     The `not exists` is the whole point of the probe. WITHOUT IT this counts
+--     every student who has any cross-school membership, including the many who
+--     ALSO lead an entry at their own school and are counted as entered under
+--     both readings. On the harness seed that difference is 12,583 against 0: a
+--     probe missing this clause invites the founder to reverse a correct decision
+--     over an empty set.
 --
 --       select count(distinct m.user_id) from isc_entry_members m
 --       join isc_entries e on e.id = m.entry_id
 --       join user_profiles p on p.id = m.user_id
 --       where (m.is_leader or m.accepted_at is not null)
---         and p.school_id is not null and p.school_id <> e.school_id;
+--         and p.school_id is not null and p.school_id <> e.school_id
+--         and not exists (
+--           select 1 from isc_entry_members m2
+--           join isc_entries e2 on e2.id = m2.entry_id
+--           where m2.user_id = p.id and (m2.is_leader or m2.accepted_at is not null)
+--             and e2.school_id = p.school_id);
 -- ---------------------------------------------------------------
