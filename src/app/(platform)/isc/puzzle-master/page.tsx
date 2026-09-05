@@ -4,6 +4,7 @@ import { PUZZLE_MASTER } from '@/lib/isc/tracks'
 import { isEligibleClass } from '@/lib/isc/validate'
 import { TrackHero } from '@/components/isc/track-hero'
 import { TrackFacts } from '@/components/isc/track-facts'
+import { TrackAbout } from '@/components/isc/track-about'
 import { PracticeGames } from '@/components/isc/practice-games'
 
 /**
@@ -36,6 +37,8 @@ export default async function PuzzleMasterPage() {
         deadlineLabel={null}
         daysLeft={null}
       />
+
+      <TrackAbout name={PUZZLE_MASTER.name} description={PUZZLE_MASTER.description} accent={PUZZLE_MASTER.accent} />
 
       <TrackFacts
         prize={PUZZLE_MASTER.prize}

@@ -63,7 +63,7 @@ export function buildIscFaq({
           id: 'what-is-isc',
           q: 'What is the International Skill Championship 2026?',
           a: [
-            'Four national championships in one season: build an app that helps people, pitch a business, tell a story in sixty seconds, or go head to head on logic and nerve in Puzzle Master.',
+            'Four national championships in one season: build AI that solves a real problem, pitch a business, tell a story in sixty seconds, or go head to head on logic and nerve in Puzzle Master.',
             'You enter online from your SkillFleet account, on your own or with classmates, and the best entries go through a school round, a state round and the national finals.',
           ],
         },

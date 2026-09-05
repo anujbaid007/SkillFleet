@@ -63,6 +63,10 @@ export interface IscTrack {
   prize: string
   /** What the student actually needs to have ready before entering. */
   prepare: string[]
+  /** The full brief, a few short paragraphs, shown on the championship's own page. */
+  description: string[]
+  /** Where a student can build the thing without setting up anything. */
+  tools?: { name: string; url: string; note: string }[]
 }
 
 export const ISC_TRACKS: IscTrack[] = [
@@ -70,9 +74,9 @@ export const ISC_TRACKS: IscTrack[] = [
     id: 'ai_for_impact',
     slug: 'ai-for-impact',
     name: 'AI for Impact',
-    tagline: 'Build something that helps people.',
+    tagline: 'Build AI that solves a real problem.',
     brief:
-      'Build a working app or digital tool that tackles a social problem you care about, then show us how it works.',
+      'Build a working AI app or tool that solves a real-world problem, for anyone, anywhere, then show us how it works.',
     maxTeamSize: 3,
     icon: Cpu,
     gradient: 'from-primary to-primary-light',
@@ -87,6 +91,17 @@ export const ISC_TRACKS: IscTrack[] = [
       'A working app or prototype, live on a link anyone can open',
       'A demo video of one minute or less',
       'A short written explanation of the problem and how you solved it',
+    ],
+    description: [
+      'Start with a real problem you have seen with your own eyes, then build an AI tool that solves it. It can come from anywhere: your home, your school, a shop, a farm, a hobby. It does not have to be a social cause. A stock tracker for a shopkeeper, a homework helper in your own language, an app that spots plant disease from a photo, a tool that turns a doctor’s note into plain words, all of these count. What matters is that a real person would use it, and that it works when we open the link.',
+      'Judges look at four things: how real and clearly stated the problem is, whether the AI genuinely does the job rather than decorating it, whether it works for a stranger on first try, and how honestly you explain what it can and cannot do. A small tool that works beats a big idea that does not.',
+      'You can build it however you like. The platforms below let you describe what you want in plain English and give you a working app with a shareable link in an afternoon, no installation needed. Use one of them, or code it yourself, then paste the public link in your entry. Make sure the link opens in a private window, because that is exactly how the judges will open it.',
+    ],
+    tools: [
+      { name: 'Google AI Studio', url: 'https://aistudio.google.com', note: 'Build and publish an app on Gemini from a prompt, free with a Google account.' },
+      { name: 'Emergent', url: 'https://emergent.sh', note: 'Describe the app, and it writes and hosts the whole thing for you.' },
+      { name: 'Replit', url: 'https://replit.com', note: 'Chat your way to an app, edit the code if you want to, share a live link.' },
+      { name: 'Lovable', url: 'https://lovable.dev', note: 'Good for websites and web apps with a polished look, from a description.' },
     ],
   },
   {
@@ -111,6 +126,11 @@ export const ISC_TRACKS: IscTrack[] = [
       'How it would make money',
       'A pitch video of one minute or less',
     ],
+    description: [
+      'Find something people around you pay for, wait for, or put up with, and design a business that does it better. It can be a product, a service, a subscription, a marketplace, or a school-gate stall that grew. You do not need to have started it, but the more you have tested with real people, the stronger your entry.',
+      'Your write-up answers six questions in plain words: what the problem is, what you would sell, who exactly would buy it, why they would choose you, how the numbers work, and what would stop you. Then a one-minute pitch on video, as if you were in front of an investor with a bus to catch.',
+      'Judges reward ideas that are specific, that show you spoke to a real customer, and that could actually start with the money and time a student has. Ambition is welcome, but a clear first step beats a grand plan every time.',
+    ],
   },
   {
     id: 'content_creator',
@@ -133,6 +153,11 @@ export const ISC_TRACKS: IscTrack[] = [
       'An original video of one minute or less, on a link anyone can open',
       'A title for it',
       'A short note on how it answers the theme',
+    ],
+    description: [
+      'One minute, one idea, your voice. This year’s theme is on your entry form. Make a video that answers it in a way only you could, a story, an explainer, a mini documentary, a song, a skit, animation, whatever you are good at. Phone footage is fine; a clear idea and a strong first five seconds matter far more than the camera.',
+      'The work must be your own. You can use editing apps, music you have the right to use, and AI tools for captions or effects, but the idea, the script and the presence on screen are yours. Tell us in the note what you used.',
+      'Judges look at whether the video actually answers the theme, whether it holds attention for the full minute, how well it is made with what you had, and how original it is. Upload it anywhere with a public link, YouTube unlisted or Google Drive both work, and check the link in a private window before you submit.',
     ],
   },
 ]
@@ -169,6 +194,11 @@ export const PUZZLE_MASTER = {
     'A device with a steady internet connection',
     'A quiet half hour — rounds are played live and cannot be paused',
     'Nothing to prepare or upload beforehand: you play on the day',
+  ],
+  description: [
+    'Puzzle Master is the one championship with nothing to build. You play a set of timed logic, memory and reasoning games live, against the clock and against everyone else in your division, and your score is your entry. Rounds run between 1 October and 30 December 2026; the exact dates for your school come from your coordinator.',
+    'The games test speed, pattern-spotting, working memory and nerve under a timer, not what you have memorised. Practice games are free below and are not scored, so play them until the formats feel familiar.',
+    'On the day you need a device, a steady connection and a quiet half hour, because a live round cannot be paused or restarted. Two divisions, Classes 5 to 8 and Classes 9 to 12, are scored separately.',
   ],
 }
 

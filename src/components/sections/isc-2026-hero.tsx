@@ -267,7 +267,7 @@ export default function Isc2026Hero() {
           </p>
 
           <p className="mt-4 max-w-lg text-base text-muted sm:text-lg">
-            Four national championships, one season. Build an app that helps people, pitch a
+            Four national championships, one season. Build AI that solves a real problem, pitch a
             business, tell a story in sixty seconds, or go head to head on logic and nerve — on
             your own or with a team of three.
           </p>

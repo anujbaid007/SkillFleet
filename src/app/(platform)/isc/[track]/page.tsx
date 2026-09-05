@@ -7,6 +7,7 @@ import { EntryForm } from '@/components/isc/entry-form'
 import { TeamPanel } from '@/components/isc/team-panel'
 import { TrackHero } from '@/components/isc/track-hero'
 import { TrackFacts } from '@/components/isc/track-facts'
+import { TrackAbout } from '@/components/isc/track-about'
 import { EnterTrackButton } from '@/components/isc/enter-track-button'
 import { LeaveEntryButton } from '@/components/isc/leave-entry-button'
 import { LeaveTeamButton } from '@/components/isc/leave-team-button'
@@ -108,6 +109,8 @@ export default async function IscTrackPage({
         deadlineLabel={deadlineLabel}
         daysLeft={daysLeft}
       />
+
+      <TrackAbout name={track.name} description={track.description} tools={track.tools} accent={track.accent} />
 
       <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
 
