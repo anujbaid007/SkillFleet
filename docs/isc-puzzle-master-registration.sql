@@ -23,9 +23,9 @@ BEGIN
   END IF;
 END $$;
 
--- B. Registration stays open until the last round day, 30 December 2026 (IST).
+-- B. The track stays open until the last round day, 31 December 2026 (IST).
 INSERT INTO public.isc_config (track, screening_deadline)
-VALUES ('puzzle_master', '2026-12-30T18:29:59+00:00')
+VALUES ('puzzle_master', '2026-12-31T18:29:59+00:00')
 ON CONFLICT (track) DO UPDATE SET screening_deadline = EXCLUDED.screening_deadline;
 
 -- C. Individual only: a Puzzle Master entry can never gain a second member.

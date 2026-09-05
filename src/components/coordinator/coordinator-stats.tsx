@@ -153,7 +153,7 @@ export function CoordinatorStats({
               </div>
               <p className="text-[11px] text-muted">
                 <span className="font-bold text-emerald-600 tabular-nums">{counts.byTrack[PUZZLE_MASTER.id].submitted}</span>{' '}
-                registered · played live, nothing to submit
+                taken part · opens 1 October, one valid entry each
               </p>
             </div>
           </div>

@@ -148,7 +148,7 @@ export function IscResources({ deadlines }: { deadlines: Record<string, string> 
       // the badge matches what the others show before a date is set.
       badge: PUZZLE_MASTER.window,
       listTitle: 'How it runs',
-      listItems: [`Played live from ${PUZZLE_MASTER.window}.`, ISC_DIVISIONS],
+      listItems: [`Opens 1 October; played live until 31 December.`, 'One valid entry per participant — practice beforehand is free and unlimited.', ISC_DIVISIONS],
       prize: PUZZLE_MASTER.prize,
       teamNote: 'Individual only',
     },

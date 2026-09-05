@@ -148,7 +148,8 @@ export function buildIscFaq({
           a: [
             PUZZLE_MASTER.brief,
             `${PUZZLE_MASTER.divisions}. Individual only.`,
-            `Rounds run live from ${PUZZLE_MASTER.window}.`,
+            `Rounds run live from ${PUZZLE_MASTER.window}. There is nothing to register for beforehand.`,
+            'You get one valid entry, so practise as much as you like on the free games before you attempt the challenge.',
             `On the day you will need: ${PUZZLE_MASTER.prepare.map((p) => p.charAt(0).toLowerCase() + p.slice(1)).join('; ')}.`,
             `Prize: ${PUZZLE_MASTER.prize}`,
           ],

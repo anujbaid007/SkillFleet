@@ -329,7 +329,7 @@ export const PUZZLE_MASTER = {
   art: '/isc/2026/puzzle.webp',
   divisions: ISC_DIVISIONS,
   /** Played live across this window rather than submitted against a deadline. */
-  window: '1 October to 30 December 2026',
+  window: '1 October to 31 December 2026',
   prize:
     'Prizes up to ₹50,000 across the two age divisions, alongside winner certificates and national recognition.',
   prepare: [
@@ -339,7 +339,7 @@ export const PUZZLE_MASTER = {
   ],
   description: [
     'Think faster, reason better. Puzzle Master is an individual online competition that tests how you think, not what you have memorised: logic, patterns, memory, attention, numbers, space, decisions and speed, under time pressure. It is built to recognise kinds of intelligence that exam marks miss.',
-    'You play designated online games on the ISC platform within a fixed window, 1 October to 30 December 2026, and your scores are your entry. The exact games, durations and instructions come before each round; the dates for your school come from your coordinator.',
+    'You play designated online games on the ISC platform within a fixed window, 1 October to 31 December 2026, and your scores are your entry. The exact games, durations and instructions come before each round; the dates for your school come from your coordinator.',
   ],
   sections: [
     {
@@ -356,6 +356,8 @@ export const PUZZLE_MASTER = {
     {
       title: 'How it runs',
       items: [
+        'Opens 1 October 2026; there is nothing to register for beforehand',
+        'One valid entry per participant, so practise as much as you like before you attempt the challenge',
         'Individual entry only; teams are not permitted',
         'Two divisions, Classes 5 to 8 and Classes 9 to 12, scored separately',
         'Each challenge may have a time limit, a maximum score, and scoring by accuracy, completion or time, with time as the tie-break',
