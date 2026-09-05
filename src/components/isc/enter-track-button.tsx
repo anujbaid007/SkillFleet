@@ -13,7 +13,7 @@ import { ArrowRight } from 'lucide-react'
 export function EnterTrackButton({ slug }: { slug: string }) {
   return (
     <Link
-      href={`/isc/${slug}?start=1`}
+      href={`/isc/${slug}?start=1#entry`}
       className="clay-button bg-cta text-white px-6 h-12 text-sm font-semibold flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-2"
     >
       Start your entry

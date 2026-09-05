@@ -110,12 +110,8 @@ export default async function IscTrackPage({
         daysLeft={daysLeft}
       />
 
-      <TrackAbout name={track.name} description={track.description} sections={track.sections} tools={track.tools} accent={track.accent} />
-
-      <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
-
       {!entry && !opening ? (
-        <div className="clay-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+        <div id="entry" className="clay-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
           <div>
             <p className="font-display font-bold text-foreground">
               {locked ? 'Entries have closed' : 'Ready when you are'}
@@ -129,7 +125,7 @@ export default async function IscTrackPage({
           {!locked && <EnterTrackButton slug={track.slug} />}
         </div>
       ) : (
-        <>
+        <div id="entry" className="space-y-6 scroll-mt-24">
           <TeamPanel
             entryId={entry?.entryId ?? ''}
             slug={track.slug}
@@ -150,8 +146,14 @@ export default async function IscTrackPage({
 
           {canLeave && entry && <LeaveEntryButton entryId={entry.entryId} slug={track.slug} />}
           {canLeaveTeam && entry && <LeaveTeamButton entryId={entry.entryId} slug={track.slug} />}
-        </>
+        </div>
       )}
+
+      {/* The brief sits under the work: a student who has opened the form should
+          land on it, not scroll past five sections to find it. */}
+      <TrackAbout name={track.name} description={track.description} sections={track.sections} tools={track.tools} accent={track.accent} />
+
+      <TrackFacts prize={track.prize} prepare={track.prepare} accent={track.accent} />
     </div>
   )
 }
