@@ -1,5 +1,228 @@
+-- ===============================================================
 -- Admin at scale: indexes, the division column and admin-only functions.
--- Safe to run more than once. Paste into the Supabase SQL editor as one script.
+--
+-- Paste this whole file into the Supabase SQL editor and run it once. It is
+-- safe to run again, and safe to run over an earlier copy of itself: every
+-- index is `if not exists`, every function is `create or replace`, and the two
+-- functions that changed shape after their first version are dropped first
+-- (see the note above section G). Nothing here deletes or rewrites a row of
+-- real data. It adds indexes, adds one column to isc_entries, backfills that
+-- column, and creates functions.
+--
+-- Until it has been run, the admin area still loads: every screen keeps its
+-- heading and its navigation and shows a panel saying to run this file. The
+-- parts that read plain tables -- the review queues, the four counters at the
+-- top of /admin, a coordinator's own profile and roster -- show real numbers
+-- the whole time.
+--
+-- ---------------------------------------------------------------
+-- WHAT YOU ARE PASTING, one sentence per section
+-- ---------------------------------------------------------------
+-- The sections run in the order the file needs, which puts F last because it
+-- is the only one you read rather than run.
+--
+--   A. Indexes -- pg_trgm plus the twenty-odd indexes on isc_entries,
+--      isc_entry_members, user_profiles, schools and certificate_uploads that
+--      every function below depends on to stay in milliseconds at 200,000
+--      students and 800,000 entries.
+--
+--   B. Division on entries -- adds isc_entries.division ('group1' for Classes
+--      5-8, 'group2' for 9-12), backfills it from each entry leader's class,
+--      and keeps it right with an insert trigger, so a division filter is an
+--      index lookup instead of a join to the leader's profile.
+--
+--   C. Championship summaries -- admin_isc_summary(), admin_isc_breakdown()
+--      and admin_isc_timeline(): the ISC funnel, the state/district/school
+--      league table and the daily started/submitted series, each scoped by
+--      state, district or school and each counted by Postgres rather than by
+--      fetching rows into the app.
+--
+--   D. Roster pages, export chunks, cold schools -- admin_isc_roster() pages
+--      entries with ten filters and a total, admin_isc_export_chunk() walks
+--      the same rows by keyset cursor for a streamed CSV, and
+--      admin_isc_cold_schools() lists schools that have eligible students and
+--      no entry at all.
+--
+--   E. Users, search, dashboard, similar schools -- admin_users_page() pages
+--      and searches every profile with its auth email, admin_search() answers
+--      the global search box in one round trip, admin_dashboard() returns the
+--      whole /admin landing page as one jsonb value, and
+--      admin_similar_schools_batch() finds near-duplicate schools for a whole
+--      page of them in one call instead of one call per row.
+--
+--   G. Coordinator and school analytics -- admin_coordinator_summary(),
+--      admin_coordinator_breakdown(), admin_coordinator_trend(),
+--      admin_coordinators_page() and admin_coordinator_detail(): who the
+--      coordinators are, which schools and students they cover, how many of
+--      those students have entered, and how the signup cohorts have converted.
+--
+--   F. Integrity probes and the EXPLAIN block -- ten queries to run by hand
+--      after pasting, plus the EXPLAIN statements that prove the indexes in A
+--      are the ones being used. Probes 1 to 5 cover sections C to E (orphan
+--      entries, eligible students with no state, member rows with no user,
+--      approved schools with no eligible student, profiles with no auth row);
+--      part 6 is the EXPLAIN pass; probes 7 to 11 cover section G
+--      (coordinators who claimed nothing, claims that do not line up,
+--      coordinators holding more than one claim, students at a school that
+--      does not exist, students entered only at another school). Every one of
+--      them is a number the admin pages either cannot show you or have to
+--      leave out of a total.
+--
+-- ---------------------------------------------------------------
+-- WHO CAN CALL ANY OF IT
+-- ---------------------------------------------------------------
+-- All fifteen admin_* functions here are `security definer` with `set
+-- search_path = public` and open with `if not is_admin() then raise exception
+-- 'admin only'; end if;`. The two functions from section B are the exceptions,
+-- and have to be: isc_division_for_class() touches no table and is called on
+-- the student path (the comment above it says why), and
+-- isc_entries_set_division() is the insert trigger that runs as the student
+-- creating the entry.
+--
+-- Every function that takes a scope refuses a district without a state,
+-- because district names repeat across states (Aurangabad is in both
+-- Maharashtra and Bihar).
+--
+-- ---------------------------------------------------------------
+-- WHAT THIS DOES NOT DROP
+-- ---------------------------------------------------------------
+-- Two functions this script replaces are left standing, because dropping a
+-- function is the one thing here that cannot be undone by pasting the file
+-- again:
+--
+--   * admin_list_users(), replaced by admin_users_page();
+--   * find_similar_schools(), replaced by admin_similar_schools_batch().
+--
+-- Nothing under src/ calls either one any more. They cost nothing sitting
+-- there, so drop them in your own time, once you are satisfied the new pages
+-- are behaving:
+--
+--   drop function if exists admin_list_users();
+--   drop function if exists find_similar_schools(uuid);
+--
+-- The argument lists are the ones in src/lib/types/database.ts, which was
+-- generated from this database. If a drop complains that the function does not
+-- exist, run `\df admin_list_users` in the SQL editor and use the signature it
+-- prints: a drop has to name the arguments exactly.
+--
+-- ---------------------------------------------------------------
+-- BEFORE YOU PASTE
+-- ---------------------------------------------------------------
+-- admin_dashboard() reads support_conversations and certificate_uploads. If
+-- either table is missing under exactly that name, that one CREATE fails and
+-- the SQL editor stops there, leaving the sections after it uncreated. Check
+-- both exist first; if the paste stops, read the editor's error rather than
+-- assuming the whole file failed.
+--
+-- ---------------------------------------------------------------
+-- WHAT IT COSTS, MEASURED
+-- ---------------------------------------------------------------
+-- npm run admin-scale:verify -- --students 200000 --schools 1000 --entries 800000
+--
+-- 200,000 students / 1,000 schools / 800,000 entries / ~1.16 M
+-- isc_entry_members rows, in pglite (single-threaded wasm, work_mem = 4MB).
+-- Supabase has real statistics, parallel workers and more memory, so every
+-- number below is a ceiling and not a prediction. 63 checks, exit 0.
+--
+--   seeded 200000 students, 1000 schools, 800000 entries in 54015 ms
+--   analyzed every table in 658 ms - plans below use real statistics
+--   ┌─────────┬────────────────────────────────────────────────────────────────────────┬───────┐
+--   │ (index) │ name                                                                   │ ms    │
+--   ├─────────┼────────────────────────────────────────────────────────────────────────┼───────┤
+--   │ 0       │ 'section A: every index exists'                                        │ 2     │
+--   │ 1       │ 'section A: indexes are actually used'                                 │ 4     │
+--   │ 2       │ 'isc_division_for_class maps every class'                              │ 1     │
+--   │ 3       │ 'division backfill'                                                    │ 706   │
+--   │ 4       │ 'division trigger'                                                     │ 5     │
+--   │ 5       │ 'migration is safe to run twice'                                       │ 676   │
+--   │ 6       │ 'admin_isc_summary national'                                           │ 6205  │
+--   │ 7       │ 'admin_isc_summary school scope'                                       │ 8     │
+--   │ 8       │ 'admin_isc_summary empty scope'                                        │ 1     │
+--   │ 9       │ 'admin_isc_breakdown levels'                                           │ 5878  │
+--   │ 10      │ 'admin_isc_breakdown agrees with admin_isc_summary'                    │ 10650 │
+--   │ 11      │ 'admin_isc_timeline'                                                   │ 1529  │
+--   │ 12      │ 'ISC summaries on a hand-computed fixture'                             │ 2362  │
+--   │ 13      │ 'a district without a state is refused'                                │ 88    │
+--   │ 14      │ 'section C functions are admin only'                                   │ 1     │
+--   │ 15      │ 'TIMING admin_isc_summary() national'                                  │ 2569  │
+--   │ 16      │ 'TIMING admin_isc_breakdown() national'                                │ 2285  │
+--   │ 17      │ 'TIMING admin_isc_timeline() 30 days'                                  │ 553   │
+--   │ 18      │ 'admin_isc_roster pages are lossless and totally ordered'              │ 299   │
+--   │ 19      │ 'admin_isc_roster: every filter filters'                               │ 9213  │
+--   │ 20      │ 'admin_isc_roster: caps, edges and row contents'                       │ 10628 │
+--   │ 21      │ 'admin_isc_export_chunk walks the whole set exactly once'              │ 431   │
+--   │ 22      │ 'admin_isc_export_chunk: refusals and caps'                            │ 367   │
+--   │ 23      │ 'admin_isc_cold_schools'                                               │ 19    │
+--   │ 24      │ 'section D reads through the indexes'                                  │ 6     │
+--   │ 25      │ 'TIMING admin_isc_roster() national page 1'                            │ 2813  │
+--   │ 26      │ 'TIMING admin_isc_roster() one school'                                 │ 128   │
+--   │ 27      │ 'TIMING admin_isc_roster() state + status'                             │ 506   │
+--   │ 28      │ 'TIMING admin_isc_export_chunk() 1000 rows'                            │ 30    │
+--   │ 29      │ 'TIMING admin_isc_cold_schools() national'                             │ 6     │
+--   │ 30      │ 'admin_users_page pages are lossless and totally ordered'              │ 11783 │
+--   │ 31      │ 'admin_users_page: filters, caps and the auth.users join'              │ 7986  │
+--   │ 32      │ 'the trigram indexes fit the expressions the functions search with'    │ 2     │
+--   │ 33      │ 'admin_search'                                                         │ 2825  │
+--   │ 34      │ 'admin_dashboard'                                                      │ 9853  │
+--   │ 35      │ 'admin_similar_schools_batch'                                          │ 8     │
+--   │ 36      │ 'sections D and E are admin only'                                      │ 2     │
+--   │ 37      │ 'sections D and E survive a second apply'                              │ 7331  │
+--   │ 38      │ 'TIMING admin_users_page() page 1'                                     │ 305   │
+--   │ 39      │ 'TIMING admin_users_page() search'                                     │ 367   │
+--   │ 40      │ 'TIMING admin_search()'                                                │ 302   │
+--   │ 41      │ 'TIMING admin_dashboard()'                                             │ 5022  │
+--   │ 42      │ 'TIMING admin_similar_schools_batch() 20 schools'                      │ 5     │
+--   │ 43      │ 'admin_coordinator_summary national'                                   │ 918   │
+--   │ 44      │ 'admin_coordinator_summary scoped'                                     │ 1379  │
+--   │ 45      │ 'admin_coordinator_breakdown levels and sums'                          │ 1469  │
+--   │ 46      │ 'admin_coordinator_breakdown agrees with admin_coordinator_summary'    │ 6996  │
+--   │ 47      │ 'admin_coordinator_trend'                                              │ 54    │
+--   │ 48      │ 'admin_coordinators_page pages are lossless and totally ordered'       │ 8748  │
+--   │ 49      │ 'admin_coordinators_page: filters, caps and row contents'              │ 3395  │
+--   │ 50      │ 'admin_coordinators_page: the 200 cap is enforced inside the function' │ 411   │
+--   │ 51      │ 'admin_coordinator_detail'                                             │ 67    │
+--   │ 52      │ 'coordinator analytics on a hand-computed fixture'                     │ 3359  │
+--   │ 53      │ 'section G reads through the indexes'                                  │ 4     │
+--   │ 54      │ 'section G is admin only'                                              │ 2     │
+--   │ 55      │ 'section G survives a second apply'                                    │ 1772  │
+--   │ 56      │ 'TIMING admin_coordinator_summary() national'                          │ 509   │
+--   │ 57      │ 'TIMING admin_coordinator_summary() one state'                         │ 386   │
+--   │ 58      │ 'TIMING admin_coordinator_breakdown() national'                        │ 497   │
+--   │ 59      │ 'TIMING admin_coordinator_trend() 30 days'                             │ 2     │
+--   │ 60      │ 'TIMING admin_coordinators_page() page 1'                              │ 122   │
+--   │ 61      │ 'TIMING admin_coordinators_page() search'                              │ 116   │
+--   │ 62      │ 'TIMING admin_coordinator_detail()'                                    │ 1     │
+--   └─────────┴────────────────────────────────────────────────────────────────────────┴───────┘
+--   all admin-scale checks passed
+--
+-- The rows named TIMING are bare calls with nothing else in the measurement --
+-- what an admin page actually waits for. Every other row is a correctness
+-- check that calls its function dozens of times against a reference query, so
+-- its milliseconds are not a budget.
+--
+-- THREE NUMBERS WORTH KNOWING BEFORE YOU BUILD ON THIS.
+--
+--   1. admin_dashboard() is ~5.0 s here, and essentially all of it is the two
+--      section C calls inside it: admin_isc_summary at 2.6 s and
+--      admin_isc_breakdown at 2.3 s, timed on their own, account for the whole
+--      5.0 s to within the run-to-run noise. Everything else in it -- eight
+--      counts and a 7-day timeline -- disappears into that noise. That is why
+--      /admin reads its four queue counters straight from the tables and
+--      streams the championship block in behind them; do not put this
+--      function on the critical path of anything.
+--
+--   2. A national admin_isc_roster() page is ~2.8 s and always reads all
+--      800,000 rows, because `total` is count(*) over () and counting the
+--      whole match set means touching it. The same call scoped to one school
+--      is 128 ms. A roster screen should open on a scope, not on the nation --
+--      /admin/isc does not list entries until a filter narrows it.
+--
+--   3. Everything else an admin page waits for is about half a second or
+--      less: users page 305 ms, users search 367 ms, global search 302 ms,
+--      coordinator summary 509 ms, coordinator breakdown 497 ms, coordinators
+--      page 122 ms, coordinator detail 1 ms, cold schools 6 ms, similar
+--      schools for 20 rows 5 ms. These are the ones you can await directly.
+-- ===============================================================
 
 -- ---------------------------------------------------------------
 -- A. Indexes
