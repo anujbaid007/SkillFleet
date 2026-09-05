@@ -2,79 +2,150 @@ import { School } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/ui/page-header'
 import { Reveal } from '@/components/ui/reveal'
+import { MigrationMissing } from '@/components/admin/migration-missing'
+import { SectionFailed } from '@/components/admin/section-failed'
+import { Pagination } from '@/components/admin/pagination'
+import { AdminQueue, type QueueRow } from '@/components/admin/admin-queue'
+import { SchoolReviewRow } from '@/components/admin/school-review-row'
+import { bulkReviewSchools } from '@/app/(admin)/admin/queues/actions'
 import {
-  SchoolReviewRow,
-  type PendingSchool,
+  getSchoolsQueue,
+  getSimilarSchools,
+  parseQueueQuery,
+  queueQueryToString,
   type SimilarSchool,
-} from '@/components/admin/school-review-row'
+} from '@/lib/admin/queues'
+import type { SearchParams } from '@/lib/admin/scope'
 
-interface RawPending {
-  id: string
-  name: string
-  state: string
-  district: string
-  created_at: string
-  created_by: string | null
+const BASE_PATH = '/admin/schools'
+const DEFAULT_STATUS = 'pending'
+
+const TABS = [
+  { value: 'pending', label: 'Awaiting review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'all', label: 'All' },
+]
+
+const EMPTY: Record<string, string> = {
+  pending: 'Nothing waiting — every school students have added has been reviewed.',
+  approved: 'No approved schools match this search.',
+  rejected: 'No rejected schools match this search.',
+  all: 'No schools match this search.',
 }
 
-export default async function AdminSchoolsPage() {
+/**
+ * Schools students added because they could not find theirs in the list.
+ *
+ * Two things changed here at scale. The queue used to load EVERY pending row
+ * and then call find_similar_schools once per row, so a recruitment drive that
+ * put a thousand schools in the queue was a thousand round trips on one
+ * render; it now reads one page and asks admin_similar_schools_batch for that
+ * page's duplicates in a single call. And it used to hard-filter to pending
+ * and ignore any search term, which is why the admin header's search could not
+ * link a school hit anywhere honest; it now takes `q` and a status, so
+ * /admin/schools?status=all&q=<name> really does contain the school.
+ */
+export default async function AdminSchoolsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const sp = await searchParams
+  const query = parseQueueQuery(sp, DEFAULT_STATUS)
   const supabase = await createClient()
+  const page = await getSchoolsQueue(supabase, query)
 
-  const { data: pending } = (await supabase
-    .from('schools')
-    .select('id, name, state, district, created_at, created_by')
-    .eq('review_status', 'pending')
-    .order('created_at', { ascending: false })) as unknown as { data: RawPending[] | null }
-
-  const rows = pending ?? []
-
-  // Who submitted each one.
-  const submitterIds = [...new Set(rows.map((r) => r.created_by).filter(Boolean))] as string[]
-  const { data: profiles } = await supabase
-    .from('user_profiles')
-    .select('id, full_name')
-    .in('id', submitterIds.length ? submitterIds : ['00000000-0000-0000-0000-000000000000'])
-  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]))
-
-  // Candidate duplicates, one lookup per pending row. The queue is short by
-  // design — if it ever is not, that is the signal to paginate.
-  const withSimilar: PendingSchool[] = await Promise.all(
-    rows.map(async (r) => {
-      const { data: similar } = await supabase.rpc('find_similar_schools', { p_school_id: r.id })
-      return {
-        id: r.id,
-        name: r.name,
-        state: r.state,
-        district: r.district,
-        created_at: r.created_at,
-        submittedBy: (r.created_by && nameById.get(r.created_by)) || 'Unknown student',
-        similar: (similar ?? []) as SimilarSchool[],
-      }
-    })
+  const header = (
+    <PageHeader
+      eyebrow="Review queue"
+      icon={School}
+      title="Schools"
+      subtitle="Schools students added because they could not find theirs in the list. Coordinator applications are reviewed separately, under Coordinators."
+    />
   )
+
+  if (!page.ok) {
+    return (
+      <div className="space-y-8">
+        {header}
+        {page.kind === 'migration-missing' ? (
+          <MigrationMissing message={page.message} />
+        ) : (
+          <SectionFailed title="Schools queue" message={page.message} />
+        )}
+      </div>
+    )
+  }
+
+  // One call for the whole page's likely duplicates. This is the only part of
+  // this screen that needs docs/admin-scale-migration.sql, so if it is not
+  // applied yet the queue still lists and still reviews — it just cannot
+  // suggest merges, and says so.
+  const similar = await getSimilarSchools(
+    supabase,
+    page.data.rows.map((r) => r.id)
+  )
+  const byId: Map<string, SimilarSchool[]> = similar.ok ? similar.data : new Map()
+
+  const hrefFor = (p: number) => BASE_PATH + queueQueryToString(query, DEFAULT_STATUS, { page: p })
+
+  const rows: QueueRow[] = page.data.rows.map((s) => ({
+    id: s.id,
+    selectable: s.review_status === 'pending',
+    node: (
+      <SchoolReviewRow
+        school={{
+          id: s.id,
+          name: s.name,
+          state: s.state,
+          district: s.district,
+          reviewStatus: s.review_status,
+          created_at: s.created_at,
+          submittedBy: s.submitted_by ?? 'Unknown student',
+          similar: byId.get(s.id) ?? [],
+        }}
+      />
+    ),
+  }))
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Review queue"
-        icon={School}
-        title="Schools"
-        subtitle="Schools students added because they could not find theirs in the list. Coordinator applications are reviewed separately, under ISC."
-      />
+      {header}
 
-      {withSimilar.length === 0 ? (
-        <div className="clay-card p-12 text-center text-muted">
-          Nothing waiting — every school students have added has been reviewed.
-        </div>
-      ) : (
-        <Reveal delay={0.05}>
-          <div className="clay-card divide-y divide-black/[0.06]">
-            {withSimilar.map((s) => (
-              <SchoolReviewRow key={s.id} school={s} />
-            ))}
-          </div>
-        </Reveal>
-      )}
+      {!similar.ok &&
+        (similar.kind === 'migration-missing' ? (
+          <MigrationMissing message={similar.message} />
+        ) : (
+          <SectionFailed title="Duplicate suggestions" message={similar.message} />
+        ))}
+
+      <Reveal delay={0.05}>
+        <AdminQueue
+          basePath={BASE_PATH}
+          status={query.status}
+          q={query.q}
+          searchLabel="Search schools by name"
+          searchPlaceholder="School name"
+          tabs={TABS.map((t) => ({
+            label: t.label,
+            href: BASE_PATH + queueQueryToString(query, DEFAULT_STATUS, { status: t.value, page: 1 }),
+            active: query.status === t.value,
+          }))}
+          rows={rows}
+          summary={`${page.data.total.toLocaleString('en-IN')} ${page.data.total === 1 ? 'school' : 'schools'} in this view`}
+          emptyMessage={EMPTY[query.status] ?? EMPTY.all}
+          action={bulkReviewSchools}
+          pagination={
+            <Pagination
+              page={page.data.page}
+              total={page.data.total}
+              size={page.data.size}
+              hrefFor={hrefFor}
+            />
+          }
+        />
+      </Reveal>
     </div>
   )
 }

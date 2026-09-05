@@ -1,7 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { invalidateAdminCache } from '@/lib/admin/cache'
 import { createClient } from '@/lib/supabase/server'
+
+/*
+  A single-row decision has to clear the admin cache for the same reason a bulk
+  one does: src/lib/admin/queues.ts caches a queue page for sixty seconds, so
+  without this the admin would approve a school and then watch it sit in the
+  list until the minute was up. revalidatePath alone re-renders the route --
+  and the re-render reads the same stale entry.
+*/
 
 export type SchoolReviewState = { error?: string; ok?: string } | undefined
 
@@ -46,7 +55,9 @@ export async function reviewSchoolAction(
   const status = (data as string) ?? ''
   if (!DONE[status]) return { error: ERR[status] ?? 'Could not complete that.' }
 
+  invalidateAdminCache()
   revalidatePath('/admin/schools')
+  revalidatePath('/admin')
   return { ok: DONE[status] }
 }
 
@@ -90,7 +101,11 @@ export async function reviewCoordinatorClaimAction(
   const status = (data as string) ?? ''
   if (!CLAIM_DONE[status]) return { error: CLAIM_ERR[status] ?? 'Could not complete that.' }
 
-  revalidatePath('/admin/schools')
+  invalidateAdminCache()
+  // The claims queue lives under /admin/coordinators, not /admin/schools --
+  // revalidating the schools page left the list this row is actually on stale.
+  revalidatePath('/admin/coordinators')
+  revalidatePath('/admin')
   revalidatePath('/coordinator')
   return { ok: CLAIM_DONE[status] }
 }
