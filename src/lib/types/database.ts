@@ -1332,6 +1332,13 @@ export type Database = {
           created_by: string
           status: string
           submission: Json
+          /**
+           * 'group1' (Classes 5-8) | 'group2' (Classes 9-12) | null.
+           * Set by the isc_entries_division_trg trigger from the leader's
+           * class; null when the leader sits outside Classes 5-12, and null on
+           * every row until docs/admin-scale-migration.sql has been run.
+           */
+          division: string | null
           consent_given_at: string | null
           submitted_at: string | null
           created_at: string
@@ -1344,6 +1351,8 @@ export type Database = {
           created_by: string
           status?: string
           submission?: Json
+          /** Leave it out: the insert trigger derives it from the leader's class. */
+          division?: string | null
           consent_given_at?: string | null
           submitted_at?: string | null
           created_at?: string
@@ -1356,6 +1365,7 @@ export type Database = {
           created_by?: string
           status?: string
           submission?: Json
+          division?: string | null
           consent_given_at?: string | null
           submitted_at?: string | null
           created_at?: string
@@ -1880,6 +1890,193 @@ export type Database = {
       settle_package_upgrade: {
         Args: { p_package_id: string; p_success: boolean; p_order_id: string; p_payment_id: string }
         Returns: string
+      }
+
+      // ---------------------------------------------------------------
+      // Admin at scale -- docs/admin-scale-migration.sql.
+      //
+      // All ten are `security definer` and gated on is_admin(); a non-admin
+      // gets the Postgres error 'admin only', not an empty result. Until the
+      // founder has pasted that file into the SQL editor they do not exist,
+      // and PostgREST answers PGRST202 -- which src/lib/admin/errors.ts maps
+      // to the 'migration-missing' result kind.
+      //
+      // Two shapes of trap are encoded below and must not be "tidied":
+      //   * `p_district` without `p_state` RAISES. District names repeat
+      //     across states, so the SQL refuses to guess. src/lib/admin/scope.ts
+      //     drops the orphan district before it can reach here.
+      //   * Every count is a SQL `bigint` and is typed `number` here because
+      //     that is what PostgREST sends. Other drivers send a string or a
+      //     BigInt, so the readers still coerce -- see src/lib/admin/coerce.ts.
+      // ---------------------------------------------------------------
+
+      /** jsonb. See IscSummary in src/lib/admin/isc.ts for the shape. */
+      admin_isc_summary: {
+        Args: { p_state?: string | null; p_district?: string | null; p_school_id?: string | null }
+        Returns: Json
+      }
+      /**
+       * One level per call: () -> states, (state) -> its districts,
+       * (state, district) -> its schools, where `key` is the school id as text
+       * and `label` is its name.
+       */
+      admin_isc_breakdown: {
+        Args: { p_state?: string | null; p_district?: string | null }
+        Returns: {
+          key: string
+          label: string
+          eligible: number
+          started: number
+          submitted: number
+          schools: number
+        }[]
+      }
+      /** Exactly greatest(p_days, 1) rows, oldest first, zero-filled. `day` is a date. */
+      admin_isc_timeline: {
+        Args: {
+          p_state?: string | null
+          p_district?: string | null
+          p_school_id?: string | null
+          p_days?: number
+        }
+        Returns: { day: string; started: number; submitted: number }[]
+      }
+      /** p_page is 1-based; p_size is clamped to 200 in SQL. `total` is count(*) over (). */
+      admin_isc_roster: {
+        Args: {
+          p_state?: string | null
+          p_district?: string | null
+          p_school_id?: string | null
+          p_track?: string | null
+          p_status?: string | null
+          p_division?: string | null
+          p_language?: string | null
+          p_q?: string | null
+          p_page?: number
+          p_size?: number
+        }
+        Returns: {
+          id: string
+          track: string
+          status: string
+          division: string | null
+          language: string | null
+          school_id: string
+          school_name: string
+          leader_id: string
+          leader_name: string | null
+          member_count: number
+          created_at: string
+          submitted_at: string | null
+          total: number
+        }[]
+      }
+      /**
+       * The roster's columns minus `total`, walked by keyset instead of offset.
+       * Raises without a state or a school (a national export is refused), and
+       * raises on half a cursor: pass both p_after_created and p_after_id, or
+       * neither.
+       */
+      admin_isc_export_chunk: {
+        Args: {
+          p_state?: string | null
+          p_district?: string | null
+          p_school_id?: string | null
+          p_track?: string | null
+          p_status?: string | null
+          p_division?: string | null
+          p_language?: string | null
+          p_q?: string | null
+          p_after_created?: string | null
+          p_after_id?: string | null
+          p_size?: number
+        }
+        Returns: {
+          id: string
+          track: string
+          status: string
+          division: string | null
+          language: string | null
+          school_id: string
+          school_name: string
+          leader_id: string
+          leader_name: string | null
+          member_count: number
+          created_at: string
+          submitted_at: string | null
+        }[]
+      }
+      /** Schools with eligible students and no entry. Only lists eligible >= 1. */
+      admin_isc_cold_schools: {
+        Args: {
+          p_state?: string | null
+          p_district?: string | null
+          p_page?: number
+          p_size?: number
+        }
+        Returns: {
+          id: string
+          name: string
+          state: string
+          district: string
+          eligible: number
+          coordinator_status: string
+          total: number
+        }[]
+      }
+      /**
+       * `email` is NULLABLE: auth.users is LEFT joined, so a profile whose auth
+       * row has gone is listed with a null email rather than vanishing.
+       * p_sort is 'created_desc' | 'created_asc' | 'name_asc'; anything else
+       * quietly falls back to created_desc. p_onboarded is tri-state.
+       */
+      admin_users_page: {
+        Args: {
+          p_q?: string | null
+          p_role?: string | null
+          p_onboarded?: boolean | null
+          p_sort?: string | null
+          p_page?: number
+          p_size?: number
+        }
+        Returns: {
+          id: string
+          full_name: string | null
+          email: string | null
+          role: string
+          school_name: string | null
+          school_state: string | null
+          school_class: string | null
+          onboarding_completed: boolean
+          created_at: string
+          total: number
+        }[]
+      }
+      /**
+       * Three top-N lists in one round trip, up to 3 * p_limit rows; group them
+       * by `kind`. Under two characters it returns nothing at all. `subtitle`
+       * is never null but may be the empty string.
+       */
+      admin_search: {
+        Args: { p_q: string; p_limit?: number }
+        Returns: { kind: string; id: string; title: string; subtitle: string }[]
+      }
+      /** jsonb. See the task-4-5 report for the shape; ~5s at target scale. */
+      admin_dashboard: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      /** At most 200 ids per call, or it raises. A school with no near-duplicate returns no row. */
+      admin_similar_schools_batch: {
+        Args: { p_school_ids: string[] }
+        Returns: {
+          school_id: string
+          similar_id: string
+          similar_name: string
+          similar_address: string | null
+          similar_review_status: string
+          score: number
+        }[]
       }
     }
     Enums: {
