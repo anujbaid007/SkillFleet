@@ -649,12 +649,467 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------
+-- G. Coordinator and school analytics
+--
+-- WHO A COORDINATOR IS, AND WHERE THEY ARE.
+--   A coordinator is a `user_profiles` row with role = 'coordinator'. A CLAIM is
+--   a `schools` row whose coordinator_id points at them; `coordinator_status`
+--   says where that claim stands ('none' | 'pending' | 'approved' | 'rejected').
+--   A coordinator profile carries NO geography of its own -- signup asks only for
+--   an email and the claim is made afterwards, so school_state / school_district
+--   / school_id are null on a real coordinator row. Every state and district
+--   figure below is therefore the state and district OF THE CLAIMED SCHOOL.
+--
+--   One consequence, stated plainly because it is the only place in this section
+--   where a total does not add up: a coordinator who has claimed nothing belongs
+--   to no state. They ARE counted in the national admin_coordinator_summary()
+--   `coordinators`, and they appear in NO row of admin_coordinator_breakdown().
+--   So `sum(state.coordinators) + <coordinators with no claim> = national
+--   coordinators`, never `sum(state.coordinators) = national coordinators`.
+--   Probe 7 in section F is that number. The three school and student columns of
+--   the breakdown -- schools_claimed, schools_total, students_covered,
+--   students_entered -- always sum exactly to the national figure. `approved`
+--   counts people too, so it sums only while nobody holds claims in two states
+--   (probe 9), and it is never short the way `coordinators` is: a person with no
+--   claim is not approved anywhere.
+--
+-- COVERED means `coordinator_id is not null AND coordinator_status = 'approved'`.
+--   A school that has been claimed but not yet approved is NOT covered, and
+--   neither is one whose claim was rejected: nobody is running the championship
+--   there yet. `schools_uncovered` is `schools_total - schools_approved` and
+--   therefore includes every pending and every rejected claim as well as the
+--   schools nobody has claimed at all. Both halves of the test matter: an
+--   'approved' status with a null coordinator_id covers nobody, and probe 8 in
+--   section F counts rows where the two disagree.
+--
+-- THE HEADLINE METRIC, and why THIS one is safe to render as a percentage.
+--   `students` under a coordinator is EVERY student registered at their school --
+--   REACH, not eligibility, so there is deliberately no Classes 5-12 filter here
+--   and this number is not comparable with section C's `eligible`.
+--   `students_entered` is the subset of those same people who are on at least one
+--   entry as leader or accepted invitee. Numerator and denominator are both
+--   scoped by the STUDENT's own school_id, so the numerator is a subset of the
+--   denominator and `entered_pct` cannot exceed 100.
+--
+--   Contrast admin_dashboard's top_states / stalled_states, where `submitted` is
+--   scoped by the ENTRY's school and `eligible` by the student's own: that ratio
+--   reaches 1.39 on real data and must never be shown as a percentage. This one
+--   may be. Do not copy the defensive treatment from there to here.
+--
+--   A student counts as entered WHATEVER SCHOOL THEIR ENTRY BELONGS TO. A pupil
+--   of yours who joined a neighbouring school's team did compete, and telling
+--   their coordinator otherwise would be wrong; scoping the numerator by the
+--   entry's school would also be the very mixing of bases that makes the
+--   state-level ratio exceed 1. Probe 11 in section F counts the people this
+--   affects, if you want to see the size of the difference.
+--
+-- UNITS, because they are not all the same:
+--   coordinators / approved / pending / rejected      -> PEOPLE
+--   schools_total / claimed / approved / uncovered    -> SCHOOLS
+--   students_covered / students_uncovered / entered   -> STUDENTS
+--   admin_coordinator_detail.entries / submitted      -> ENTRIES
+--   admin_coordinator_detail.by_track                 -> ENTRIES per track
+--     (section C's by_track counts distinct STUDENTS -- the two do not agree,
+--      and this one sums to `entries` exactly.)
+--
+-- ONE CLAIM PER COORDINATOR is what the product allows (apply_as_coordinator
+--   refuses a school that already has a coordinator, and the console reads
+--   get_my_coordinator_school()[0]), but nothing in the schema enforces it. So
+--   everything here that counts students for a person sums over EVERY school
+--   they have claimed -- never silently over one of them -- while the single
+--   school_* columns show their strongest claim (approved beats pending beats
+--   rejected, then name, then id). admin_coordinator_detail returns
+--   `schools_claimed` so a page can say when the numbers span more than one, and
+--   probe 9 in section F counts the people it is true of. It should be 0.
+-- ---------------------------------------------------------------
+
+-- Not in section A: section A is finished and reviewed, and this index exists
+-- only for section G. Partial, because most schools have no coordinator and a
+-- `coordinator_id = <uuid>` lookup is strict, so the planner can still use it.
+create index if not exists schools_coordinator_idx on schools (coordinator_id) where coordinator_id is not null;
+
+-- The whole coordinator funnel in one round trip.
+--
+-- `entered` is deliberately ONE distinct-aggregate over isc_entry_members rather
+-- than an EXISTS per student: at 200k students the correlated form is 200k index
+-- probes, while this is a single hash aggregate that the join to the scoped
+-- students then probes. Same shape as section C's `per_user`.
+create or replace function admin_coordinator_summary(
+  p_state text default null, p_district text default null
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare v jsonb;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  if p_district is not null and p_state is null then
+    raise exception '%: p_district was given without p_state. District names repeat across states (Aurangabad is in both Maharashtra and Bihar), so a district on its own silently merges them. Pass both, or neither.', 'admin_coordinator_summary';
+  end if;
+  with sc as (
+    select s.id, s.coordinator_id, s.coordinator_status,
+           (s.coordinator_id is not null and s.coordinator_status = 'approved') as covered
+    from schools s
+    where (p_state is null or s.state = p_state)
+      and (p_district is null or s.district = p_district)
+  ),
+  entered as (
+    select distinct m.user_id uid from isc_entry_members m
+    where m.user_id is not null and (m.is_leader or m.accepted_at is not null)
+  ),
+  -- Students are reached through the SCHOOL row, not through
+  -- user_profiles.school_state: a student whose school_id matches no school is in
+  -- neither students_covered nor students_uncovered. Probe 10 counts them.
+  per_school as (
+    select p.school_id sid, count(*) n, count(e.uid) ent
+    from user_profiles p
+    join sc on sc.id = p.school_id
+    left join entered e on e.uid = p.id
+    where p.role = 'student'
+    group by p.school_id
+  ),
+  -- One row per coordinator with a claim in scope. `rk` ranks their strongest
+  -- claim so a person is counted under exactly one status.
+  per_coord as (
+    select sc.coordinator_id cid,
+           coalesce(sum(ps.n), 0)::bigint students,
+           max(case sc.coordinator_status when 'approved' then 3 when 'pending' then 2
+                                          when 'rejected' then 1 else 0 end) rk
+    from sc left join per_school ps on ps.sid = sc.id
+    where sc.coordinator_id is not null
+    group by sc.coordinator_id
+  ),
+  tot as (
+    select count(*) schools_total,
+           count(*) filter (where sc.coordinator_id is not null) schools_claimed,
+           count(*) filter (where sc.covered) schools_approved
+    from sc
+  ),
+  st as (
+    select coalesce(sum(ps.n) filter (where sc.covered), 0)::bigint cov,
+           coalesce(sum(ps.n) filter (where not sc.covered), 0)::bigint unc,
+           coalesce(sum(ps.ent) filter (where sc.covered), 0)::bigint cov_ent
+    from sc left join per_school ps on ps.sid = sc.id
+  ),
+  -- The median runs over exactly the people counted in `coordinators`, zeros
+  -- included -- nationally that is every coordinator, so a coordinator who has
+  -- claimed nothing pulls it down, which is the honest answer to "how many
+  -- students does a typical coordinator bring".
+  med as (
+    select coalesce(pc.students, 0) n
+    from user_profiles p left join per_coord pc on pc.cid = p.id
+    where p_state is null and p.role = 'coordinator'
+    union all
+    select pc.students from per_coord pc where p_state is not null
+  )
+  select jsonb_build_object(
+    'coordinators', case when p_state is null
+                    then (select count(*) from user_profiles p where p.role = 'coordinator')
+                    else (select count(*) from per_coord) end,
+    'approved',  (select count(*) from per_coord where rk = 3),
+    'pending',   (select count(*) from per_coord where rk = 2),
+    'rejected',  (select count(*) from per_coord where rk = 1),
+    'schools_total',     (select schools_total from tot),
+    'schools_claimed',   (select schools_claimed from tot),
+    'schools_approved',  (select schools_approved from tot),
+    'schools_uncovered', (select schools_total - schools_approved from tot),
+    'students_covered',   (select cov from st),
+    'students_uncovered', (select unc from st),
+    'students_entered',   (select cov_ent from st),
+    'median_students_per_coordinator',
+      (select coalesce(round((percentile_cont(0.5) within group (order by n))::numeric, 1), 0) from med),
+    -- Safe as a percentage: cov_ent counts a subset of the same people as cov.
+    'entered_pct', (select case when cov = 0 then 0
+                                else round(100.0 * cov_ent / cov, 1) end from st)
+  ) into v;
+  return v;
+end $$;
+
+-- States nationally, districts inside a state. There is no school level: a
+-- school's coordinator is one person, so the school level of this table would be
+-- admin_coordinators_page filtered, which is a different screen.
+--
+-- `coordinators` and `approved` count PEOPLE (count(distinct coordinator_id), so
+-- someone with two claims in one state counts once); schools_claimed and
+-- schools_total count SCHOOLS; the last two count STUDENTS.
+--
+-- The three school and student columns ALWAYS sum to the matching national or
+-- state figure -- a school belongs to one district whoever claimed it. The two
+-- PEOPLE columns sum only while nobody holds claims in two places: `coordinators`
+-- additionally misses everyone who has claimed nothing (see the top of section
+-- G), and both of them count a two-claim person once per district. Probe 9 in
+-- section F is the number that says whether the second caveat is live; it should
+-- be 0.
+create or replace function admin_coordinator_breakdown(p_state text default null)
+returns table(key text, label text, coordinators bigint, approved bigint,
+              schools_claimed bigint, schools_total bigint,
+              students_covered bigint, students_entered bigint)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  return query
+  with sc as (
+    select s.id, case when p_state is null then s.state else s.district end k,
+           s.coordinator_id, s.coordinator_status,
+           (s.coordinator_id is not null and s.coordinator_status = 'approved') as covered
+    from schools s
+    where p_state is null or s.state = p_state
+  ),
+  entered as (
+    select distinct m.user_id uid from isc_entry_members m
+    where m.user_id is not null and (m.is_leader or m.accepted_at is not null)
+  ),
+  per_school as (
+    select p.school_id sid, count(*) n, count(e.uid) ent
+    from user_profiles p
+    join sc on sc.id = p.school_id
+    left join entered e on e.uid = p.id
+    where p.role = 'student'
+    group by p.school_id
+  )
+  select sc.k, sc.k,
+         count(distinct sc.coordinator_id),
+         count(distinct sc.coordinator_id) filter (where sc.coordinator_status = 'approved'),
+         count(*) filter (where sc.coordinator_id is not null),
+         count(*),
+         coalesce(sum(ps.n)   filter (where sc.covered), 0)::bigint,
+         coalesce(sum(ps.ent) filter (where sc.covered), 0)::bigint
+  from sc left join per_school ps on ps.sid = sc.id
+  group by sc.k
+  -- k is the group key, so it is unique per row: that is the tie-break, and
+  -- without it two states with the same students_covered swap places between
+  -- calls and a paged UI built on this would show one of them twice.
+  order by 7 desc, 1;
+end $$;
+
+-- The growth curve, zero-filled like admin_isc_timeline so a chart has no gaps.
+--
+-- ALL THREE SERIES ARE KEYED ON THE COORDINATOR'S SIGNUP DAY
+-- (user_profiles.created_at), and that is not a shortcut -- `schools` HAS NO
+-- CLAIM TIMESTAMP. It carries created_at (when the school row was imported,
+-- which for a pre-loaded school has nothing to do with any claim) and
+-- reviewed_at / review_notes (which belong to the SCHOOL review, not to the
+-- coordinator claim). There is no coordinator_claimed_at and no
+-- coordinator_reviewed_at, so "claims made on day D" is not a question this
+-- database can answer.
+--
+-- What this returns instead is a SIGNUP COHORT: of the coordinators who signed
+-- up on day D, how many have since claimed a school (`claims`) and how many of
+-- those claims are approved (`approvals`). That makes the three series a funnel
+-- on one axis, so `coordinators >= claims >= approvals` on every single day --
+-- which a true event chart would not guarantee. If the founder wants real event
+-- dates, add `coordinator_claimed_at` and `coordinator_reviewed_at` to `schools`
+-- and set them in apply_as_coordinator / admin_review_coordinator_claim; this
+-- function is then a two-line change.
+--
+-- With p_state, a coordinator has no geography until they claim, so the scoped
+-- `coordinators` series IS the `claims` series. The gap between the two only
+-- exists nationally.
+create or replace function admin_coordinator_trend(
+  p_state text default null, p_days int default 30
+) returns table(day date, coordinators bigint, claims bigint, approvals bigint)
+language plpgsql security definer set search_path = public as $$
+declare v_from date := current_date - greatest(p_days, 1) + 1;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  return query
+  with cl as (
+    select s.coordinator_id cid, bool_or(s.coordinator_status = 'approved') approved
+    from schools s
+    where s.coordinator_id is not null and (p_state is null or s.state = p_state)
+    group by s.coordinator_id
+  ),
+  c as (
+    select p.created_at::date d, count(*) n,
+           count(cl.cid) claims,
+           count(*) filter (where cl.approved) approvals
+    from user_profiles p
+    left join cl on cl.cid = p.id
+    where p.role = 'coordinator' and p.created_at >= v_from
+      and (p_state is null or cl.cid is not null)
+    group by 1
+  )
+  -- Integer series for the same reason as admin_isc_timeline: the
+  -- generate_series(date, date, interval) form resolves to the timestamptz
+  -- overload and would make the boundaries depend on the session timezone.
+  select (current_date - g.i)::date, coalesce(c.n, 0), coalesce(c.claims, 0), coalesce(c.approvals, 0)
+  from generate_series(0, greatest(p_days, 1) - 1) g(i)
+  left join c on c.d = current_date - g.i
+  order by 1;
+end $$;
+
+-- The coordinator directory. Same paging contract as sections D and E: p_page is
+-- 1-based, p_size is clamped to 200 INSIDE the SQL, `total` is count(*) over ().
+--
+-- auth.users is LEFT joined for exactly the reason given above admin_users_page:
+-- a coordinator whose auth row has gone is the one an admin most needs to find,
+-- and an inner join would hide them with no error. `email` is therefore NULLABLE.
+--
+-- `students` has to be known for every matching coordinator before the LIMIT --
+-- it is the default sort key and `total` counts the whole match set anyway -- so
+-- it is one aggregate over user_profiles per call. `students_entered` is NOT a
+-- sort key, so it is computed AFTER the page, once per returned row, the way
+-- section D computes member_count: at 200k students that is the difference
+-- between one hash over 1.16M member rows and 50 index probes.
+--
+-- A coordinator with no claim is listed with nulls in school_id, school_name,
+-- state and district, claim_status 'none' and zero students. Passing p_state
+-- excludes them, since a claim is the only thing that gives a coordinator a
+-- state.
+create or replace function admin_coordinators_page(
+  p_q text default null, p_status text default null, p_state text default null,
+  p_sort text default 'students_desc', p_page int default 1, p_size int default 50
+) returns table(
+  id uuid, full_name text, email text, phone text, school_id uuid, school_name text,
+  state text, district text, claim_status text, students bigint, students_entered bigint,
+  joined_at timestamptz, total bigint
+) language plpgsql security definer set search_path = public as $$
+declare v_size int    := least(greatest(coalesce(p_size, 50), 1), 200);
+        v_off  bigint := (greatest(coalesce(p_page, 1), 1)::bigint - 1) * v_size;
+        v_q    text   := nullif(lower(trim(coalesce(p_q, ''))), '');
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  return query
+  with sch as (
+    select s.id, s.name, s.state, s.district, s.coordinator_id, s.coordinator_status
+    from schools s
+    where s.coordinator_id is not null and (p_state is null or s.state = p_state)
+  ),
+  -- The strongest claim, one row per coordinator: approved, then pending, then
+  -- rejected, then by name and id so the pick never changes between calls.
+  claim as (
+    select distinct on (sh.coordinator_id)
+           sh.coordinator_id cid, sh.id sid, sh.name, sh.state, sh.district, sh.coordinator_status st
+    from sch sh
+    order by sh.coordinator_id,
+             case sh.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                        when 'rejected' then 2 else 3 end,
+             sh.name, sh.id
+  ),
+  reach as (
+    select sh.coordinator_id cid, count(*) students
+    from sch sh join user_profiles p on p.school_id = sh.id and p.role = 'student'
+    group by sh.coordinator_id
+  ),
+  page as (
+    select p.id, p.full_name, u.email, p.phone, c.sid, c.name as school_name,
+           c.state, c.district, coalesce(c.st, 'none') as claim_status,
+           coalesce(r.students, 0)::bigint as students, p.created_at,
+           count(*) over () as n_total
+    from user_profiles p
+    left join auth.users u on u.id = p.id
+    left join claim c on c.cid = p.id
+    left join reach r on r.cid = p.id
+    where p.role = 'coordinator'
+      and (p_state is null or c.cid is not null)
+      and (p_status is null or coalesce(c.st, 'none') = p_status)
+      and (v_q is null
+           or lower(coalesce(p.full_name, '')) like '%' || v_q || '%'
+           or lower(coalesce(u.email, '')) like '%' || v_q || '%'
+           or lower(coalesce(c.name, '')) like '%' || v_q || '%')
+    -- An unrecognised p_sort falls through to students_desc rather than erroring.
+    -- p.id last makes all four orders TOTAL: hundreds of coordinators share a
+    -- students value (every coordinator of an empty school has 0), and two people
+    -- very often share a name.
+    order by
+      case when p_sort = 'students_asc' then coalesce(r.students, 0) end asc,
+      case when p_sort = 'name_asc'     then lower(coalesce(p.full_name, '')) end asc,
+      case when p_sort = 'joined_desc'  then p.created_at end desc,
+      coalesce(r.students, 0) desc,
+      p.id
+    limit v_size offset v_off
+  )
+  select pg.id, pg.full_name, pg.email, pg.phone, pg.sid, pg.school_name,
+         pg.state, pg.district, pg.claim_status, pg.students,
+         (select count(*) from schools sx
+            join user_profiles px on px.school_id = sx.id and px.role = 'student'
+           where sx.coordinator_id = pg.id
+             and (p_state is null or sx.state = p_state)
+             and exists (select 1 from isc_entry_members m
+                          where m.user_id = px.id and (m.is_leader or m.accepted_at is not null))),
+         pg.created_at, pg.n_total
+  from page pg
+  order by
+    case when p_sort = 'students_asc' then pg.students end asc,
+    case when p_sort = 'name_asc'     then lower(coalesce(pg.full_name, '')) end asc,
+    case when p_sort = 'joined_desc'  then pg.created_at end desc,
+    pg.students desc,
+    pg.id;
+end $$;
+
+-- One coordinator, everything about them.
+--
+-- Returns SQL NULL -- not a JSON object, not an empty one -- when the id is not
+-- a coordinator profile, so a page opened on a deleted user renders "not found"
+-- instead of 500ing. Check for null before reading any key.
+--
+-- students / students_entered / entries / submitted / by_track are summed over
+-- EVERY school this person has claimed, and `schools_claimed` says how many that
+-- is (1 in practice; probe 9 in section F checks). `school` is their strongest
+-- claim, or null if they have claimed nothing.
+create or replace function admin_coordinator_detail(p_coordinator_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v jsonb;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  with cl as (
+    select s.id, s.name, s.state, s.district, s.review_status,
+           s.coordinator_status, s.coordinator_notes, s.board
+    from schools s where s.coordinator_id = p_coordinator_id
+  ),
+  ent as (
+    select e.track, e.status from isc_entries e where e.school_id in (select cl.id from cl)
+  ),
+  -- One school's worth of students, so the correlated EXISTS is the cheap form
+  -- here: a few hundred index probes on isc_entry_members_user_idx, against the
+  -- million-row hash aggregate the national functions above have to build.
+  stu as (
+    select count(*) n_students,
+           count(*) filter (where exists (
+             select 1 from isc_entry_members m
+             where m.user_id = p.id and (m.is_leader or m.accepted_at is not null))) n_entered
+    from user_profiles p
+    where p.role = 'student' and p.school_id in (select cl.id from cl)
+  )
+  select jsonb_build_object(
+    'id', p.id,
+    'full_name', p.full_name,
+    'email', u.email,
+    'phone', p.phone,
+    'joined_at', p.created_at,
+    'onboarding_completed', p.onboarding_completed,
+    'schools_claimed', (select count(*) from cl),
+    'school', (select to_jsonb(t) from (
+                 select cl.id, cl.name, cl.state, cl.district, cl.review_status,
+                        cl.coordinator_status as claim_status, cl.coordinator_notes as notes, cl.board
+                 from cl
+                 order by case cl.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                                     when 'rejected' then 2 else 3 end,
+                          cl.name, cl.id
+                 limit 1) t),
+    'students', (select n_students from stu),
+    'students_entered', (select n_entered from stu),
+    'entered_pct', (select case when n_students = 0 then 0
+                                else round(100.0 * n_entered / n_students, 1) end from stu),
+    'entries', (select count(*) from ent),
+    'submitted', (select count(*) from ent where ent.status = 'submitted'),
+    -- ENTRIES per track, not students: it sums to `entries` exactly. Ordered
+    -- count desc then key, like every list in section C.
+    'by_track', (select coalesce(jsonb_agg(jsonb_build_object('key', k, 'count', c) order by c desc, k), '[]'::jsonb)
+                 from (select ent.track k, count(*) c from ent group by ent.track) t)
+  ) into v
+  from user_profiles p
+  left join auth.users u on u.id = p.id
+  where p.id = p_coordinator_id and p.role = 'coordinator';
+  return v;
+end $$;
+
+-- ---------------------------------------------------------------
 -- F. Run these on the live project before trusting any admin figure
 --
--- Nothing below runs as part of the migration. Queries 1-5 are integrity
--- probes; part 6 is the EXPLAIN pass that confirms section A's indexes are
--- actually being used on real data. Run them once after pasting this script,
--- and again whenever a number on an admin page looks wrong.
+-- Nothing below runs as part of the migration. Queries 1-5 (sections C-E) and
+-- 7-11 (section G) are integrity probes; part 6 is the EXPLAIN pass that
+-- confirms the indexes are actually being used on real data. Run them once
+-- after pasting this script, and again whenever a number on an admin page looks
+-- wrong. 7-11 are the ones to run before trusting a coordinator figure: each is
+-- a number that section G either cannot show you or has to leave out of a total.
 --
 -- 1. Orphan entries -- an entry whose school_id matches no row in schools.
 --    Everything that reads entries here reaches them THROUGH schools:
@@ -746,11 +1201,136 @@ end $$;
 --             or lower(coalesce(p.school_name, '')) like '%sharma%')
 --      order by p.created_at desc, p.id limit 50;
 --
---    That second one is the ONLY probe here that is SUPPOSED to show a
---    sequential scan -- two of them, on user_profiles and on auth.users. That is
---    correct and accepted for an admin-only search; see the note above
---    admin_users_page in section E for why no index can help and what would.
---    Do not shorten it to the full_name branch alone: that one predicate does
---    use user_profiles_name_trgm, and measuring it would tell you the users page
---    is index-backed when it is not.
+--    That second one is the ONLY probe in the section C-E group that is SUPPOSED
+--    to show a sequential scan -- two of them, on user_profiles and on
+--    auth.users. That is correct and accepted for an admin-only search; see the
+--    note above admin_users_page in section E for why no index can help and what
+--    would. Do not shorten it to the full_name branch alone: that one predicate
+--    does use user_profiles_name_trgm, and measuring it would tell you the users
+--    page is index-backed when it is not.
+--
+--    SECTION G. Same rule, same trap: the plans that matter are the statements
+--    inside, so run the bodies. Substitute a real state and a name that exists.
+--
+--      explain analyze select admin_coordinator_summary('Haryana');
+--      explain analyze select * from admin_coordinators_page(null, null, 'Haryana', 'students_desc', 1, 50);
+--      explain analyze select admin_coordinator_detail((select coordinator_id from schools where coordinator_id is not null limit 1));
+--
+--    (a) Every claim lookup goes through schools.coordinator_id. Index Scan on
+--        schools_coordinator_idx, or the whole section is a sequential scan of
+--        schools per coordinator:
+--
+--      explain analyze
+--      select s.id from schools s
+--      where s.coordinator_id = (select coordinator_id from schools where coordinator_id is not null limit 1);
+--
+--    (b) The per-coordinator student count, which is what `students` and the
+--        default sort are built from. Bitmap Heap Scan via user_profiles_school_idx:
+--
+--      explain analyze
+--      select count(*) from schools sx
+--      join user_profiles px on px.school_id = sx.id and px.role = 'student'
+--      where sx.coordinator_id = (select coordinator_id from schools where coordinator_id is not null limit 1);
+--
+--    (c) students_entered, once per row of a page. Index Only Scan or Bitmap Heap
+--        Scan on isc_entry_members_user_idx -- 50 of these run per page, so a
+--        sequential scan here costs 50 sequential scans of 1.2M rows:
+--
+--      explain analyze
+--      select count(*) from user_profiles px
+--      where px.school_id = (select id from schools where coordinator_id is not null limit 1)
+--        and px.role = 'student'
+--        and exists (select 1 from isc_entry_members m
+--                     where m.user_id = px.id and (m.is_leader or m.accepted_at is not null));
+--
+--    (d) The coordinators-page search predicate, written OUT IN FULL. Like the
+--        users page it ORs a name, an email on auth.users and a school name, so
+--        it is a Hash Left Join over sequential scans AND IT IS SUPPOSED TO BE.
+--        Do not shorten it to the full_name branch: that one uses
+--        user_profiles_name_trgm and would report the directory as index-backed
+--        when it is not. The remedy, if it ever matters, is the one in the note
+--        above admin_users_page -- get every searched value onto one table:
+--
+--      explain analyze
+--      select p.id, count(*) over () from user_profiles p
+--      left join auth.users u on u.id = p.id
+--      left join (select distinct on (coordinator_id) coordinator_id cid, id sid, name
+--                 from schools where coordinator_id is not null
+--                 order by coordinator_id, name, id) c on c.cid = p.id
+--      left join (select s.coordinator_id cid, count(*) students
+--                 from schools s join user_profiles q on q.school_id = s.id and q.role = 'student'
+--                 where s.coordinator_id is not null group by s.coordinator_id) r on r.cid = p.id
+--      where p.role = 'coordinator'
+--        and (lower(coalesce(p.full_name, '')) like '%sharma%'
+--             or lower(coalesce(u.email, '')) like '%sharma%'
+--             or lower(coalesce(c.name, '')) like '%sharma%')
+--      order by coalesce(r.students, 0) desc, p.id limit 50;
+--
+-- 7. Coordinators who have claimed nothing. THIS IS THE GAP between the national
+--    admin_coordinator_summary().coordinators and the sum of
+--    admin_coordinator_breakdown().coordinators, and it is the only column of
+--    that table which does not add up. A coordinator has no state of their own
+--    (see the top of section G), so these people are in the national count and
+--    in no state row:
+--
+--      select count(*) from user_profiles p
+--      where p.role = 'coordinator'
+--        and not exists (select 1 from schools s where s.coordinator_id = p.id);
+--
+--    They are still listed by admin_coordinators_page with claim_status 'none',
+--    null school columns and 0 students -- unless you pass p_state, which
+--    excludes them.
+--
+-- 8. Claims that do not line up. Both should be 0.
+--
+--      -- an approval nobody owns: counted as pending_coordinators by
+--      -- admin_dashboard (which reads the status alone) but NOT as covered by
+--      -- section G (which requires both), so the two pages disagree by this many.
+--      select count(*) from schools
+--      where coordinator_id is null and coordinator_status <> 'none';
+--
+--      -- a claim with no status: the person is counted in `coordinators` but
+--      -- under none of approved / pending / rejected.
+--      select count(*) from schools
+--      where coordinator_id is not null and coordinator_status = 'none';
+--
+--      -- a claim by somebody who is not a coordinator (or not there at all).
+--      -- A scoped admin_coordinator_summary().coordinators counts these, since
+--      -- it counts distinct coordinator_id on schools; the national one does
+--      -- not, since it counts profiles. That is the second way the two can part.
+--      select count(*) from schools s
+--      where s.coordinator_id is not null
+--        and not exists (select 1 from user_profiles p
+--                         where p.id = s.coordinator_id and p.role = 'coordinator');
+--
+-- 9. Coordinators holding more than one claim. Should be 0 -- the product allows
+--    one -- and if it is not, admin_coordinators_page and admin_coordinator_detail
+--    show these people ONE school name (their strongest claim) beside student
+--    numbers summed over ALL of their schools. detail's `schools_claimed` is the
+--    field that says so:
+--
+--      select count(*) from (
+--        select coordinator_id from schools where coordinator_id is not null
+--        group by coordinator_id having count(*) > 1) t;
+--
+-- 10. Students whose school_id matches no school. students_covered and
+--     students_uncovered are both reached through the schools row, so these
+--     students are in NEITHER and the two do not sum to the student total:
+--
+--       select count(*) from user_profiles p
+--       where p.role = 'student'
+--         and (p.school_id is null
+--              or not exists (select 1 from schools s where s.id = p.school_id));
+--
+-- 11. Students competing at a school other than their own. `students_entered`
+--     and `entered_pct` count a student as entered whatever school their entry
+--     belongs to (see the top of section G); this is exactly how many people
+--     that decision is visible for. It is not an error -- a cross-school team is
+--     legal -- it is the size of the difference between the two readings:
+--
+--       select count(distinct m.user_id) from isc_entry_members m
+--       join isc_entries e on e.id = m.entry_id
+--       join user_profiles p on p.id = m.user_id
+--       where (m.is_leader or m.accepted_at is not null)
+--         and p.school_id is not null and p.school_id <> e.school_id;
 -- ---------------------------------------------------------------

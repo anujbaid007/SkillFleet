@@ -30,6 +30,9 @@ create table if not exists schools (
   review_status text not null default 'approved',
   coordinator_id uuid,
   coordinator_status text not null default 'none',
+  -- Live schema has this and admin_coordinator_detail returns it; the stand-in
+  -- has to carry it or section G fails to create.
+  coordinator_notes text,
   created_by uuid,
   created_at timestamptz not null default now()
 );

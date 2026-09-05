@@ -1234,6 +1234,929 @@ CHECKS.push(() => check('TIMING admin_dashboard()', async () => {
 CHECKS.push(() => check('TIMING admin_similar_schools_batch() 20 schools', async () => {
   await db.query(`select * from admin_similar_schools_batch(array(select id from schools order by id limit 20))`)
 }))
+// ---------------------------------------------------------------------------
+// Task G1 — section G (admin_coordinator_summary, admin_coordinator_breakdown,
+//                      admin_coordinator_trend, admin_coordinators_page,
+//                      admin_coordinator_detail)
+// ---------------------------------------------------------------------------
+
+// WHAT THE SEEDED DATA CAN AND CANNOT PROVE, since it decides where each
+// assertion below lives:
+//   * It can prove the sums. Every school has a claim status from a 13-long
+//     pattern, one coordinator per claimed school, a sixth again as many
+//     coordinators with no claim at all, and a twentieth extra students who
+//     compete in nothing — so students_entered is strictly below students at
+//     nearly every school and entered_pct is not 100.
+//   * It cannot prove anything about a coordinator holding TWO claims, a
+//     coordinator with no auth.users row, a pending invitee at a covered school,
+//     or a student competing at somebody else's school in a way whose expected
+//     number is small enough to work out by hand. Those live in the
+//     'coordinator analytics on a hand-computed fixture' check, which is rolled
+//     back and then asserted to have been rolled back.
+
+// The claim-status precedence section G uses everywhere: approved beats pending
+// beats rejected, so a person is counted under exactly one of them.
+const CLAIM_RANK = `case s.coordinator_status when 'approved' then 3 when 'pending' then 2 when 'rejected' then 1 else 0 end`
+
+// Reference figures for one scope, written from the other direction: no CTEs, no
+// shared subexpressions, `exists` where section G uses joins and aggregates, and
+// the claim precedence spelled out as three separate NOT EXISTS clauses rather
+// than as a max() over a rank.
+const coordRef = async (state = null, district = null) => {
+  const inScope = `(($1::text is null or s.state = $1) and ($2::text is null or s.district = $2))`
+  const covered = `exists (select 1 from schools s where s.id = p.school_id and ${inScope}
+                            and s.coordinator_id is not null and s.coordinator_status = 'approved')`
+  const anySchool = `exists (select 1 from schools s where s.id = p.school_id and ${inScope})`
+  const onATeam = `exists (select 1 from isc_entry_members m
+                            where m.user_id = p.id and (m.is_leader or m.accepted_at is not null))`
+  const claims = (extra) => `exists (select 1 from schools s where s.coordinator_id = p.id and ${inScope} ${extra})`
+  const { rows: [r] } = await db.query(`select
+    (select count(*)::int from user_profiles p where p.role = 'coordinator'
+       and ($1::text is null or ${claims('')})) coordinators,
+    (select count(*)::int from user_profiles p where p.role = 'coordinator'
+       and ${claims(`and s.coordinator_status = 'approved'`)}) approved,
+    (select count(*)::int from user_profiles p where p.role = 'coordinator'
+       and ${claims(`and s.coordinator_status = 'pending'`)}
+       and not ${claims(`and s.coordinator_status = 'approved'`)}) pending,
+    (select count(*)::int from user_profiles p where p.role = 'coordinator'
+       and ${claims(`and s.coordinator_status = 'rejected'`)}
+       and not ${claims(`and s.coordinator_status = 'approved'`)}
+       and not ${claims(`and s.coordinator_status = 'pending'`)}) rejected,
+    (select count(*)::int from schools s where ${inScope}) schools_total,
+    (select count(*)::int from schools s where ${inScope} and s.coordinator_id is not null) schools_claimed,
+    (select count(*)::int from schools s where ${inScope}
+       and s.coordinator_id is not null and s.coordinator_status = 'approved') schools_approved,
+    (select count(*)::int from user_profiles p where p.role = 'student' and ${covered}) students_covered,
+    (select count(*)::int from user_profiles p where p.role = 'student'
+       and ${anySchool} and not ${covered}) students_uncovered,
+    (select count(*)::int from user_profiles p where p.role = 'student' and ${covered} and ${onATeam}) students_entered
+  `, [state, district])
+  // The per-coordinator student totals the median runs over, one row per person,
+  // zeros included. Sorted and halved in JS so nothing about percentile_cont is
+  // assumed.
+  const { rows: pop } = await db.query(`
+    select coalesce((select count(*) from user_profiles st
+                      where st.role = 'student'
+                        and st.school_id in (select s.id from schools s
+                                              where s.coordinator_id = p.id and ${inScope})), 0)::int n
+    from user_profiles p
+    where p.role = 'coordinator' and ($1::text is null or ${claims('')})
+    order by 1`, [state, district])
+  const ns = pop.map((x) => x.n).sort((a, b) => a - b)
+  const mid = ns.length === 0 ? 0
+    : ns.length % 2 ? ns[(ns.length - 1) / 2] : (ns[ns.length / 2 - 1] + ns[ns.length / 2]) / 2
+  return {
+    ...r,
+    schools_uncovered: r.schools_total - r.schools_approved,
+    median: Math.round(mid * 10) / 10,
+    entered_pct: r.students_covered === 0 ? 0
+      : Math.round((1000 * r.students_entered) / r.students_covered) / 10,
+  }
+}
+
+const assertSummaryMatches = (v, ref, label) => {
+  assertEqual([v.coordinators, v.approved, v.pending, v.rejected],
+    [ref.coordinators, ref.approved, ref.pending, ref.rejected], `${label}: people`)
+  assertEqual([v.schools_total, v.schools_claimed, v.schools_approved, v.schools_uncovered],
+    [ref.schools_total, ref.schools_claimed, ref.schools_approved, ref.schools_uncovered], `${label}: schools`)
+  assertEqual([v.students_covered, v.students_uncovered, v.students_entered],
+    [ref.students_covered, ref.students_uncovered, ref.students_entered], `${label}: students`)
+  assertEqual(v.median_students_per_coordinator, ref.median, `${label}: median`)
+  assertEqual(v.entered_pct, ref.entered_pct, `${label}: entered_pct`)
+}
+
+CHECKS.push(() => check('admin_coordinator_summary national', async () => {
+  const { rows: [{ v }] } = await db.query(`select admin_coordinator_summary() v`)
+  const ref = await coordRef()
+  assertSummaryMatches(v, ref, 'national')
+  // Every key present, every value a JSON number, nothing null.
+  for (const k of ['coordinators', 'approved', 'pending', 'rejected', 'schools_total', 'schools_claimed',
+    'schools_approved', 'schools_uncovered', 'students_covered', 'students_uncovered', 'students_entered',
+    'median_students_per_coordinator', 'entered_pct']) {
+    if (!(k in v)) throw new Error(`admin_coordinator_summary is missing ${k}`)
+    if (typeof v[k] !== 'number') throw new Error(`${k} should be a JSON number, got ${typeof v[k]} ${JSON.stringify(v[k])}`)
+  }
+  // ...and every one of them must be discriminating something on this seed, or
+  // comparing it to a reference proves nothing.
+  for (const k of ['coordinators', 'approved', 'pending', 'rejected', 'schools_claimed',
+    'schools_approved', 'schools_uncovered', 'students_covered', 'students_uncovered', 'students_entered'])
+    if (!(v[k] > 0)) throw new Error(`${k} is 0 on the seed, so this check cannot fail`)
+  assertEqual(v.schools_claimed < v.schools_total, true, 'some schools have no coordinator at all')
+  assertEqual(v.schools_approved < v.schools_claimed, true, 'some claims are not approved')
+  assertEqual(v.approved + v.pending + v.rejected < v.coordinators, true,
+    'some coordinators have no claim, so the three statuses must not add up to the total')
+  // THE headline number. It cannot exceed 100 because students_entered counts a
+  // subset of the same people as students_covered -- and it must not be 100
+  // either, or a function returning the reach as the entered count would pass.
+  if (!(v.entered_pct > 0 && v.entered_pct < 100))
+    throw new Error(`entered_pct is ${v.entered_pct}: the seed has stopped discriminating entered from registered`)
+  assertEqual(v.students_entered < v.students_covered, true, 'not every covered student has entered')
+  // A pending or rejected claim is NOT coverage.
+  const { rows: [u] } = await db.query(`select count(*)::int n from schools
+    where coordinator_id is not null and coordinator_status in ('pending', 'rejected')`)
+  if (!(u.n > 0)) throw new Error('no claimed-but-unapproved schools in the seed')
+  assertEqual(v.schools_uncovered >= u.n, true, 'claimed-but-unapproved schools count as uncovered')
+}))
+
+CHECKS.push(() => check('admin_coordinator_summary scoped', async () => {
+  const { rows: [st] } = await db.query(`select state, count(*)::int n from schools group by 1 order by 2 desc, 1 limit 1`)
+  const v = (await db.query(`select admin_coordinator_summary($1) v`, [st.state])).rows[0].v
+  assertSummaryMatches(v, await coordRef(st.state), `state ${st.state}`)
+  const nat = (await db.query(`select admin_coordinator_summary() v`)).rows[0].v
+  if (!(v.schools_total > 0 && v.schools_total < nat.schools_total))
+    throw new Error(`the state scope did not narrow anything: ${v.schools_total} of ${nat.schools_total}`)
+  // Scoped, `coordinators` is the people with a claim in that state, so unlike
+  // the national call the three statuses DO account for all of them (probe 8).
+  assertEqual(v.approved + v.pending + v.rejected, v.coordinators,
+    'every scoped coordinator is counted under exactly one claim status')
+  const { rows: [d] } = await db.query(`select district from schools where state = $1 order by district limit 1`, [st.state])
+  const dv = (await db.query(`select admin_coordinator_summary($1, $2) v`, [st.state, d.district])).rows[0].v
+  assertSummaryMatches(dv, await coordRef(st.state, d.district), `district ${d.district}`)
+  if (!(dv.schools_total > 0 && dv.schools_total < v.schools_total))
+    throw new Error(`the district scope did not narrow the state: ${dv.schools_total} of ${v.schools_total}`)
+  // An unknown state is all zeros, never null.
+  const empty = (await db.query(`select admin_coordinator_summary('Nowhereland') v`)).rows[0].v
+  assertEqual([empty.coordinators, empty.schools_total, empty.students_covered, empty.students_uncovered,
+    empty.students_entered, empty.median_students_per_coordinator, empty.entered_pct], [0, 0, 0, 0, 0, 0, 0],
+    'zeros for an unknown state, and a median of 0 rather than null')
+  // A district with no state is refused, exactly as in sections C and D.
+  let raised = null
+  try { await db.query(`select admin_coordinator_summary(null, $1)`, [d.district]) } catch (e) { raised = e.message }
+  if (!raised || !/p_district was given without p_state/.test(raised))
+    throw new Error(`a district without a state must be refused, got: ${raised}`)
+}))
+
+CHECKS.push(() => check('admin_coordinator_breakdown levels and sums', async () => {
+  const nat = (await db.query(`select * from admin_coordinator_breakdown()`)).rows
+  const num = (r) => [Number(r.coordinators), Number(r.approved), Number(r.schools_claimed),
+    Number(r.schools_total), Number(r.students_covered), Number(r.students_entered)]
+  if (nat.length < 2) throw new Error('the national breakdown should list several states')
+  // Exactly the states that have at least one school -- including the ones with
+  // no coordinator at all, which are the whole point of this table.
+  const { rows: refStates } = await db.query(`select distinct state k from schools order by 1`)
+  assertEqual(nat.map((r) => r.key).sort(), refStates.map((r) => r.k).sort(), 'the state list')
+  assertEqual(nat.every((r) => r.label === r.key), true, 'label mirrors key at state level')
+  // Every school is accounted for in its own state's row, whether or not anybody
+  // has claimed it -- a state row that quietly dropped the unclaimed schools
+  // would still sum correctly against a national figure computed the same way.
+  const { rows: refCounts } = await db.query(`select state k, count(*)::int n,
+    count(coordinator_id)::int claimed from schools group by 1 order by 1`)
+  assertEqual(nat.map((r) => [r.key, Number(r.schools_total), Number(r.schools_claimed)]).sort(),
+    refCounts.map((r) => [r.k, r.n, r.claimed]).sort(), 'every state row counts its own schools')
+  if (!refCounts.some((r) => r.claimed < r.n))
+    throw new Error('every school in the seed is claimed, so the uncovered case is untested')
+  // A state with no coordinator at all still gets a row -- which state that is
+  // depends on the scale, so the exact shape is pinned by the fixture check.
+  for (const r of nat.filter((x) => Number(x.coordinators) === 0))
+    assertEqual([Number(r.approved), Number(r.schools_claimed), Number(r.students_covered), Number(r.students_entered)],
+      [0, 0, 0, 0], `a state with no coordinator (${r.key}) has no claims and no covered students`)
+  // Ordered students_covered desc, then key. Both halves asserted.
+  for (let i = 1; i < nat.length; i++) {
+    const a = Number(nat[i - 1].students_covered), b = Number(nat[i].students_covered)
+    if (a < b || (a === b && !(nat[i - 1].key < nat[i].key)))
+      throw new Error(`breakdown is not ordered (students_covered desc, key): ${nat[i - 1].key} then ${nat[i].key}`)
+  }
+  // Every column except `coordinators` sums to the national figure.
+  const v = (await db.query(`select admin_coordinator_summary() v`)).rows[0].v
+  const sum = (k) => nat.reduce((a, r) => a + Number(r[k]), 0)
+  assertEqual(sum('schools_total'), v.schools_total, 'schools_total sums to national')
+  assertEqual(sum('schools_claimed'), v.schools_claimed, 'schools_claimed sums to national')
+  assertEqual(sum('approved'), v.approved, 'approved coordinators sum to national')
+  assertEqual(sum('students_covered'), v.students_covered, 'students_covered sums to national')
+  assertEqual(sum('students_entered'), v.students_entered, 'students_entered sums to national')
+  // ...and `coordinators` does NOT, by exactly the people who have claimed
+  // nothing. This is section F probe 7, and it is the documented asymmetry.
+  const { rows: [orphan] } = await db.query(`select count(*)::int n from user_profiles p
+    where p.role = 'coordinator' and not exists (select 1 from schools s where s.coordinator_id = p.id)`)
+  if (!(orphan.n > 0)) throw new Error('no claim-less coordinators in the seed, so the documented gap is untested')
+  assertEqual(sum('coordinators') + orphan.n, v.coordinators,
+    'state coordinators + coordinators with no claim = national coordinators')
+  // Probe 9: one claim per person. The sums above are only exact while it holds,
+  // and the multi-claim behaviour is pinned by the fixture check instead.
+  const { rows: [multi] } = await db.query(`select count(*)::int n from (
+    select coordinator_id from schools where coordinator_id is not null group by 1 having count(*) > 1) t`)
+  assertEqual(multi.n, 0, 'the seed gives each coordinator exactly one school')
+  // Districts inside the top state sum to that state's row, every column.
+  const top = nat[0]
+  const di = (await db.query(`select * from admin_coordinator_breakdown($1)`, [top.key])).rows
+  if (di.length < 2) throw new Error(`the top state ${top.key} has fewer than two districts`)
+  const dsum = (k) => di.reduce((a, r) => a + Number(r[k]), 0)
+  for (const k of ['coordinators', 'approved', 'schools_claimed', 'schools_total', 'students_covered', 'students_entered'])
+    assertEqual(dsum(k), Number(top[k]), `district ${k} sums to the state row`)
+  const { rows: refDistricts } = await db.query(`select distinct district k from schools where state = $1 order by 1`, [top.key])
+  assertEqual(di.map((r) => r.key).sort(), refDistricts.map((r) => r.k).sort(), 'the district list')
+}))
+
+CHECKS.push(() => check('admin_coordinator_breakdown agrees with admin_coordinator_summary', async () => {
+  // Two independently written implementations of the same six numbers, at both
+  // levels. The breakdown groups every state in one pass; the summary re-scopes
+  // and recounts per call.
+  const nat = (await db.query(`select * from admin_coordinator_breakdown()`)).rows
+  for (const r of nat) {
+    const { rows: [{ v }] } = await db.query(`select admin_coordinator_summary($1) v`, [r.key])
+    assertEqual([Number(r.coordinators), Number(r.approved), Number(r.schools_claimed),
+      Number(r.schools_total), Number(r.students_covered), Number(r.students_entered)],
+      [v.coordinators, v.approved, v.schools_claimed, v.schools_total, v.students_covered, v.students_entered],
+      `state ${r.key}`)
+  }
+  const di = (await db.query(`select * from admin_coordinator_breakdown($1)`, [nat[0].key])).rows
+  for (const r of di) {
+    const { rows: [{ v }] } = await db.query(`select admin_coordinator_summary($1, $2) v`, [nat[0].key, r.key])
+    assertEqual([Number(r.coordinators), Number(r.approved), Number(r.schools_claimed),
+      Number(r.schools_total), Number(r.students_covered), Number(r.students_entered)],
+      [v.coordinators, v.approved, v.schools_claimed, v.schools_total, v.students_covered, v.students_entered],
+      `district ${r.key}`)
+  }
+}))
+
+CHECKS.push(() => check('admin_coordinator_trend', async () => {
+  // Wide enough to cover every seeded coordinator. The default 30-day window
+  // covers only a slice of them, so asserting on 30 days alone would be a
+  // weaker test of the same shape (and `rows.length === 30` is true whatever the
+  // data does -- the function zero-fills).
+  const { rows: [w] } = await db.query(
+    `select greatest((current_date - min(created_at)::date) + 1, 1)::int d from user_profiles where role = 'coordinator'`)
+  const days = w.d
+  const rows = (await db.query(`select * from admin_coordinator_trend(null, $1)`, [days])).rows
+  assertEqual(rows.length, days, 'one row per day, zero-filled')
+  const { rows: ref } = await db.query(`
+    select g.d as day, coalesce(c.n, 0)::int as coordinators,
+           coalesce(c.claims, 0)::int as claims, coalesce(c.approvals, 0)::int as approvals
+    from (select (current_date - i)::date d from generate_series(0, $1::int - 1) i) g
+    left join (
+      select p.created_at::date d, count(*) n,
+        count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id)) claims,
+        count(*) filter (where exists (select 1 from schools s where s.coordinator_id = p.id
+                                         and s.coordinator_status = 'approved')) approvals
+      from user_profiles p where p.role = 'coordinator' group by 1) c on c.d = g.d
+    order by 1`, [days])
+  // `day` is a SQL date, so it arrives as a JS Date, not a string. Compare like
+  // with like, and the bigints as numbers.
+  assertEqual(rows.map((r) => [String(r.day), Number(r.coordinators), Number(r.claims), Number(r.approvals)]),
+    ref.map((r) => [String(r.day), r.coordinators, r.claims, r.approvals]), 'every day matches an independent reference')
+  const total = (k) => rows.reduce((a, r) => a + Number(r[k]), 0)
+  const { rows: [n] } = await db.query(`select
+    (select count(*)::int from user_profiles where role = 'coordinator') c,
+    (select count(distinct coordinator_id)::int from schools where coordinator_id is not null) cl,
+    (select count(distinct coordinator_id)::int from schools where coordinator_id is not null and coordinator_status = 'approved') ap`)
+  assertEqual([total('coordinators'), total('claims'), total('approvals')], [n.c, n.cl, n.ap],
+    'a window covering every signup accounts for every coordinator, claim and approval')
+  // The funnel invariant: all three series are keyed on the same signup day, so
+  // coordinators >= claims >= approvals on every single day.
+  for (const r of rows)
+    if (!(Number(r.coordinators) >= Number(r.claims) && Number(r.claims) >= Number(r.approvals)))
+      throw new Error(`the funnel inverts on ${r.day}: ${JSON.stringify(r)}`)
+  if (!rows.some((r) => Number(r.coordinators) > 0)) throw new Error('the window covered no signups at all')
+  if (!rows.some((r) => Number(r.coordinators) > Number(r.claims)))
+    throw new Error('no day has a coordinator who never claimed, so the claims series is untested')
+  if (!rows.some((r) => Number(r.claims) > Number(r.approvals)))
+    throw new Error('no day has an unapproved claim, so the approvals series is untested')
+  if (!rows.some((r) => Number(r.coordinators) === 0)) throw new Error('no empty day, so the zero-fill is untested')
+  // Scoping narrows, and a scoped coordinator IS a scoped claim -- a coordinator
+  // has no state until they claim one.
+  const { rows: [st] } = await db.query(`select state from schools where coordinator_id is not null order by id limit 1`)
+  const scoped = (await db.query(`select * from admin_coordinator_trend($1, $2)`, [st.state, days])).rows
+  const { rows: [sref] } = await db.query(
+    `select count(distinct s.coordinator_id)::int n from schools s
+     join user_profiles p on p.id = s.coordinator_id and p.role = 'coordinator'
+     where s.state = $1 and p.created_at >= current_date - ($2::int - 1)`, [st.state, days])
+  assertEqual(scoped.reduce((a, r) => a + Number(r.coordinators), 0), sref.n, `trend scoped to ${st.state}`)
+  assertEqual(scoped.map((r) => Number(r.claims)), scoped.map((r) => Number(r.coordinators)),
+    'scoped, every counted coordinator has a claim by construction')
+  if (!(sref.n > 0 && sref.n < n.c)) throw new Error(`the state scope did not narrow the trend: ${sref.n} of ${n.c}`)
+  // Window edges: p_days 0, negative and null are all one day, as in section C.
+  for (const d of [0, -5, null])
+    assertEqual((await db.query(`select * from admin_coordinator_trend(null, $1::int)`, [d])).rows.length, 1,
+      `p_days ${d} is a single day`)
+  assertEqual((await db.query(`select * from admin_coordinator_trend()`)).rows.length, 30, 'the default window is 30 days')
+}))
+
+// The full set of seeded coordinators, and the reference row for each of them,
+// computed with `exists`/scalar subqueries rather than section G's joins.
+const coordPageRef = async () => {
+  const { rows } = await db.query(`
+    select p.id, p.full_name, u.email, p.phone, p.created_at,
+      (select s.id from schools s where s.coordinator_id = p.id
+        order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                           when 'rejected' then 2 else 3 end, s.name, s.id limit 1) school_id,
+      (select s.name from schools s where s.coordinator_id = p.id
+        order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                           when 'rejected' then 2 else 3 end, s.name, s.id limit 1) school_name,
+      (select s.state from schools s where s.coordinator_id = p.id
+        order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                           when 'rejected' then 2 else 3 end, s.name, s.id limit 1) state,
+      (select s.district from schools s where s.coordinator_id = p.id
+        order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                           when 'rejected' then 2 else 3 end, s.name, s.id limit 1) district,
+      coalesce((select s.coordinator_status from schools s where s.coordinator_id = p.id
+        order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                           when 'rejected' then 2 else 3 end, s.name, s.id limit 1), 'none') claim_status,
+      (select count(*)::int from user_profiles q where q.role = 'student'
+        and q.school_id in (select s.id from schools s where s.coordinator_id = p.id)) students,
+      (select count(*)::int from user_profiles q where q.role = 'student'
+        and q.school_id in (select s.id from schools s where s.coordinator_id = p.id)
+        and exists (select 1 from isc_entry_members m
+                     where m.user_id = q.id and (m.is_leader or m.accepted_at is not null))) students_entered
+    from user_profiles p left join auth.users u on u.id = p.id
+    where p.role = 'coordinator'`)
+  return new Map(rows.map((r) => [r.id, r]))
+}
+
+CHECKS.push(() => check('admin_coordinators_page pages are lossless and totally ordered', async () => {
+  const ref = await coordPageRef()
+  const ids = [...ref.keys()]
+  const n = ids.length
+  if (n < 8) throw new Error(`only ${n} coordinators seeded, too few to page through`)
+  // Five or six pages per sort: enough boundaries to catch a lost row, few enough
+  // that four walks stay affordable at 200k students (each page recomputes the
+  // students-per-coordinator aggregate, which is what the default sort needs).
+  const size = Math.max(2, Math.ceil(n / 5))
+  const cmp = (a, b) => { for (let i = 0; i < a.length; i++) { if (a[i] < b[i]) return -1; if (a[i] > b[i]) return 1 } return 0 }
+  const KEY = {
+    students_desc: (r) => [-Number(r.students), r.id],
+    students_asc: (r) => [Number(r.students), r.id],
+    joined_desc: (r) => [-new Date(r.joined_at).getTime(), -Number(r.students), r.id],
+  }
+  for (const sort of ['students_desc', 'students_asc', 'name_asc', 'joined_desc', 'nonsense', null]) {
+    const seen = [], rows = []
+    let page = 1
+    for (; page <= 40; page++) {
+      const { rows: got } = await db.query(
+        `select * from admin_coordinators_page(p_sort => $1::text, p_page => $2, p_size => $3)`, [sort, page, size])
+      if (!got.length) break
+      if (page * size <= n && got.length !== size)
+        throw new Error(`${sort}: page ${page} of ${size} came back with ${got.length} rows`)
+      for (const r of got) { seen.push(r.id); rows.push(r); assertEqual(Number(r.total), n, `${sort}: total on page ${page}`) }
+    }
+    if (page > 40) throw new Error(`${sort}: paging did not terminate`)
+    assertEqual(new Set(seen).size, seen.length, `${sort}: no coordinator appeared on two pages`)
+    assertEqual([...seen].sort(), [...ids].sort(), `${sort}: the walk is exactly the coordinator list`)
+    // Strictly increasing on the sort key across every page boundary. That, and
+    // not "the pages did not overlap", is what proves the order is TOTAL.
+    const key = KEY[sort] || KEY.students_desc
+    if (sort !== 'name_asc') {
+      for (let i = 1; i < rows.length; i++)
+        if (!(cmp(key(rows[i - 1]), key(rows[i])) < 0))
+          throw new Error(`${sort}: rows ${i - 1} and ${i} are not in strict order: ${JSON.stringify([key(rows[i - 1]), key(rows[i])])}`)
+    }
+    // ...and the leading key must actually tie somewhere, or the id tie-break was
+    // never exercised.
+    if (sort === 'students_desc' || sort === 'students_asc' || !sort) {
+      const distinct = new Set(rows.map((r) => Number(r.students))).size
+      if (!(distinct < rows.length)) throw new Error(`no students ties in ${rows.length} coordinators, so the tie-break is untested`)
+    }
+    // One page past the end is empty, not a repeat of the last page.
+    assertEqual((await db.query(`select * from admin_coordinators_page(p_sort => $1::text, p_page => $2, p_size => $3)`,
+      [sort, page + 2, size])).rows.length, 0, `${sort}: a page past the end is empty`)
+  }
+  // name_asc is compared against an ORDER BY run by Postgres itself: JS string
+  // comparison is not the database's collation, and asserting it here would be
+  // asserting the wrong thing. The exact name order is pinned by the fixture
+  // check, whose names differ in their first letter.
+  const walk = []
+  for (let page = 1; page <= 40; page++) {
+    const { rows } = await db.query(`select id from admin_coordinators_page(p_sort => 'name_asc', p_page => $1, p_size => $2)`, [page, size])
+    if (!rows.length) break
+    walk.push(...rows.map((r) => r.id))
+  }
+  const { rows: nameRef } = await db.query(`
+    select p.id from user_profiles p
+    left join (select s.coordinator_id cid, count(*) n from schools s
+               join user_profiles q on q.school_id = s.id and q.role = 'student'
+               where s.coordinator_id is not null group by 1) r on r.cid = p.id
+    where p.role = 'coordinator'
+    order by lower(coalesce(p.full_name, '')), coalesce(r.n, 0) desc, p.id`)
+  assertEqual(walk, nameRef.map((r) => r.id), 'name_asc walks the same order as a single-shot ORDER BY')
+  // The three named sorts must not all agree, or three of these walks proved one thing.
+  const first = {}
+  for (const sort of ['students_desc', 'students_asc', 'name_asc', 'joined_desc'])
+    first[sort] = (await db.query(`select id from admin_coordinators_page(p_sort => $1, p_size => 1)`, [sort])).rows[0].id
+  if (new Set(Object.values(first)).size < 3)
+    throw new Error(`the four sorts return nearly the same first row: ${JSON.stringify(first)}`)
+}))
+
+CHECKS.push(() => check('admin_coordinators_page: filters, caps and row contents', async () => {
+  const ref = await coordPageRef()
+  const n = ref.size
+  const total = async (args, params = []) => {
+    const { rows } = await db.query(`select * from admin_coordinators_page(${args})`, params)
+    return rows.length ? Number(rows[0].total) : 0
+  }
+  assertEqual(await total(`p_size => 1`), n, 'unfiltered total')
+  // Claim status: each of the four, each against a count of the reference map,
+  // each strictly between 0 and everything, and all four adding to the total.
+  let statusSum = 0
+  for (const st of ['approved', 'pending', 'rejected', 'none']) {
+    const want = [...ref.values()].filter((r) => r.claim_status === st).length
+    const got = await total(`p_status => $1, p_size => 1`, [st])
+    assertEqual(got, want, `p_status => ${st}`)
+    if (!(want > 0 && want < n)) throw new Error(`p_status => ${st} matched ${want} of ${n}, so it proves nothing`)
+    statusSum += got
+    const { rows } = await db.query(`select * from admin_coordinators_page(p_status => $1, p_size => 200)`, [st])
+    for (const r of rows) if (r.claim_status !== st) throw new Error(`p_status => ${st} returned a ${r.claim_status} row`)
+  }
+  assertEqual(statusSum, n, 'the four claim statuses partition every coordinator')
+  assertEqual(await total(`p_status => 'no_such_status', p_size => 1`), 0, 'an unknown status matches nothing')
+  // State: matches a reference, narrows, and drops the claim-less coordinators
+  // (a coordinator has no state until they claim one).
+  const { rows: [st] } = await db.query(`select state, count(*)::int c from schools where coordinator_id is not null group by 1 order by 2 desc, 1 limit 1`)
+  const wantState = [...ref.values()].filter((r) => r.state === st.state).length
+  assertEqual(await total(`p_state => $1, p_size => 1`, [st.state]), wantState, `p_state => ${st.state}`)
+  if (!(wantState > 0 && wantState < n)) throw new Error(`p_state matched ${wantState} of ${n}`)
+  const { rows: scoped } = await db.query(`select * from admin_coordinators_page(p_state => $1, p_size => 200)`, [st.state])
+  for (const r of scoped) {
+    if (r.state !== st.state) throw new Error(`p_state => ${st.state} returned a ${r.state} row`)
+    if (r.school_id === null) throw new Error('a claim-less coordinator was returned under a state filter')
+  }
+  assertEqual(await total(`p_state => 'Nowhereland', p_size => 1`), 0, 'an unknown state matches nothing')
+  // Search: name, email and school name, each on its own.
+  const sample = [...ref.values()].find((r) => r.school_name && r.email)
+  for (const [label, q, want] of [
+    ['name', 'coordinator 1', [...ref.values()].filter((r) => (r.full_name || '').toLowerCase().includes('coordinator 1')).length],
+    ['email', sample.email, [...ref.values()].filter((r) => (r.email || '').toLowerCase() === sample.email.toLowerCase()).length],
+    ['school name', sample.school_name, [...ref.values()].filter((r) => (r.school_name || '').toLowerCase().includes(sample.school_name.toLowerCase())).length],
+  ]) {
+    const got = await total(`p_q => $1, p_size => 1`, [q])
+    assertEqual(got, want, `p_q by ${label} (${q})`)
+    if (!(want > 0 && want < n)) throw new Error(`p_q by ${label} matched ${want} of ${n}, so it proves nothing`)
+  }
+  assertEqual(await total(`p_q => '  COORDINATOR 1  ', p_size => 1`),
+    await total(`p_q => 'coordinator 1', p_size => 1`), 'the query is trimmed and case-folded')
+  assertEqual(await total(`p_q => '   ', p_size => 1`), n, 'a blank query is not a filter')
+  // Filters AND together.
+  const both = await total(`p_q => 'coordinator 1', p_status => 'approved', p_size => 1`)
+  const wantBoth = [...ref.values()].filter((r) => (r.full_name || '').toLowerCase().includes('coordinator 1') && r.claim_status === 'approved').length
+  assertEqual(both, wantBoth, 'q AND status')
+  if (!(both > 0 && both < await total(`p_q => 'coordinator 1', p_size => 1`))) throw new Error('adding a status did not narrow the search')
+  // Row contents, against the reference map.
+  const { rows } = await db.query(`select * from admin_coordinators_page(p_size => 200)`)
+  if (rows.length < 8) throw new Error('too few rows to check contents')
+  for (const r of rows) {
+    const w = ref.get(r.id)
+    if (!w) throw new Error(`${r.id} is not a coordinator`)
+    assertEqual([r.full_name, r.email, r.phone, r.school_id, r.school_name, r.state, r.district, r.claim_status,
+      Number(r.students), Number(r.students_entered), String(r.joined_at)],
+      [w.full_name, w.email, w.phone, w.school_id, w.school_name, w.state, w.district, w.claim_status,
+        w.students, w.students_entered, String(w.created_at)], `row ${r.id}`)
+  }
+  // The claim-less rows are listed, with nulls and zeros rather than dropped.
+  // Fetched by status, not taken from page 1: they have 0 students, so under the
+  // default students_desc sort they are on the LAST page at any real scale.
+  const bare = (await db.query(`select * from admin_coordinators_page(p_status => 'none', p_size => 200)`)).rows
+  if (!bare.length) throw new Error('no claim-less coordinator at all, so the left joins are untested')
+  for (const r of bare) {
+    const w = ref.get(r.id)
+    if (!w) throw new Error(`${r.id} is not a coordinator`)
+    assertEqual([r.full_name, r.email, r.phone, String(r.joined_at)],
+      [w.full_name, w.email, w.phone, String(w.created_at)], `claim-less row contents ${r.id}`)
+  }
+  for (const r of bare)
+    assertEqual([r.school_id, r.school_name, r.state, r.district, Number(r.students), Number(r.students_entered)],
+      [null, null, null, null, 0, 0], `claim-less row ${r.id}`)
+  // ...and the entered count is a strict subset of the reach somewhere, or a
+  // function returning `students` twice would pass.
+  if (!rows.some((r) => Number(r.students_entered) < Number(r.students) && Number(r.students) > 0))
+    throw new Error('every coordinator has entered == students, so students_entered proves nothing')
+  if (!rows.some((r) => Number(r.students_entered) > 0)) throw new Error('nobody has entered at all')
+  // Caps and page edges, exactly as sections D and E. The 200 cap itself is
+  // asserted in the next check, which seeds enough coordinators for it to bite:
+  // there are fewer than 200 in this database at the default scale, so
+  // `p_size => 5000` returning everything would prove nothing here.
+  const cnt = async (args, params = []) => (await db.query(`select * from admin_coordinators_page(${args})`, params)).rows.length
+  assertEqual(await cnt(`p_size => 0`), 1, 'p_size 0 becomes 1')
+  assertEqual(await cnt(`p_size => -7`), 1, 'a negative p_size becomes 1')
+  const p1 = (await db.query(`select id from admin_coordinators_page(p_page => 1, p_size => 3)`)).rows.map((r) => r.id)
+  for (const page of [0, -5, null])
+    assertEqual((await db.query(`select id from admin_coordinators_page(p_page => $1::int, p_size => 3)`, [page])).rows.map((r) => r.id),
+      p1, `page ${page} is page 1`)
+  assertEqual(await cnt(`p_page => 2000000000, p_size => 200`), 0, 'an absurd page number is empty, not an error')
+}))
+
+CHECKS.push(() => check('admin_coordinators_page: the 200 cap is enforced inside the function', async () => {
+  // 205 coordinators in one transaction, because the cap cannot be tested
+  // against a database that holds fewer than 200 of them -- and at the default
+  // scale it holds 33, so `p_size => 5000` returns everything either way and the
+  // obvious assertion passes on an uncapped function. (It does: this exact
+  // mutation escaped the first version of this file.)
+  //
+  // The second half is the bug that matters. Clamping the LIMIT but computing
+  // the OFFSET from the caller's number puts page 2 at offset 5000 and returns
+  // nothing, so every page after the first becomes unreachable while page 1
+  // still looks right.
+  const C = (n) => `ece00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  await db.exec('begin')
+  try {
+    const rows = Array.from({ length: 205 }, (_, i) => [C(i), 'coordinator', `Gvcap ${String(i).padStart(3, '0')}`])
+    await db.query(`insert into user_profiles (id, role, full_name) values ${
+      rows.map((_, j) => `($${j * 3 + 1},$${j * 3 + 2},$${j * 3 + 3})`).join(',')}`, rows.flat())
+    const q = async (args) => (await db.query(`select * from admin_coordinators_page(p_q => 'gvcap', ${args})`)).rows
+    const wide = await q(`p_size => 5000`)
+    assertEqual(wide.length, 200, 'p_size 5000 gives 200 rows')
+    assertEqual(Number(wide[0].total), 205, 'total is the whole match set, not the page')
+    assertEqual(wide.map((r) => r.id), (await q(`p_size => 200`)).map((r) => r.id), 'an over-large p_size behaves exactly like 200')
+    const two = await q(`p_size => 5000, p_page => 2`)
+    assertEqual(two.length, 5, 'page 2 of an over-large p_size is reachable and holds the remaining 5')
+    assertEqual(two.map((r) => r.id), (await q(`p_size => 200, p_page => 2`)).map((r) => r.id), 'page 2 is the same page either way')
+    assertEqual(new Set(wide.concat(two).map((r) => r.id)).size, 205, 'the two pages together are all 205, none repeated')
+  } finally { await db.exec('rollback') }
+  assertEqual((await db.query(`select count(*)::int n from user_profiles where full_name like 'Gvcap%'`)).rows[0].n, 0, 'the fixture was rolled back')
+}))
+
+CHECKS.push(() => check('admin_coordinator_detail', async () => {
+  const ids = (await db.query(`
+    (select coordinator_id id from schools where coordinator_status = 'approved' order by id limit 1)
+    union all (select coordinator_id from schools where coordinator_status = 'pending' order by id limit 1)
+    union all (select coordinator_id from schools where coordinator_status = 'rejected' order by id limit 1)
+    union all (select p.id from user_profiles p where p.role = 'coordinator'
+                and not exists (select 1 from schools s where s.coordinator_id = p.id) order by p.id limit 1)`)).rows
+  assertEqual(ids.length, 4, 'the seed offers an approved, a pending, a rejected and a claim-less coordinator')
+  let sawSchool = false, sawEntries = false
+  for (const { id } of ids) {
+    const { rows: [{ v }] } = await db.query(`select admin_coordinator_detail($1) v`, [id])
+    if (!v) throw new Error(`no detail for ${id}`)
+    const { rows: [ref] } = await db.query(`select
+      p.full_name, p.phone, p.created_at, p.onboarding_completed, u.email,
+      (select count(*)::int from schools s where s.coordinator_id = p.id) schools_claimed,
+      (select count(*)::int from user_profiles q where q.role = 'student'
+        and q.school_id in (select s.id from schools s where s.coordinator_id = p.id)) students,
+      (select count(*)::int from user_profiles q where q.role = 'student'
+        and q.school_id in (select s.id from schools s where s.coordinator_id = p.id)
+        and exists (select 1 from isc_entry_members m where m.user_id = q.id
+                     and (m.is_leader or m.accepted_at is not null))) students_entered,
+      (select count(*)::int from isc_entries e
+        where e.school_id in (select s.id from schools s where s.coordinator_id = p.id)) entries,
+      (select count(*)::int from isc_entries e
+        where e.school_id in (select s.id from schools s where s.coordinator_id = p.id)
+          and e.status = 'submitted') submitted
+      from user_profiles p left join auth.users u on u.id = p.id where p.id = $1`, [id])
+    assertEqual([v.full_name, v.email, v.phone, v.onboarding_completed, v.schools_claimed,
+      v.students, v.students_entered, v.entries, v.submitted],
+      [ref.full_name, ref.email, ref.phone, ref.onboarding_completed, ref.schools_claimed,
+        ref.students, ref.students_entered, ref.entries, ref.submitted], `detail ${id}`)
+    assertEqual(new Date(v.joined_at).getTime(), new Date(ref.created_at).getTime(), `detail ${id} joined_at`)
+    assertEqual(v.entered_pct, ref.students === 0 ? 0 : Math.round((1000 * ref.students_entered) / ref.students) / 10,
+      `detail ${id} entered_pct`)
+    if (!(v.entered_pct >= 0 && v.entered_pct <= 100)) throw new Error(`entered_pct out of range: ${v.entered_pct}`)
+    // by_track counts ENTRIES, so it sums to `entries` exactly -- unlike
+    // admin_isc_summary.by_track, which counts distinct students.
+    assertEqual(v.by_track.reduce((a, t) => a + t.count, 0), ref.entries, `detail ${id} by_track sums to entries`)
+    for (const t of v.by_track)
+      if (typeof t.key !== 'string' || typeof t.count !== 'number') throw new Error(`bad by_track item ${JSON.stringify(t)}`)
+    if (ref.schools_claimed === 0) {
+      assertEqual([v.school, v.students, v.entries, v.by_track], [null, 0, 0, []], 'a claim-less coordinator')
+    } else {
+      sawSchool = true
+      const { rows: [s] } = await db.query(`select s.id, s.name, s.state, s.district, s.review_status,
+        s.coordinator_status, s.coordinator_notes, s.board from schools s where s.coordinator_id = $1
+        order by case s.coordinator_status when 'approved' then 0 when 'pending' then 1
+                                           when 'rejected' then 2 else 3 end, s.name, s.id limit 1`, [id])
+      assertEqual([v.school.id, v.school.name, v.school.state, v.school.district, v.school.review_status,
+        v.school.claim_status, v.school.notes, v.school.board],
+        [s.id, s.name, s.state, s.district, s.review_status, s.coordinator_status, s.coordinator_notes, s.board],
+        `detail ${id} school`)
+    }
+    if (ref.entries > 0) sawEntries = true
+  }
+  if (!sawSchool || !sawEntries) throw new Error('the sample never exercised a school or an entry')
+  // Not a coordinator -> SQL NULL, not an object and not an exception.
+  const { rows: [unknown] } = await db.query(`select admin_coordinator_detail('00000000-0000-4000-8000-000000000000') v`)
+  assertEqual(unknown.v, null, 'an unknown id returns null')
+  const { rows: [stu] } = await db.query(
+    `select admin_coordinator_detail((select id from user_profiles where role = 'student' order by id limit 1)) v`)
+  assertEqual(stu.v, null, 'a student id returns null, not a half-filled coordinator')
+  assertEqual((await db.query(`select admin_coordinator_detail(null) v`)).rows[0].v, null, 'a null id returns null')
+}))
+
+CHECKS.push(() => check('coordinator analytics on a hand-computed fixture', async () => {
+  // Everything the seeded data cannot show, in one small world whose every
+  // number was worked out by hand: a coordinator holding TWO claims, a
+  // coordinator with no auth.users row, an approved claim on a school with no
+  // students, a pending invitee at a COVERED school (not entered), and a student
+  // who competes on another school's team (entered, for their own school).
+  const S = (n) => `e8e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const U = (n) => `e9e00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const P = (n) => `eae00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const E = (n) => `ebe00000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const D1 = 'Gvland District 1', D2 = 'Gvland District 2'
+  await db.exec('begin')
+  try {
+    // C1 holds S1 and S5, both approved. C2 pending, C3 rejected, C5 approved on
+    // an empty school, C4 nothing at all and no auth row either.
+    await db.query(`insert into user_profiles (id, role, full_name, phone, created_at) values
+      ($1,'coordinator','Gvcoord Zulu',   '7770000001', current_date - 1 + interval '3 hours'),
+      ($2,'coordinator','Gvcoord Yankee', '7770000002', current_date - 1 + interval '5 hours'),
+      ($3,'coordinator','Gvcoord Xray',   '7770000003', current_date - 1 + interval '1 hour'),
+      ($4,'coordinator','Gvcoord Whiskey','7770000004', current_date - 1 + interval '4 hours'),
+      ($5,'coordinator','Gvcoord Victor', '7770000005', current_date - 1 + interval '2 hours')`,
+      [U(1), U(2), U(3), U(4), U(5)])
+    await db.query(`insert into auth.users (id, email) values
+      ($1,'zulu@gv.test'), ($2,'yankee@gv.test'), ($3,'xray@gv.test'), ($4,'victor@gv.test')`,
+      [U(1), U(2), U(3), U(5)])
+    // Postgres cannot infer the type of a bind parameter that appears in no
+    // expression, so every parameter here is used at least once.
+    await db.query(`insert into schools (id, name, state, district, review_status, coordinator_id, coordinator_status, coordinator_notes) values
+      ($1,'Gv Approved One','Gvland',$7,'approved',$9, 'approved','looks legitimate'),
+      ($2,'Gv Pending',     'Gvland',$7,'approved',$10,'pending', null),
+      ($3,'Gv Rejected',    'Gvland',$7,'approved',$11,'rejected','not the head teacher'),
+      ($4,'Gv Unclaimed',   'Gvland',$7,'approved',null,'none',   null),
+      ($5,'Gv Approved Two','Gvland',$8,'approved',$9, 'approved',null),
+      ($6,'Gv Empty',       'Gvland',$8,'approved',$12,'approved',null),
+      -- A whole state nobody has claimed: it must still get a breakdown row.
+      ($13,'Gvbare One','Gvbare','Gvbare District 1','approved',null,'none',null),
+      ($14,'Gvbare Two','Gvbare','Gvbare District 1','approved',null,'none',null)`,
+      [S(1), S(2), S(3), S(4), S(5), S(6), D1, D2, U(1), U(2), U(3), U(5), S(7), S(8)])
+    const students = []
+    const add = (n, school, district) => students.push([P(n), 'student', `Gvpupil ${n}`, 'Class 9', 'Gvland', district, school])
+    for (let i = 1; i <= 4; i++) add(i, S(1), D1)        // S1: 4 students
+    for (let i = 5; i <= 7; i++) add(i, S(2), D1)        // S2: 3
+    for (let i = 8; i <= 9; i++) add(i, S(3), D1)        // S3: 2
+    for (let i = 10; i <= 14; i++) add(i, S(4), D1)      // S4: 5
+    for (let i = 15; i <= 20; i++) add(i, S(5), D2)      // S5: 6
+    for (let i = 21; i <= 23; i++) students.push([P(i), 'student', `Gvpupil ${i}`, 'Class 9', 'Gvbare', 'Gvbare District 1', S(7)])
+    await db.query(`insert into user_profiles (id, role, full_name, school_class, school_state, school_district, school_id)
+      values ${students.map((_, j) => `($${j * 7 + 1},$${j * 7 + 2},$${j * 7 + 3},$${j * 7 + 4},$${j * 7 + 5},$${j * 7 + 6},$${j * 7 + 7})`).join(',')}`,
+      students.flat())
+    await db.query(`insert into isc_entries (id, track, school_id, created_by, status, submitted_at, created_at) values
+      ($1,'ai_for_impact',   $7, $12,'submitted', current_date - 2, current_date - 2),
+      ($2,'entrepreneurship',$10,$13,'draft',     null,             current_date - 1),
+      ($3,'ai_for_impact',   $11,$14,'draft',     null,             current_date - 1),
+      ($4,'content_creator', $8, $15,'submitted', current_date - 1, current_date - 1),
+      ($5,'puzzle_master',   $9, $16,'draft',     null,             current_date - 1),
+      ($6,'entrepreneurship',$7, $12,'draft',     null,             current_date - 1)`,
+      [E(1), E(2), E(3), E(4), E(5), E(6), S(1), S(2), S(3), S(4), S(5),
+       P(1), P(10), P(15), P(5), P(8)])
+    await db.query(`insert into isc_entry_members (entry_id, track, user_id, is_leader, accepted_at) values
+      ($1,'ai_for_impact',  $7, true,  current_date - 2),
+      ($2,'entrepreneurship',$8, true, current_date - 1),
+      ($2,'entrepreneurship',$9, false,current_date - 1),
+      ($2,'entrepreneurship',$10,false,null),
+      ($3,'ai_for_impact',  $11,true,  current_date - 1),
+      ($3,'ai_for_impact',  $12,false, current_date - 1),
+      ($3,'ai_for_impact',  $13,false, current_date - 1),
+      ($4,'content_creator',$14,true,  current_date - 1),
+      ($4,'content_creator',$15,false, current_date - 1),
+      ($4,'content_creator',$16,false, current_date - 1),
+      ($4,'content_creator',$17,false, null),
+      ($5,'puzzle_master',  $18,true,  current_date - 1),
+      ($6,'entrepreneurship',$7,true,  current_date - 1)`,
+      [E(1), E(2), E(3), E(4), E(5), E(6), P(1), P(10), P(2), P(11), P(15), P(16), P(17),
+       P(5), P(6), P(7), P(3), P(8)])
+
+    // Entered, worked out by hand:
+    //   S1 (covered)   P1 leads E1 and E6; P2 is an ACCEPTED member of E2, which
+    //                  belongs to S4 -- a different school, and they still count
+    //                  for S1. P3 is an invitee on E4 who never accepted, so they
+    //                  do NOT. P4 is on nothing.               -> 2 of 4
+    //   S2 (pending)   P5 leads E4, P6 and P7 accepted.        -> 3 of 3, uncovered
+    //   S3 (rejected)  P8 leads E5, P9 on nothing.             -> 1 of 2, uncovered
+    //   S4 (unclaimed) P10 leads E2, P11 never accepted.       -> 1 of 5, uncovered
+    //   S5 (covered)   P15 leads E3, P16 and P17 accepted.     -> 3 of 6
+    //   S6 (covered)   no students at all.                     -> 0 of 0
+    const v = (await db.query(`select admin_coordinator_summary('Gvland') v`)).rows[0].v
+    assertEqual([v.coordinators, v.approved, v.pending, v.rejected], [4, 2, 1, 1],
+      'Gvland people: C4 has no claim so is not in a state at all')
+    assertEqual([v.schools_total, v.schools_claimed, v.schools_approved, v.schools_uncovered], [6, 5, 3, 3],
+      'Gvland schools: claimed-but-pending and rejected are NOT covered')
+    assertEqual([v.students_covered, v.students_uncovered, v.students_entered], [10, 10, 5], 'Gvland students')
+    assertEqual(v.entered_pct, 50, 'Gvland entered_pct is a real percentage')
+    // {C1: 10, C2: 3, C3: 2, C5: 0} -> sorted 0,2,3,10 -> (2+3)/2
+    assertEqual(v.median_students_per_coordinator, 2.5, 'Gvland median over an even population')
+    const d1 = (await db.query(`select admin_coordinator_summary('Gvland', $1) v`, [D1])).rows[0].v
+    assertEqual([d1.coordinators, d1.approved, d1.pending, d1.rejected], [3, 1, 1, 1], 'Gvland District 1 people')
+    assertEqual([d1.schools_total, d1.schools_claimed, d1.schools_approved], [4, 3, 1], 'Gvland District 1 schools')
+    assertEqual([d1.students_covered, d1.students_uncovered, d1.students_entered], [4, 10, 2], 'Gvland District 1 students')
+    assertEqual(d1.median_students_per_coordinator, 3, 'Gvland District 1 median over an odd population')
+
+    const nat = (await db.query(`select * from admin_coordinator_breakdown()`)).rows.find((r) => r.key === 'Gvland')
+    assertEqual([Number(nat.coordinators), Number(nat.approved), Number(nat.schools_claimed),
+      Number(nat.schools_total), Number(nat.students_covered), Number(nat.students_entered)],
+      [4, 2, 5, 6, 10, 5], 'the Gvland row of the national breakdown')
+    // The state nobody has claimed. It is listed, with its schools and its
+    // students, and every coordinator column at 0 -- that row IS the answer to
+    // "which states have no coverage", so a breakdown that inner-joined the
+    // claims would drop exactly the rows the founder is looking for.
+    const bare = (await db.query(`select * from admin_coordinator_breakdown()`)).rows.find((r) => r.key === 'Gvbare')
+    if (!bare) throw new Error('a state with no coordinator vanished from the breakdown')
+    assertEqual([Number(bare.coordinators), Number(bare.approved), Number(bare.schools_claimed),
+      Number(bare.schools_total), Number(bare.students_covered), Number(bare.students_entered)],
+      [0, 0, 0, 2, 0, 0], 'the Gvbare row: two schools, nobody running them')
+    const bv = (await db.query(`select admin_coordinator_summary('Gvbare') v`)).rows[0].v
+    assertEqual([bv.coordinators, bv.schools_total, bv.schools_claimed, bv.schools_approved, bv.schools_uncovered,
+      bv.students_covered, bv.students_uncovered, bv.students_entered, bv.entered_pct, bv.median_students_per_coordinator],
+      [0, 2, 0, 0, 2, 0, 3, 0, 0, 0], 'a whole state with no coordinator: three students, none of them covered')
+    const di = (await db.query(`select * from admin_coordinator_breakdown('Gvland')`)).rows
+    assertEqual(di.map((r) => [r.key, Number(r.coordinators), Number(r.approved), Number(r.schools_claimed),
+      Number(r.schools_total), Number(r.students_covered), Number(r.students_entered)]),
+      [[D2, 2, 2, 2, 2, 6, 3], [D1, 3, 1, 3, 4, 4, 2]], 'Gvland districts, most covered students first')
+    // The documented multi-claim caveat, made visible. C1 holds a school in each
+    // district, so BOTH people columns double-count them: the districts add up to
+    // 5 coordinators and 2 approved where the state row says 4 and 2... and the
+    // approved column adds to 3, not 2. The three school and student columns are
+    // unaffected, because a school belongs to one district whoever claimed it.
+    // Section F probe 9 is how the founder finds out whether this is live.
+    assertEqual(di.reduce((a, r) => a + Number(r.coordinators), 0), 5, 'a two-claim coordinator is counted in both districts')
+    assertEqual(di.reduce((a, r) => a + Number(r.approved), 0), 3, '...and in both districts of the approved column too')
+    for (const k of ['schools_claimed', 'schools_total', 'students_covered', 'students_entered'])
+      assertEqual(di.reduce((a, r) => a + Number(r[k]), 0), Number(nat[k]), `district ${k} still sums to the state`)
+
+    // The page. p_state isolates the fixture; C4 is excluded because a claim is
+    // the only thing that gives a coordinator a state.
+    const page = (await db.query(`select * from admin_coordinators_page(p_state => 'Gvland', p_size => 50)`)).rows
+    assertEqual(page.map((r) => [r.full_name, Number(r.students), Number(r.students_entered), r.school_name, r.district, r.claim_status]),
+      [['Gvcoord Zulu', 10, 5, 'Gv Approved One', D1, 'approved'],
+       ['Gvcoord Yankee', 3, 3, 'Gv Pending', D1, 'pending'],
+       ['Gvcoord Xray', 2, 1, 'Gv Rejected', D1, 'rejected'],
+       ['Gvcoord Victor', 0, 0, 'Gv Empty', D2, 'approved']],
+      'the state page: students summed over BOTH of C1 schools, shown against the alphabetically first of them')
+    assertEqual(page.every((r) => Number(r.total) === 4), true, 'total on every row of the state page')
+    // Nationally the claim-less C4 is listed too, with a null email (no auth row)
+    // and nulls where the school would be.
+    const all = (await db.query(`select * from admin_coordinators_page(p_q => 'gvcoord', p_size => 50)`)).rows
+    assertEqual(all.map((r) => r.full_name),
+      ['Gvcoord Zulu', 'Gvcoord Yankee', 'Gvcoord Xray', 'Gvcoord Whiskey', 'Gvcoord Victor'],
+      'students_desc, with the two zero-student rows broken by id')
+    const c4 = all.find((r) => r.full_name === 'Gvcoord Whiskey')
+    assertEqual([c4.email, c4.school_id, c4.school_name, c4.state, c4.district, c4.claim_status,
+      Number(c4.students), Number(c4.students_entered)],
+      [null, null, null, null, null, 'none', 0, 0], 'a coordinator with no auth row and no claim is still listed')
+    const order = async (sort) => (await db.query(
+      `select full_name from admin_coordinators_page(p_q => 'gvcoord', p_sort => $1, p_size => 50)`, [sort])).rows.map((r) => r.full_name)
+    assertEqual(await order('students_asc'), ['Gvcoord Whiskey', 'Gvcoord Victor', 'Gvcoord Xray', 'Gvcoord Yankee', 'Gvcoord Zulu'], 'students_asc')
+    assertEqual(await order('name_asc'), ['Gvcoord Victor', 'Gvcoord Whiskey', 'Gvcoord Xray', 'Gvcoord Yankee', 'Gvcoord Zulu'], 'name_asc')
+    assertEqual(await order('joined_desc'), ['Gvcoord Yankee', 'Gvcoord Whiskey', 'Gvcoord Zulu', 'Gvcoord Victor', 'Gvcoord Xray'], 'joined_desc')
+    assertEqual(await order('nonsense'), await order('students_desc'), 'an unknown p_sort behaves like students_desc')
+    // Paging one row at a time visits the same order.
+    const walk = []
+    for (let p = 1; p <= 8; p++) {
+      const { rows } = await db.query(`select full_name from admin_coordinators_page(p_q => 'gvcoord', p_page => $1, p_size => 1)`, [p])
+      if (!rows.length) break
+      walk.push(rows[0].full_name)
+    }
+    assertEqual(walk, await order('students_desc'), 'one row per page visits every coordinator exactly once, in order')
+
+    // Detail: the two-claim coordinator, whose numbers span both schools.
+    const dv = (await db.query(`select admin_coordinator_detail($1) v`, [U(1)])).rows[0].v
+    assertEqual([dv.schools_claimed, dv.students, dv.students_entered, dv.entered_pct, dv.entries, dv.submitted],
+      [2, 10, 5, 50, 3, 1], 'detail sums over every claimed school')
+    assertEqual([dv.school.name, dv.school.claim_status, dv.school.notes], ['Gv Approved One', 'approved', 'looks legitimate'],
+      'detail shows the strongest claim, with its notes')
+    assertEqual(dv.by_track, [{ key: 'ai_for_impact', count: 2 }, { key: 'entrepreneurship', count: 1 }],
+      'detail by_track counts ENTRIES and sums to `entries`')
+    const dv3 = (await db.query(`select admin_coordinator_detail($1) v`, [U(3)])).rows[0].v
+    assertEqual([dv3.school.name, dv3.school.claim_status, dv3.school.notes, dv3.students, dv3.students_entered, dv3.entered_pct],
+      ['Gv Rejected', 'rejected', 'not the head teacher', 2, 1, 50], 'a rejected claim still has a school and students')
+    const dv4 = (await db.query(`select admin_coordinator_detail($1) v`, [U(4)])).rows[0].v
+    assertEqual([dv4.email, dv4.school, dv4.schools_claimed, dv4.students, dv4.entered_pct], [null, null, 0, 0, 0],
+      'a coordinator with no auth row and no claim')
+    const dv5 = (await db.query(`select admin_coordinator_detail($1) v`, [U(5)])).rows[0].v
+    assertEqual([dv5.school.name, dv5.students, dv5.students_entered, dv5.entered_pct, dv5.entries, dv5.by_track],
+      ['Gv Empty', 0, 0, 0, 0, []], 'an approved claim on a school with no students')
+
+    // The trend, scoped so only the fixture is in it. All five signed up
+    // yesterday; C4 has no claim and therefore no state, so the scoped series
+    // sees four people, four claims and two approvals.
+    const tr = (await db.query(`select * from admin_coordinator_trend('Gvland', 3)`)).rows
+    assertEqual(tr.map((r) => [Number(r.coordinators), Number(r.claims), Number(r.approvals)]),
+      [[0, 0, 0], [4, 4, 2], [0, 0, 0]], 'Gvland trend, oldest day first')
+  } finally { await db.exec('rollback') }
+  assertEqual((await db.query(`select count(*)::int n from schools where state in ('Gvland', 'Gvbare')`)).rows[0].n, 0, 'the fixture was rolled back')
+  assertEqual((await db.query(`select count(*)::int n from user_profiles where full_name like 'Gvcoord%'`)).rows[0].n, 0, 'the coordinators were rolled back')
+}))
+
+CHECKS.push(() => check('section G reads through the indexes', async () => {
+  // Raw table queries, never a call to a section G function: EXPLAIN of a plpgsql
+  // call prints only "Function Scan" and would prove nothing.
+  const { rows: [c] } = await db.query(`select coordinator_id cid, id sid from schools where coordinator_id is not null order by id limit 1`)
+  // The per-coordinator reach, which is what `students` and the default sort are.
+  await assertIndexScan(`select count(*) from schools sx
+    join user_profiles px on px.school_id = sx.id and px.role = 'student'
+    where sx.coordinator_id = $1`, [c.cid], 'user_profiles')
+  // students_entered, run once per row of a page: 50 sequential scans of 1.2M
+  // member rows is exactly what this must not become.
+  await assertIndexScan(`select count(*) from user_profiles px
+    where px.school_id = $1 and px.role = 'student'
+      and exists (select 1 from isc_entry_members m
+                   where m.user_id = px.id and (m.is_leader or m.accepted_at is not null))`,
+    [c.sid], 'isc_entry_members')
+  // schools is small enough at every scale here that a sequential scan really is
+  // cheaper, so whether the planner PICKS schools_coordinator_idx is a costing
+  // question. Whether it CAN is the thing that must not rot -- the same
+  // reasoning as the trigram check above.
+  await db.exec('set enable_seqscan = off')
+  try {
+    const { rows } = await db.query(`explain select s.id from schools s where s.coordinator_id = $1`, [c.cid])
+    const plan = rows.map((r) => Object.values(r)[0]).join('\n')
+    if (!/schools_coordinator_idx/.test(plan))
+      throw new Error(`the claim lookup cannot use schools_coordinator_idx:\n${plan}`)
+  } finally { await db.exec('set enable_seqscan = on') }
+  const { rows: [idx] } = await db.query(
+    `select count(*)::int n from pg_indexes where schemaname = 'public' and indexname = 'schools_coordinator_idx'`)
+  assertEqual(idx.n, 1, 'section G creates schools_coordinator_idx')
+  // The honest counterpart, written out as the function actually runs it, so
+  // nobody reads the three assertions above as a promise the directory is
+  // index-backed. It is not: p_q ORs a name, an email on auth.users and a school
+  // name, and `students` has to aggregate every student row before the LIMIT
+  // because it is the default sort key. Both are sequential scans at every
+  // scale, and that is accepted for an admin-only screen.
+  const { rows: real } = await db.query(`explain
+    select p.id, count(*) over () from user_profiles p
+    left join auth.users u on u.id = p.id
+    left join (select distinct on (coordinator_id) coordinator_id cid, id sid, name from schools
+               where coordinator_id is not null order by coordinator_id, name, id) c on c.cid = p.id
+    left join (select s.coordinator_id cid, count(*) students from schools s
+               join user_profiles q on q.school_id = s.id and q.role = 'student'
+               where s.coordinator_id is not null group by s.coordinator_id) r on r.cid = p.id
+    where p.role = 'coordinator'
+      and (lower(coalesce(p.full_name, '')) like '%coordinator 1%'
+           or lower(coalesce(u.email, '')) like '%coordinator 1%'
+           or lower(coalesce(c.name, '')) like '%coordinator 1%')
+    order by coalesce(r.students, 0) desc, p.id limit 50`)
+  const plan = real.map((r) => Object.values(r)[0]).join('\n')
+  for (const [table, why] of [['users', 'the email branch of the search lives on auth.users'],
+    ['user_profiles', 'the students-per-coordinator aggregate reads every student row']])
+    if (!new RegExp(`Seq Scan on ${table}\\b`).test(plan))
+      throw new Error(`${table} is no longer sequentially scanned (${why}) -- good news, but update this check, the note above admin_coordinators_page in section G and section F item 6(d):\n${plan}`)
+}))
+
+CHECKS.push(() => check('section G is admin only', async () => {
+  // Every one of these reads children's records by way of their school. A
+  // non-admin must get an exception, never an empty result a caller could read
+  // as "no coordinators".
+  await db.exec(`create or replace function is_admin() returns boolean language sql as $x$ select false $x$`)
+  try {
+    for (const sql of [
+      `select admin_coordinator_summary()`,
+      `select * from admin_coordinator_breakdown()`,
+      `select * from admin_coordinator_trend()`,
+      `select * from admin_coordinators_page()`,
+      // ...including an id that does not exist: the gate must come FIRST, or a
+      // non-admin gets a silent null back and learns the function is there.
+      `select admin_coordinator_detail('00000000-0000-4000-8000-000000000000')`,
+      `select admin_coordinator_detail(null)`,
+    ]) {
+      let raised = null
+      try { await db.query(sql) } catch (e) { raised = e.message }
+      assertEqual(raised, 'admin only', `${sql} must refuse a non-admin`)
+    }
+  } finally {
+    await db.exec(`create or replace function is_admin() returns boolean language sql as $x$ select true $x$`)
+  }
+}))
+
+CHECKS.push(() => check('section G survives a second apply', async () => {
+  // `create or replace function` only REPLACES when the signature matches to the
+  // argument type; a changed parameter would leave TWO functions of the name and
+  // every call would fail with "function is not unique". The index is
+  // `if not exists`, so a second apply must leave exactly one of that too.
+  await db.exec(MIGRATION_SQL)
+  const names = ['admin_coordinator_breakdown', 'admin_coordinator_detail', 'admin_coordinator_summary',
+    'admin_coordinator_trend', 'admin_coordinators_page'].sort()
+  const { rows } = await db.query(
+    `select proname, count(*)::int n from pg_proc where proname = any($1) group by 1 order by 1`, [names])
+  assertEqual(rows.map((r) => [r.proname, r.n]), names.map((n) => [n, 1]), 'exactly one function of each name after a second apply')
+  const { rows: [idx] } = await db.query(
+    `select count(*)::int n from pg_indexes where schemaname = 'public' and indexname = 'schools_coordinator_idx'`)
+  assertEqual(idx.n, 1, 'exactly one schools_coordinator_idx after a second apply')
+  // ...and the numbers are still the same ones.
+  const v = (await db.query(`select admin_coordinator_summary() v`)).rows[0].v
+  assertSummaryMatches(v, await coordRef(), 'national after a second apply')
+  for (const sql of [`select * from admin_coordinator_breakdown()`, `select * from admin_coordinator_trend()`,
+    `select * from admin_coordinators_page(p_size => 1)`,
+    `select admin_coordinator_detail((select coordinator_id from schools where coordinator_id is not null order by id limit 1))`])
+    await db.query(sql)
+}))
+
+// Bare calls, nothing else in the timing: this is what the founder's page waits for.
+CHECKS.push(() => check('TIMING admin_coordinator_summary() national', async () => {
+  const { rows: [{ v }] } = await db.query(`select admin_coordinator_summary() v`)
+  if (!v || v.coordinators === undefined) throw new Error('no summary')
+}))
+CHECKS.push(() => check('TIMING admin_coordinator_summary() one state', async () => {
+  const { rows: [{ v }] } = await db.query(`select admin_coordinator_summary('Haryana') v`)
+  if (!v || !(v.schools_total > 0)) throw new Error('no rows in Haryana')
+}))
+CHECKS.push(() => check('TIMING admin_coordinator_breakdown() national', async () => {
+  const { rows } = await db.query(`select * from admin_coordinator_breakdown()`)
+  if (!rows.length) throw new Error('no breakdown rows')
+}))
+CHECKS.push(() => check('TIMING admin_coordinator_trend() 30 days', async () => {
+  const { rows } = await db.query(`select * from admin_coordinator_trend()`)
+  assertEqual(rows.length, 30, 'default window is 30 days')
+}))
+CHECKS.push(() => check('TIMING admin_coordinators_page() page 1', async () => {
+  const { rows } = await db.query(`select * from admin_coordinators_page(p_size => 50)`)
+  if (!rows.length) throw new Error('no rows')
+}))
+CHECKS.push(() => check('TIMING admin_coordinators_page() search', async () => {
+  const { rows } = await db.query(`select * from admin_coordinators_page(p_q => 'coordinator 1', p_size => 50)`)
+  if (!rows.length) throw new Error('no rows')
+}))
+CHECKS.push(() => check('TIMING admin_coordinator_detail()', async () => {
+  const { rows: [{ v }] } = await db.query(
+    `select admin_coordinator_detail((select coordinator_id from schools where coordinator_id is not null order by id limit 1)) v`)
+  if (!v) throw new Error('no detail')
+}))
+
 // ============================================================================
 // RUNNER — KEEP THIS BLOCK LAST IN THE FILE. Add new checks above, not below.
 // ============================================================================
