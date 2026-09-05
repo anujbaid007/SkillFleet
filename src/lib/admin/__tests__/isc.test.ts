@@ -6,6 +6,7 @@ import {
   getIscSummary,
   getIscTimeline,
   iterateExport,
+  MAX_PAGE_SIZE,
 } from '@/lib/admin/isc'
 import { invalidateAdminCache } from '@/lib/admin/cache'
 import { AdminError } from '@/lib/admin/errors'
@@ -286,6 +287,22 @@ describe('getIscRoster', () => {
     })
     expect(await getIscRoster(c, { state: 'A' }, { page: -5 })).toMatchObject({ ok: true })
   })
+
+  it('clamps a size above the SQL cap so Page.size matches the rows actually returned', async () => {
+    invalidateAdminCache()
+    // The SQL clamps p_size to 200 regardless of what is asked for, so a mock
+    // standing in for it returns 200 rows out of a much larger total.
+    const clampedRows = Array.from({ length: MAX_PAGE_SIZE }, (_, i) => ({ ...row, id: `e${i}`, total: 5000 }))
+    const c = client((_n, args) => {
+      expect(args.p_size).toBe(MAX_PAGE_SIZE)
+      return { data: clampedRows, error: null }
+    })
+    const r = await getIscRoster(c, { state: 'Haryana' }, { page: 1 }, 500)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.data.size).toBe(MAX_PAGE_SIZE)
+    expect(r.data.rows).toHaveLength(MAX_PAGE_SIZE)
+    expect(r.data.total).toBe(5000)
+  })
 })
 
 describe('getColdSchools', () => {
@@ -327,6 +344,17 @@ describe('getColdSchools', () => {
         size: 20,
       },
     })
+  })
+
+  it('clamps a size above the SQL cap so Page.size matches the rows actually returned', async () => {
+    invalidateAdminCache()
+    const c = client((_n, args) => {
+      expect(args.p_size).toBe(MAX_PAGE_SIZE)
+      return { data: [], error: null }
+    })
+    const r = await getColdSchools(c, { state: 'Haryana' }, 1, 9999)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.data.size).toBe(MAX_PAGE_SIZE)
   })
 })
 
@@ -392,6 +420,36 @@ describe('iterateExport', () => {
       expect(e).toBeInstanceOf(AdminError)
       expect((e as AdminError).kind).toBe('migration-missing')
     }
+  })
+
+  it('throws instead of hanging when a full chunk repeats the same last-row cursor', async () => {
+    // A reviewer proved the pre-fix generator would spin forever here: every
+    // call returns a FULL chunk (length === size, so never "the last chunk")
+    // whose last row never changes, so the cursor never advances. The SQL's
+    // strict `<` comparison makes this unreachable today, but the generator
+    // must not trust that and hang if it ever happened -- it feeds a
+    // streaming CSV download, so a hang ships a corrupt partial file instead
+    // of an error.
+    const chunk = [
+      { id: 'a', created_at: '2026-09-01' },
+      { id: 'b', created_at: '2026-08-31' },
+    ]
+    let call = 0
+    const c = client(() => {
+      call++
+      return { data: chunk, error: null }
+    })
+    try {
+      for await (const _ of iterateExport(c, { state: 'X' }, { page: 1 }, 2)) void _
+      throw new Error('expected a throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(AdminError)
+      expect((e as AdminError).kind).toBe('failed')
+      expect((e as Error).message).toMatch(/same cursor twice/)
+    }
+    // Terminates in two round trips -- the first chunk is yielded, the
+    // second (repeating cursor) trips the guard -- not forty-one and counting.
+    expect(call).toBe(2)
   })
 
   it('is not cached: a second pass hits the database again', async () => {

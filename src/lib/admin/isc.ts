@@ -146,6 +146,8 @@ export interface ColdSchoolRow {
 export const EXPORT_CHUNK = 1000
 export const ROSTER_PAGE = 50
 export const COLD_PAGE = 20
+/** admin_isc_roster and admin_isc_cold_schools both clamp p_size to this inside the SQL. */
+export const MAX_PAGE_SIZE = 200
 /** admin_isc_timeline builds one row per day, so an unclamped p_days is a way to hang the page. */
 export const MAX_TIMELINE_DAYS = 365
 
@@ -339,8 +341,8 @@ export function getIscTimeline(
 
 /**
  * One page of entries, newest first. UNSCOPED THIS IS SLOW -- see the note at
- * the top of this file. `size` is clamped to 200 inside the SQL whatever is
- * passed here.
+ * the top of this file. `size` is clamped to MAX_PAGE_SIZE here too, so
+ * `Page.size` always matches the row count the SQL actually applied.
  */
 export function getIscRoster(
   db: Db,
@@ -349,14 +351,15 @@ export function getIscRoster(
   size = ROSTER_PAGE
 ): Promise<AdminResult<Page<RosterRow>>> {
   const page = atLeastOne(filters.page)
+  const clampedSize = Math.min(atLeastOne(size), MAX_PAGE_SIZE)
   const args = {
     ...scopeToRpcArgs(scope),
     ...filtersToRpcArgs(filters),
     p_page: page,
-    p_size: size,
+    p_size: clampedSize,
   }
   return cachedOk(cacheKey('admin_isc_roster', args), () =>
-    rpc(db, 'admin_isc_roster', args, (d) => lift(d, page, size, toRosterRow))
+    rpc(db, 'admin_isc_roster', args, (d) => lift(d, page, clampedSize, toRosterRow))
   )
 }
 
@@ -372,9 +375,10 @@ export function getColdSchools(
   size = COLD_PAGE
 ): Promise<AdminResult<Page<ColdSchoolRow>>> {
   const p = atLeastOne(page)
-  const args = { ...geoScopeToRpcArgs(scope), p_page: p, p_size: size }
+  const clampedSize = Math.min(atLeastOne(size), MAX_PAGE_SIZE)
+  const args = { ...geoScopeToRpcArgs(scope), p_page: p, p_size: clampedSize }
   return cachedOk(cacheKey('admin_isc_cold_schools', args), () =>
-    rpc(db, 'admin_isc_cold_schools', args, (d) => lift(d, p, size, toColdSchoolRow))
+    rpc(db, 'admin_isc_cold_schools', args, (d) => lift(d, p, clampedSize, toColdSchoolRow))
   )
 }
 
@@ -432,6 +436,15 @@ export async function* iterateExport(
       throw new AdminError(
         'failed',
         'admin_isc_export_chunk returned a row without a created_at or an id; the keyset cursor cannot continue.'
+      )
+    }
+    // Defence, not a path the SQL's strict `<` comparison should reach: a full
+    // chunk whose last row repeats the previous cursor would otherwise spin
+    // forever, feeding a streamed CSV response that never completes.
+    if (after && after.created === created && after.id === id) {
+      throw new AdminError(
+        'failed',
+        'admin_isc_export_chunk returned the same cursor twice in a row; the keyset cursor is not advancing.'
       )
     }
     after = { created, id }
