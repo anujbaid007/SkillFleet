@@ -3,9 +3,12 @@
   a network or a real Supabase client.
 
   The predicates getDeskCounts sends are asserted literally, because the whole
-  point of that reader is that it agrees with admin_dashboard's own counts
-  without needing the migration -- and the only thing keeping the two in step
-  is that the WHERE clauses match.
+  point of that reader is that it agrees WITH THE PAGE EACH TILE OPENS without
+  needing the migration -- and the only thing keeping a tile and its queue in
+  step is that the WHERE clauses match. Two of them deliberately do not match
+  admin_dashboard(): the coordinator claims count carries the queue's
+  coordinator_id filter, and the completions count has no equivalent in the SQL
+  at all. Both are asserted here, so neither can be "tidied" back later.
 */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -40,6 +43,8 @@ function deskClient(answers: Record<string, Answer>, seen: string[] = []) {
       error: answer.error ?? null,
       eq: (col: string, val: unknown) => build(table, [...filters, `eq:${col}=${String(val)}`]),
       gt: (col: string) => build(table, [...filters, `gt:${col}`]),
+      not: (col: string, op: string, val: unknown) =>
+        build(table, [...filters, `not:${col}.${op}.${val === null ? 'null' : String(val)}`]),
     }
   }
   return {
@@ -55,11 +60,12 @@ function deskClient(answers: Record<string, Answer>, seen: string[] = []) {
   }
 }
 
-/** Every predicate admin_dashboard() uses, answered with a distinct number. */
+/** Every predicate getDeskCounts sends, answered with a distinct number. */
 const HAPPY: Record<string, Answer> = {
   'schools|eq:review_status=pending': { count: 4 },
-  'schools|eq:coordinator_status=pending': { count: 6 },
+  'schools|eq:coordinator_status=pending|not:coordinator_id.is.null': { count: 6 },
   'certificate_uploads|eq:status=pending': { count: 11 },
+  'bookings|not:status.in.(cancelled,completed)|eq:score_applied=false': { count: 7 },
   'support_conversations|gt:last_message_at': { count: 3 },
   'user_profiles|eq:role=student': { count: '200000' },
   'user_profiles|eq:role=student|eq:onboarding_completed=true': { count: BigInt(180000) },
@@ -76,7 +82,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------
 
 describe('getDeskCounts', () => {
-  it('reads all eight counts and coerces a string and a BigInt', async () => {
+  it('reads all nine counts and coerces a string and a BigInt', async () => {
     const { db } = deskClient(HAPPY)
     const result = await getDeskCounts(db)
     expect(result).toEqual({
@@ -85,6 +91,7 @@ describe('getDeskCounts', () => {
         pending_schools: 4,
         pending_coordinators: 6,
         pending_certificates: 11,
+        pending_completions: 7,
         active_support: 3,
         students: 200000,
         students_onboarded: 180000,
@@ -97,25 +104,49 @@ describe('getDeskCounts', () => {
   it('asks for a head count, so no row comes back over the wire', async () => {
     const { db, seen } = deskClient(HAPPY)
     await getDeskCounts(db)
-    expect(seen).toHaveLength(8)
+    expect(seen).toHaveLength(9)
     for (const s of seen) expect(s).toContain('{"count":"exact","head":true}')
+  })
+
+  /*
+    A claim with no claimant is not a claim. Without this filter the tile counts
+    schools the claims queue will never list, so an admin clears the queue and
+    the tile stays lit with nothing behind it. The mock answers ONLY the
+    filtered key, so dropping the .not() makes this fail rather than quietly
+    reading a different number.
+  */
+  it('counts a coordinator claim only when a coordinator is attached, as the claims queue does', async () => {
+    const { db } = deskClient(HAPPY)
+    const result = await getDeskCounts(db)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.pending_coordinators).toBe(6)
+  })
+
+  /*
+    The completions tile is the length of the completions queue: the page lists
+    everything not cancelled and offers its button on the rows that are neither
+    completed nor already scored.
+  */
+  it('counts exactly the bookings the completions page can act on', async () => {
+    const { db } = deskClient(HAPPY)
+    const result = await getDeskCounts(db)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.pending_completions).toBe(7)
   })
 
   it('counts the support window from ACTIVE_SUPPORT_DAYS ago, not from a fixed date', async () => {
     let sent = ''
-    const db = {
-      from: () => ({
-        select: () => ({
-          count: 0,
-          error: null,
-          eq: () => ({ count: 0, error: null, eq: () => ({ count: 0, error: null }) }),
-          gt: (_col: string, val: string) => {
-            sent = val
-            return { count: 0, error: null }
-          },
-        }),
-      }),
-    } as never
+    // Answers every count with 0 and every chained filter with itself, so the
+    // shape of the calls does not matter -- only the timestamp the support
+    // query is given.
+    const anything: Record<string, unknown> = { count: 0, error: null }
+    anything.eq = () => anything
+    anything.not = () => anything
+    anything.gt = (_col: string, val: string) => {
+      sent = val
+      return anything
+    }
+    const db = { from: () => ({ select: () => anything }) } as never
     await getDeskCounts(db)
     const days = (Date.now() - Date.parse(sent)) / 86_400_000
     expect(days).toBeGreaterThan(ACTIVE_SUPPORT_DAYS - 0.01)
@@ -133,13 +164,13 @@ describe('getDeskCounts', () => {
     const { db, seen } = deskClient(HAPPY)
     await getDeskCounts(db)
     await getDeskCounts(db)
-    expect(seen).toHaveLength(8)
+    expect(seen).toHaveLength(9)
 
     invalidateAdminCache()
     const broken = deskClient({ ...HAPPY, 'user_profiles|eq:role=coordinator': { count: null, error: { message: 'nope' } } })
     await getDeskCounts(broken.db)
     await getDeskCounts(broken.db)
-    expect(broken.seen).toHaveLength(16)
+    expect(broken.seen).toHaveLength(18)
   })
 })
 

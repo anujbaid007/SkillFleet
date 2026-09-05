@@ -15,20 +15,22 @@
   all of it those two. It also needs docs/admin-scale-migration.sql to have been
   pasted at all.
 
-  The eight counts it opens with need neither. Every one of them is a single
+  The counts it opens with need neither. Every one of them is a single
   `count(*)` over a plain table with an index behind it, so getDeskCounts()
   reads them straight from those tables. That buys two things the founder
   actually feels:
 
     * the queues an admin came to the page to work -- schools, coordinator
-      claims, certificates, support -- are on screen from the first response
-      rather than five seconds later behind the championship;
+      claims, certificates, completions, support -- are on screen from the
+      first response rather than five seconds later behind the championship;
     * they are still on screen, with real numbers, before the migration has
       been pasted, when every RPC on this page answers `migration-missing`.
 
-  The two disagree by at most the sixty seconds they are each cached for, and
-  they are the same SQL predicates -- kept deliberately identical to
-  admin_dashboard's, which is the contract this file is tested against.
+  Mostly the same SQL predicates, and the two readers then disagree by at most
+  the sixty seconds they are each cached for. Two counts differ ON PURPOSE:
+  getDeskCounts adds a completions queue admin_dashboard() has no idea about,
+  and narrows the coordinator claims count to match the page that tile opens.
+  Both differences are spelled out on DeskCounts and asserted in the tests.
 */
 
 import { cachedOk, cacheKey } from '@/lib/admin/cache'
@@ -46,22 +48,40 @@ type AdminFunctionName = Extract<keyof Database['public']['Functions'], `admin_$
 // ---------------------------------------------------------------
 
 /**
- * The eight counts admin_dashboard() opens with, and the only part of this
+ * The nine counts behind the top two rows of /admin, and the only part of this
  * page that survives a missing migration.
  *
- * `pending_coordinators` counts SCHOOL ROWS whose coordinator_status is
- * 'pending', which is what admin_dashboard counts. The Coordinators section
- * counts a claim only when the school also has a coordinator_id, so its
- * "waiting on review" figure can be smaller. Both are right about different
- * questions; a screen showing both has to say so.
+ * Every one of them counts a THING -- a school row, a certificate, a booking --
+ * never a person. The Coordinators section counts PEOPLE by their strongest
+ * claim, so its figures are not these figures and a screen showing both has to
+ * say which is which.
  */
 export interface DeskCounts {
   /** schools.review_status = 'pending' */
   pending_schools: number
-  /** schools.coordinator_status = 'pending' -- school rows, not people. */
+  /**
+   * The "Coordinator claims" tile: schools.coordinator_status = 'pending' AND a
+   * coordinator_id to go with it. School rows, not people — a teacher who has
+   * claimed two schools is two of these.
+   *
+   * The not-null half is not a refinement, it is what makes the tile openable.
+   * getCoordinatorsQueue() requires it too (queues.ts), because a claim with no
+   * claimant is not a claim -- there is no one to approve. Without it a school
+   * left pending with no coordinator counts here forever: the tile says 3, the
+   * page it links to lists 2, an admin clears both and the tile sticks at 1
+   * with nothing behind it. admin_dashboard() counts the looser predicate; this
+   * is the one deliberate place the two readers differ, and this one is right.
+   */
   pending_coordinators: number
   /** certificate_uploads.status = 'pending' */
   pending_certificates: number
+  /**
+   * Bookings still owed their growth points: not cancelled, not completed, not
+   * yet scored. Exactly the rows /admin/completions offers a "Mark complete"
+   * button for, so the tile is the length of that queue rather than a number
+   * near it.
+   */
+  pending_completions: number
   /** support_conversations with a message in the last ACTIVE_SUPPORT_DAYS days. */
   active_support: number
   /** user_profiles.role = 'student' */
@@ -73,6 +93,14 @@ export interface DeskCounts {
   /** schools.review_status = 'approved' */
   schools_approved: number
 }
+
+/**
+ * The eight counts admin_dashboard() returns, which is DeskCounts minus the two
+ * the SQL does not know about. `pending_completions` has no equivalent in the
+ * function, and `pending_coordinators` there is the looser predicate described
+ * on DeskCounts above.
+ */
+type DashboardCounts = Omit<DeskCounts, 'pending_completions'>
 
 /**
  * admin_dashboard(). All twelve keys are always present and the three arrays
@@ -89,7 +117,7 @@ export interface DeskCounts {
  * `timeline[].started` and `[].submitted` count ENTRIES; `isc.started` and
  * `isc.submitted` count PEOPLE. Same words, different units.
  */
-export interface Dashboard extends DeskCounts {
+export interface Dashboard extends DashboardCounts {
   /** The national admin_isc_summary(), verbatim. */
   isc: IscSummary
   /** Up to 5 states with eligible > 0, best submitted/eligible first. */
@@ -238,15 +266,21 @@ function n(response: CountResponse): number {
 }
 
 /**
- * The eight counts, straight from the tables, without the migration and
- * without the championship's five seconds. Cached 60 seconds, like everything
- * else here, and invalidated by the same invalidateAdminCache() the review
- * actions already call.
+ * The nine counts, straight from the tables, without the migration and without
+ * the championship's five seconds. Cached 60 seconds, like everything else
+ * here, and invalidated by the same invalidateAdminCache() the review actions
+ * already call.
  *
- * Eight `head: true` counts in parallel rather than one function, because a
+ * Nine `head: true` counts in parallel rather than one function, because a
  * function would be one more thing to paste before the landing page worked.
- * The predicates are copied from admin_dashboard() line for line; if one of
- * them changes there, change it here.
+ *
+ * EVERY QUEUE COUNT MATCHES THE PAGE IT LINKS TO, not admin_dashboard(). A
+ * tile under "Waiting on you" is a promise that clicking it shows that many
+ * things to do, and an admin who clears a queue and watches the tile stay at 1
+ * stops trusting the whole row. So `pending_coordinators` carries the
+ * queue's coordinator_id filter and `pending_completions` carries the
+ * completions page's own three conditions -- see DeskCounts for both. The
+ * other predicates are admin_dashboard()'s line for line.
  */
 export function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
   return cachedOk(cacheKey('admin_desk_counts', {}), async () => {
@@ -256,6 +290,7 @@ export function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
       pendingSchools,
       pendingCoordinators,
       pendingCertificates,
+      pendingCompletions,
       activeSupport,
       students,
       studentsOnboarded,
@@ -263,8 +298,17 @@ export function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
       schoolsApproved,
     ] = (await Promise.all([
       db.from('schools').select('id', HEAD).eq('review_status', 'pending'),
-      db.from('schools').select('id', HEAD).eq('coordinator_status', 'pending'),
+      db
+        .from('schools')
+        .select('id', HEAD)
+        .eq('coordinator_status', 'pending')
+        .not('coordinator_id', 'is', null),
       db.from('certificate_uploads').select('id', HEAD).eq('status', 'pending'),
+      db
+        .from('bookings')
+        .select('id', HEAD)
+        .not('status', 'in', '(cancelled,completed)')
+        .eq('score_applied', false),
       db.from('support_conversations').select('id', HEAD).gt('last_message_at', since),
       db.from('user_profiles').select('id', HEAD).eq('role', 'student'),
       db
@@ -282,6 +326,7 @@ export function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
       pendingSchools,
       pendingCoordinators,
       pendingCertificates,
+      pendingCompletions,
       activeSupport,
       students,
       studentsOnboarded,
@@ -294,6 +339,7 @@ export function getDeskCounts(db: Db): Promise<AdminResult<DeskCounts>> {
       pending_schools: n(pendingSchools),
       pending_coordinators: n(pendingCoordinators),
       pending_certificates: n(pendingCertificates),
+      pending_completions: n(pendingCompletions),
       active_support: n(activeSupport),
       students: n(students),
       students_onboarded: n(studentsOnboarded),

@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import {
+  CheckSquare,
   Clock,
   FileCheck,
   GraduationCap,
@@ -92,7 +93,13 @@ export default async function AdminOverviewPage() {
       <DashboardSection title="Waiting on you" subtitle="Open one to review it">
         <Reveal delay={0.03}>
           {desk.ok ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            /*
+              Five tiles, and every number is the length of the queue behind it
+              rather than something close to it — see getDeskCounts. Five across
+              a twelve-column grid would leave a ragged last row, so they run
+              three and two on a wide screen.
+            */
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <StatCard
                 label="Schools"
                 value={n(desk.data.pending_schools)}
@@ -116,6 +123,14 @@ export default async function AdminOverviewPage() {
                 tone={desk.data.pending_certificates > 0 ? 'warning' : 'neutral'}
                 sub="Student uploads awaiting points"
                 href="/admin/certificates?status=pending"
+              />
+              <StatCard
+                label="Completions"
+                value={n(desk.data.pending_completions)}
+                icon={CheckSquare}
+                tone={desk.data.pending_completions > 0 ? 'warning' : 'neutral'}
+                sub="Bookings to mark attended before the student gets their points"
+                href="/admin/completions"
               />
               <StatCard
                 label="Live support"
@@ -196,12 +211,20 @@ export default async function AdminOverviewPage() {
                   sub={`${n(coordinators.data.approved)} approved · ${n(coordinators.data.rejected)} turned down`}
                   href="/admin/coordinators/directory"
                 />
+                {/*
+                  PEOPLE, not claims — section G ranks a coordinator by their
+                  strongest claim, so someone approved at one school and pending
+                  at another is counted under approved and their pending claim
+                  is counted nowhere here. Labelling this "Claims waiting" said
+                  it was the length of the claims queue, which it is not and
+                  cannot be made to be from this reader.
+                */}
                 <StatCard
-                  label="Claims waiting"
+                  label="Coordinators waiting"
                   value={n(coordinators.data.pending)}
                   icon={Clock}
                   tone={coordinators.data.pending > 0 ? 'warning' : 'neutral'}
-                  sub="Claims with a teacher attached and no decision yet"
+                  sub="People whose strongest claim has had no decision yet"
                   href="/admin/coordinators/claims?status=pending"
                 />
                 <StatCard
@@ -241,17 +264,18 @@ export default async function AdminOverviewPage() {
                 />
               </div>
               {/*
-                Two figures on this page count pending coordinators and they do
-                not have to agree, so the page says so rather than leaving the
-                founder to spot it. Reach IS allowed its percentage: the
+                Two figures on this page count something pending about
+                coordinators, in different units, and neither is wrong. The page
+                says what each one counts rather than leaving the founder to
+                work out why they differ. Reach IS allowed its percentage: the
                 students who entered are a subset of the students reached, at
                 the same schools. The championship's submitted/eligible below
                 is not, and never gets one.
               */}
               <p className="text-xs leading-relaxed text-muted">
-                Claims waiting counts a claim that has a teacher attached to it. The coordinator
-                claims tile at the top of this page counts the school&rsquo;s status column alone,
-                so the two can differ.
+                Coordinators waiting counts people, one apiece, by whichever of their claims has
+                got furthest. Coordinator claims at the top of this page counts schools, so a
+                teacher who has claimed two of them appears twice there and once here.
               </p>
             </div>
           ) : coordinators.kind === 'migration-missing' ? (

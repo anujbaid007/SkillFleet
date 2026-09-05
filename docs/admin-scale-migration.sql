@@ -86,24 +86,32 @@
 -- ---------------------------------------------------------------
 -- WHAT THIS DOES NOT DROP
 -- ---------------------------------------------------------------
--- Two functions this script replaces are left standing, because dropping a
--- function is the one thing here that cannot be undone by pasting the file
--- again:
---
---   * admin_list_users(), replaced by admin_users_page();
---   * find_similar_schools(), replaced by admin_similar_schools_batch().
---
--- Nothing under src/ calls either one any more. They cost nothing sitting
--- there, so drop them in your own time, once you are satisfied the new pages
--- are behaving:
+-- admin_list_users() is replaced by admin_users_page() and nothing under src/
+-- calls it any more. It is left standing, because dropping a function is the
+-- one thing here that pasting the file again cannot undo. It costs nothing
+-- sitting there, so drop it in your own time, once you are satisfied the new
+-- users page is behaving:
 --
 --   drop function if exists admin_list_users();
---   drop function if exists find_similar_schools(uuid);
 --
--- The argument lists are the ones in src/lib/types/database.ts, which was
--- generated from this database. If a drop complains that the function does not
--- exist, run `\df admin_list_users` in the SQL editor and use the signature it
--- prints: a drop has to name the arguments exactly.
+-- That argument list is the one in src/lib/types/database.ts, which was
+-- generated from this database. If the drop says no such function exists, run
+-- `\df admin_list_users` in the SQL editor and use the signature it prints: a
+-- drop has to name the arguments exactly.
+--
+-- DO NOT DROP find_similar_schools(uuid). No page calls it directly any more,
+-- so it looks like the same kind of leftover, and it is not:
+-- admin_similar_schools_batch() in section E is built on it --
+-- `cross join lateral find_similar_schools(s.id)` -- and that batch function is
+-- what /admin/schools calls for every page of the queue.
+--
+-- Postgres will not stop you. A plpgsql body is stored as text and records no
+-- dependency on the functions it calls, so the DROP succeeds with no error and
+-- no warning, and nothing looks wrong until the next render of /admin/schools
+-- fails with 'function find_similar_schools(uuid) does not exist'. What breaks
+-- is the near-duplicate warning on every pending school -- while an admin is
+-- deciding which of them to approve, which is the worst possible moment for
+-- that particular warning to go quiet.
 --
 -- ---------------------------------------------------------------
 -- BEFORE YOU PASTE
