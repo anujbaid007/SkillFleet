@@ -222,7 +222,7 @@ export const ISC_TRACKS: IscTrack[] = [
         items: [
           'Sixty seconds at most, with clear audio',
           'You or your team present it; do not simply read the document aloud',
-          'Slides, prototypes or demonstrations are welcome',
+          'A prototype or a demonstration is welcome',
           'No expensive equipment needed: clarity of thought matters more than production',
         ],
       },

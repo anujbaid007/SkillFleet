@@ -105,6 +105,12 @@ export function EntryForm({
             <label htmlFor={spec.key} className="block text-sm font-medium text-foreground mb-1">
               {spec.label}
               {!readOnly && <Required />}
+              {spec.kind !== 'url' && spec.kind !== 'select' && spec.max && (
+                <span className="ml-1.5 text-xs font-normal text-muted">
+                  ({spec.min ? `${spec.min.toLocaleString('en-IN')}–` : 'up to '}
+                  {spec.max.toLocaleString('en-IN')} characters)
+                </span>
+              )}
             </label>
             {spec.kind === 'textarea' ? (
               <textarea
