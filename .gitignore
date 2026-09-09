@@ -60,3 +60,5 @@ client_secret_*.json
 # Isolated workspaces for large in-progress work
 .worktrees/
 .superpowers/
+.kilo/
+
