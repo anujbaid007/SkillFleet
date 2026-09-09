@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Send,
   CheckCircle,
@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Square,
 } from 'lucide-react'
 import {
   sendCampaignEmailAction,
@@ -72,6 +73,8 @@ export function CampaignManager({
 
   const [tracking, setTracking] = useState<Record<string, { opens: number; clicks: number }>>({})
   const [batchSending, setBatchSending] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
+  const stopBatchRef = useRef(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
 
   // Search & Filter State
@@ -110,7 +113,7 @@ export function CampaignManager({
   useEffect(() => {
     setIsMounted(true)
     refreshData()
-    const interval = setInterval(refreshData, 5000)
+    const interval = setInterval(refreshData, 4000)
     return () => clearInterval(interval)
   }, [])
 
@@ -159,12 +162,19 @@ export function CampaignManager({
 
   const handleSendBatch = async (limit?: number) => {
     setBatchSending(true)
+    stopBatchRef.current = false
     let count = 0
+
+    // Gather candidate items
+    const candidates = recipients.filter(
+      (r) => r.hasEmail && statuses[r.index]?.state !== 'sent'
+    )
+    const targetBatch = limit ? candidates.slice(0, limit) : candidates
+    setBatchProgress({ current: 0, total: targetBatch.length })
+
     try {
-      for (const item of recipients) {
-        if (!item.hasEmail) continue
-        if (statuses[item.index]?.state === 'sent') continue
-        if (limit && count >= limit) break
+      for (const item of targetBatch) {
+        if (stopBatchRef.current) break
 
         setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
         try {
@@ -191,17 +201,25 @@ export function CampaignManager({
             },
           }))
         }
-        // Pacing delay between emails to avoid hitting burst rate limits
+        setBatchProgress({ current: count, total: targetBatch.length })
+
+        // Pacing delay (600ms) between emails to respect Gmail API limits
         await new Promise((resolve) => setTimeout(resolve, 600))
       }
     } finally {
       setBatchSending(false)
+      setBatchProgress(null)
     }
+  }
+
+  const handleStopBatch = () => {
+    stopBatchRef.current = true
   }
 
   const sentCount = Object.values(statuses).filter((s) => s.state === 'sent').length
   const totalCount = recipients.length
   const withEmailCount = recipients.filter((r) => r.hasEmail).length
+  const remainingCount = withEmailCount - sentCount
 
   return (
     <div className="space-y-6">
@@ -211,48 +229,95 @@ export function CampaignManager({
           <div>
             <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <School className="w-5 h-5 text-primary" />
-              ISC 2026 School Outreach Campaign (500 Contacts)
+              ISC 2026 School Outreach Campaign ({totalCount} Contacts)
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Loaded from Excel sheet with persistent delivery tracking, personalized HTML, and live engagement metrics.
+              Loaded from master Excel sheet. {withEmailCount} valid school emails ({totalCount - withEmailCount} missing).
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="text-xs font-medium text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border border-border">
-              Sent: <strong className="text-foreground">{sentCount}</strong> / {totalCount} ({withEmailCount} valid emails)
+              Sent: <strong className="text-foreground">{sentCount}</strong> / {totalCount}
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleSendBatch(10)}
-              disabled={!isConnected || batchSending}
-              className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 rounded-xl transition inline-flex items-center gap-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              Send Next 10
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSendBatch()}
-              disabled={!isConnected || batchSending || sentCount >= withEmailCount}
-              className="px-4 py-2 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-2"
-            >
-              {batchSending ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Sending Batch...
-                </>
-              ) : (
-                <>
+            {batchSending ? (
+              <button
+                type="button"
+                onClick={handleStopBatch}
+                className="px-3.5 py-1.5 text-xs font-semibold bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl transition inline-flex items-center gap-1.5"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                Pause Batch
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleSendBatch(10)}
+                  disabled={!isConnected || batchSending || remainingCount <= 0}
+                  className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-40 rounded-xl transition inline-flex items-center gap-1.5"
+                >
                   <Send className="w-3.5 h-3.5" />
-                  Send All Unsent
-                </>
-              )}
-            </button>
+                  Send 10
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendBatch(50)}
+                  disabled={!isConnected || batchSending || remainingCount <= 0}
+                  className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-40 rounded-xl transition inline-flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Send 50
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendBatch(100)}
+                  disabled={!isConnected || batchSending || remainingCount <= 0}
+                  className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-40 rounded-xl transition inline-flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Send 100
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendBatch()}
+                  disabled={!isConnected || batchSending || remainingCount <= 0}
+                  className="px-4 py-2 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-2"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Send All Unsent ({remainingCount})
+                </button>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Batch Progress Bar */}
+        {batchSending && batchProgress && (
+          <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
+            <div className="flex items-center justify-between text-xs font-medium">
+              <span className="text-primary flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                Dispatching emails with safe pacing (600ms / email)...
+              </span>
+              <span className="font-semibold text-foreground">
+                {batchProgress.current} / {batchProgress.total} sent
+              </span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-primary h-2 transition-all duration-300"
+                style={{
+                  width: `${(batchProgress.current / (batchProgress.total || 1)) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Filter and Search Row */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border">
@@ -306,7 +371,7 @@ export function CampaignManager({
                 <th className="px-4 py-3">Contact Person</th>
                 <th className="px-4 py-3">Recipient Email</th>
                 <th className="px-4 py-3 text-center w-32">Delivery Status</th>
-                <th className="px-4 py-3 text-center w-32">Engagement</th>
+                <th className="px-4 py-3 text-center w-32">Live Engagement</th>
                 <th className="px-4 py-3 text-right w-36">Actions</th>
               </tr>
             </thead>
@@ -315,6 +380,8 @@ export function CampaignManager({
                 const current = statuses[r.index]
                 const status = current?.state || 'idle'
                 const isTestRow = r.recipient === 'anuj.aecpl@gmail.com'
+                const normalizedEmail = r.recipient.trim().toLowerCase()
+                const trackData = tracking[normalizedEmail] || tracking[r.recipient]
 
                 return (
                   <tr
@@ -368,7 +435,9 @@ export function CampaignManager({
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600"
                             >
                               <CheckCircle className="w-2.5 h-2.5" /> Sent{' '}
-                              {isMounted && current?.sentAt ? `(${formatSentTime(current.sentAt)})` : ''}
+                              {isMounted && current?.sentAt
+                                ? `(${formatSentTime(current.sentAt)})`
+                                : ''}
                             </span>
                           )}
                           {status === 'error' && (
@@ -383,22 +452,22 @@ export function CampaignManager({
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {r.hasEmail && tracking[r.recipient] ? (
+                      {r.hasEmail && trackData ? (
                         <div className="inline-flex items-center gap-1.5 justify-center">
-                          {tracking[r.recipient].opens > 0 ? (
+                          {trackData.opens > 0 ? (
                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 bg-indigo-500/10 px-2 py-0.5 rounded-full">
-                              <Eye className="w-3 h-3" /> {tracking[r.recipient].opens} open
-                              {tracking[r.recipient].opens > 1 ? 's' : ''}
+                              <Eye className="w-3 h-3" /> {trackData.opens} open
+                              {trackData.opens > 1 ? 's' : ''}
                             </span>
                           ) : null}
-                          {tracking[r.recipient].clicks > 0 ? (
+                          {trackData.clicks > 0 ? (
                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 bg-teal-500/10 px-2 py-0.5 rounded-full">
                               <MousePointerClick className="w-3 h-3" />{' '}
-                              {tracking[r.recipient].clicks} click
-                              {tracking[r.recipient].clicks > 1 ? 's' : ''}
+                              {trackData.clicks} click
+                              {trackData.clicks > 1 ? 's' : ''}
                             </span>
                           ) : null}
-                          {!tracking[r.recipient].opens && !tracking[r.recipient].clicks && (
+                          {!trackData.opens && !trackData.clicks && (
                             <span className="text-[11px] text-muted-foreground">—</span>
                           )}
                         </div>
