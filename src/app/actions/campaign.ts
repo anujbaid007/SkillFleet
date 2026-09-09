@@ -8,7 +8,7 @@ import {
   formatCustomEmailPayload,
   type CampaignRecipient,
 } from '@/lib/gmail/campaign'
-import { getTrackingStats } from '@/lib/tracking/logger'
+import { getTrackingStats, loadTrackingEvents, type TrackingEvent } from '@/lib/tracking/logger'
 import { recordSentEmail, getSentEmailRecords, loadSentEmailRecords } from '@/lib/gmail/sent-log'
 import { requireAdmin } from '@/lib/admin/guard'
 
@@ -26,6 +26,154 @@ export interface CustomTestEmailInput {
   schoolName: string
   recipient: string
   contactName?: string
+}
+
+export interface CampaignAnalyticsData {
+  totalSent: number
+  totalOpens: number
+  uniqueOpens: number
+  openRate: number
+  totalClicks: number
+  uniqueClicks: number
+  clickRate: number
+  clickToOpenRate: number
+  linkBreakdown: Array<{ url: string; label: string; count: number }>
+  topSchools: Array<{
+    schoolName: string
+    recipient: string
+    opens: number
+    clicks: number
+    lastActiveAt?: string
+  }>
+  recentActivity: Array<{
+    type: 'open' | 'click'
+    schoolName: string
+    recipientEmail: string
+    targetUrl?: string
+    timestamp: string
+    device?: string
+  }>
+}
+
+function getLinkLabel(url?: string): string {
+  if (!url) return 'General Link'
+  if (url.includes('/signup/coordinator')) return 'Coordinator Signup'
+  if (url.includes('/signup')) return 'Student Registration'
+  if (url.includes('ISC-School-Deck.pdf')) return 'Download School Deck'
+  if (url.includes('ISC-Student-Deck.pdf')) return 'Download Student Deck'
+  if (url.includes('/isc-2026') || url.includes('skillfleet.org')) return 'ISC Website'
+  return url
+}
+
+function parseDevice(userAgent?: string): string {
+  if (!userAgent) return 'Web / Desktop'
+  if (userAgent.includes('GoogleImageProxy') || userAgent.includes('ggpht.com')) return 'Gmail Proxy (Web/App)'
+  if (userAgent.includes('iPhone') || userAgent.includes('iPad')) return 'Apple iOS Mail'
+  if (userAgent.includes('Android')) return 'Android Mobile'
+  if (userAgent.includes('Macintosh')) return 'macOS'
+  if (userAgent.includes('Windows')) return 'Windows'
+  return 'Desktop Web'
+}
+
+export async function getDetailedCampaignAnalyticsAction(): Promise<CampaignAnalyticsData> {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+
+  const [events, sentRecords] = await Promise.all([
+    loadTrackingEvents(),
+    loadSentEmailRecords(),
+  ])
+
+  const totalSent = sentRecords.filter((r) => r.campaignId === 'Introduction to ISC 2026').length || sentRecords.length || 1
+
+  let totalOpens = 0
+  let totalClicks = 0
+  const uniqueOpenEmails = new Set<string>()
+  const uniqueClickEmails = new Set<string>()
+  const linkCounts: Record<string, number> = {}
+  const schoolStatsMap: Record<
+    string,
+    { schoolName: string; recipient: string; opens: number; clicks: number; lastActiveAt?: string }
+  > = {}
+
+  for (const ev of events) {
+    const emailNorm = (ev.recipientEmail || '').trim().toLowerCase()
+    if (!emailNorm) continue
+
+    if (!schoolStatsMap[emailNorm]) {
+      schoolStatsMap[emailNorm] = {
+        schoolName: ev.schoolName || 'Unknown School',
+        recipient: ev.recipientEmail,
+        opens: 0,
+        clicks: 0,
+        lastActiveAt: ev.timestamp,
+      }
+    }
+
+    if (ev.type === 'open') {
+      totalOpens++
+      uniqueOpenEmails.add(emailNorm)
+      schoolStatsMap[emailNorm].opens++
+    } else if (ev.type === 'click') {
+      totalClicks++
+      uniqueClickEmails.add(emailNorm)
+      schoolStatsMap[emailNorm].clicks++
+      const target = ev.targetUrl || 'Unknown'
+      linkCounts[target] = (linkCounts[target] || 0) + 1
+    }
+
+    if (
+      !schoolStatsMap[emailNorm].lastActiveAt ||
+      new Date(ev.timestamp) > new Date(schoolStatsMap[emailNorm].lastActiveAt!)
+    ) {
+      schoolStatsMap[emailNorm].lastActiveAt = ev.timestamp
+    }
+  }
+
+  const uniqueOpens = uniqueOpenEmails.size
+  const uniqueClicks = uniqueClickEmails.size
+  const openRate = totalSent > 0 ? Number(((uniqueOpens / totalSent) * 100).toFixed(1)) : 0
+  const clickRate = totalSent > 0 ? Number(((uniqueClicks / totalSent) * 100).toFixed(1)) : 0
+  const clickToOpenRate = uniqueOpens > 0 ? Number(((uniqueClicks / uniqueOpens) * 100).toFixed(1)) : 0
+
+  const linkBreakdown = Object.entries(linkCounts)
+    .map(([url, count]) => ({
+      url,
+      label: getLinkLabel(url),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  const topSchools = Object.values(schoolStatsMap)
+    .sort((a, b) => b.clicks * 3 + b.opens - (a.clicks * 3 + a.opens))
+    .slice(0, 50)
+
+  const recentActivity = [...events]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 50)
+    .map((ev) => ({
+      type: ev.type,
+      schoolName: ev.schoolName || 'School Contact',
+      recipientEmail: ev.recipientEmail,
+      targetUrl: ev.targetUrl,
+      timestamp: ev.timestamp,
+      device: parseDevice(ev.userAgent),
+    }))
+
+  return {
+    totalSent,
+    totalOpens,
+    uniqueOpens,
+    openRate,
+    totalClicks,
+    uniqueClicks,
+    clickRate,
+    clickToOpenRate,
+    linkBreakdown,
+    topSchools,
+    recentActivity,
+  }
 }
 
 /**

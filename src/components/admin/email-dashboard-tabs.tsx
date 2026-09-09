@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles, School, Mail, Send } from 'lucide-react'
+import { Sparkles, School, Mail, BarChart3 } from 'lucide-react'
+import { CampaignAnalytics } from '@/components/admin/campaign-analytics'
 import { CustomTestEmailer } from '@/components/admin/custom-test-emailer'
 import { CampaignManager } from '@/components/admin/campaign-manager'
 import { EmailForm } from '@/components/admin/email-form'
@@ -24,7 +25,7 @@ export function EmailDashboardTabs({
   error,
   initialSentHistory,
 }: EmailDashboardTabsProps) {
-  const [activeTab, setActiveTab] = useState<'sandbox' | 'campaign' | 'single'>('sandbox')
+  const [activeTab, setActiveTab] = useState<'analytics' | 'campaign' | 'sandbox' | 'single'>('analytics')
 
   return (
     <div className="space-y-6">
@@ -32,15 +33,15 @@ export function EmailDashboardTabs({
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
         <button
           type="button"
-          onClick={() => setActiveTab('sandbox')}
+          onClick={() => setActiveTab('analytics')}
           className={`px-4 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2 ${
-            activeTab === 'sandbox'
+            activeTab === 'analytics'
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'bg-muted/40 text-muted-foreground hover:text-foreground border border-border'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
-          Test Sandbox (Custom School & Email)
+          <BarChart3 className="w-4 h-4" />
+          Analytics & Engagement (Live)
         </button>
 
         <button
@@ -53,7 +54,20 @@ export function EmailDashboardTabs({
           }`}
         >
           <School className="w-4 h-4" />
-          School Outreach Campaign (500 Contacts)
+          Introduction to ISC 2026 ({recipients.length} Contacts)
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('sandbox')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2 ${
+            activeTab === 'sandbox'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'bg-muted/40 text-muted-foreground hover:text-foreground border border-border'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          Test Sandbox (Custom School)
         </button>
 
         <button
@@ -70,10 +84,10 @@ export function EmailDashboardTabs({
         </button>
       </div>
 
-      {/* Tab 1: Test Sandbox */}
-      {activeTab === 'sandbox' && (
+      {/* Tab 1: Live Analytics & Engagement */}
+      {activeTab === 'analytics' && (
         <div className="space-y-6 animate-in fade-in-50 duration-150">
-          <CustomTestEmailer isConnected={isConnected} />
+          <CampaignAnalytics />
         </div>
       )}
 
@@ -88,7 +102,14 @@ export function EmailDashboardTabs({
         </div>
       )}
 
-      {/* Tab 3: Single / Account */}
+      {/* Tab 3: Test Sandbox */}
+      {activeTab === 'sandbox' && (
+        <div className="space-y-6 animate-in fade-in-50 duration-150">
+          <CustomTestEmailer isConnected={isConnected} />
+        </div>
+      )}
+
+      {/* Tab 4: Single / Account */}
       {activeTab === 'single' && (
         <div className="space-y-6 animate-in fade-in-50 duration-150">
           <EmailForm
