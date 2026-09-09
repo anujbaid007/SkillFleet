@@ -61,27 +61,33 @@ export async function sendCustomTestEmailAction(
     }
   }
 
-  const cookieStore = await cookies()
-  let accessToken = cookieStore.get('gmail_access_token')?.value
+  let accessToken: string | undefined
 
-  if (!accessToken) {
-    const refreshToken = cookieStore.get('gmail_refresh_token')?.value
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  try {
+    const cookieStore = await cookies()
+    accessToken = cookieStore.get('gmail_access_token')?.value
 
-    if (refreshToken && clientId && clientSecret) {
-      try {
-        const refreshed = await refreshAccessToken({
-          refreshToken,
-          clientId,
-          clientSecret,
-        })
-        accessToken = refreshed.access_token
-        saveGmailTokens(refreshed)
-      } catch {
-        // Fallback to storage token
+    if (!accessToken) {
+      const refreshToken = cookieStore.get('gmail_refresh_token')?.value
+      const clientId = process.env.GOOGLE_CLIENT_ID
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+      if (refreshToken && clientId && clientSecret) {
+        try {
+          const refreshed = await refreshAccessToken({
+            refreshToken,
+            clientId,
+            clientSecret,
+          })
+          accessToken = refreshed.access_token
+          saveGmailTokens(refreshed)
+        } catch {
+          // Fallback to storage token
+        }
       }
     }
+  } catch {
+    // Outside Next.js request context
   }
 
   if (!accessToken) {
