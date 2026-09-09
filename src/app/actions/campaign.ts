@@ -174,7 +174,7 @@ export async function getCampaignSentHistoryAction() {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
-  return getSentEmailRecords('isc-2026')
+  return getSentEmailRecords('Introduction to ISC 2026')
 }
 
 /**
@@ -256,7 +256,7 @@ export async function sendCampaignEmailAction(index: number): Promise<CampaignSe
     })
 
     await recordSentEmail({
-      campaignId: 'isc-2026',
+      campaignId: 'Introduction to ISC 2026',
       index: target.index,
       recipient: target.recipient,
       schoolName: target.schoolName,

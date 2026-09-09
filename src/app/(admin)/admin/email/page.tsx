@@ -18,7 +18,7 @@ export default async function AdminEmailPage({ searchParams }: PageProps) {
   const { connected, hasRefreshToken } = await getGmailConnectionStatus()
   const params = await searchParams
   const recipients = getCampaignRecipients()
-  const sentHistory = await getSentEmailRecords('isc-2026')
+  const sentHistory = await getSentEmailRecords('Introduction to ISC 2026')
 
   return (
     <div className="space-y-6">

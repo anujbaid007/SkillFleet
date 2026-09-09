@@ -229,7 +229,7 @@ export function CampaignManager({
           <div>
             <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <School className="w-5 h-5 text-primary" />
-              ISC 2026 School Outreach Campaign ({totalCount} Contacts)
+              Introduction to ISC 2026 ({totalCount} Contacts)
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               Loaded from master Excel sheet. {withEmailCount} valid school emails ({totalCount - withEmailCount} missing).

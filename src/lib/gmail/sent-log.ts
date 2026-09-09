@@ -88,7 +88,7 @@ export async function recordSentEmail(
 }
 
 export async function getSentEmailRecords(
-  campaignId = 'isc-2026'
+  campaignId = 'Introduction to ISC 2026'
 ): Promise<Record<string, { sentAt: string; messageId?: string; index: number }>> {
   const list = await loadSentEmailRecords()
   const map: Record<string, { sentAt: string; messageId?: string; index: number }> = {}
