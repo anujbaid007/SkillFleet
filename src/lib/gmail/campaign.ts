@@ -107,6 +107,62 @@ export function getCampaignRecipients(): CampaignRecipient[] {
   })
 }
 
+/**
+ * Formats a personalized ISC email payload for arbitrary custom school and email inputs.
+ */
+export function formatCustomEmailPayload(options: {
+  schoolName: string
+  recipient: string
+  contactName?: string
+}): {
+  subject: string
+  htmlBody: string
+  textBody: string
+} {
+  const { html: rawHtml, text: rawText } = getIscEmailTemplate()
+  const safeSchoolName = escapeHtml(options.schoolName.trim() || 'Your School')
+  const subject = `${options.schoolName.trim() || 'Your School'}, introduce your students to ISC 2026`
+  const unsubscribeUrl = `${DEFAULT_UNSUBSCRIBE_BASE}%20${encodeURIComponent(options.schoolName.trim())}`
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://skillfleet.org').replace(/\/$/, '')
+
+  const trackingPixel = `<img src="${baseUrl}/api/track/open?email=${encodeURIComponent(options.recipient.trim())}&school=${encodeURIComponent(options.schoolName.trim())}&campaign=isc-sandbox" width="1" height="1" style="display:none;width:1px;height:1px;" alt="" />`
+
+  let htmlBody = rawHtml
+    .replaceAll('{{SchoolName}}', safeSchoolName)
+    .replaceAll('{{PostalAddress}}', DEFAULT_POSTAL_ADDRESS)
+    .replaceAll('{{UnsubscribeURL}}', unsubscribeUrl)
+
+  const encodedSchool = encodeURIComponent(options.schoolName.trim())
+  const directLinksMap: Record<string, string> = {
+    'https://skillfleet.org/signup/coordinator': `https://skillfleet.org/signup/coordinator?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox&school=${encodedSchool}`,
+    'https://skillfleet.org/signup': `https://skillfleet.org/signup?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox&school=${encodedSchool}`,
+    'https://skillfleet.org/isc-2026': `https://skillfleet.org/isc-2026?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox`,
+    'https://skillfleet.org/decks/ISC-School-Deck.pdf': 'https://skillfleet.org/decks/ISC-School-Deck.pdf',
+    'https://skillfleet.org/decks/ISC-Student-Deck.pdf': 'https://skillfleet.org/decks/ISC-Student-Deck.pdf',
+  }
+
+  for (const [original, directTracked] of Object.entries(directLinksMap)) {
+    htmlBody = htmlBody.replaceAll(`href="${original}"`, `href="${directTracked}"`)
+  }
+
+  if (htmlBody.includes('</body>')) {
+    htmlBody = htmlBody.replace('</body>', `${trackingPixel}</body>`)
+  } else {
+    htmlBody += trackingPixel
+  }
+
+  const textBody = rawText
+    .replaceAll('{{SchoolName}}', options.schoolName.trim())
+    .replaceAll('{{PostalAddress}}', DEFAULT_POSTAL_ADDRESS)
+    .replaceAll('{{UnsubscribeURL}}', unsubscribeUrl)
+
+  return {
+    subject,
+    htmlBody,
+    textBody,
+  }
+}
+
 // Backward compatibility helper
 export function getTop10CampaignRecipients(): CampaignRecipient[] {
   return getCampaignRecipients()
