@@ -68,18 +68,32 @@ export function getCampaignRecipients(): CampaignRecipient[] {
       .replaceAll('{{PostalAddress}}', DEFAULT_POSTAL_ADDRESS)
       .replaceAll('{{UnsubscribeURL}}', unsubscribeUrl)
 
-    // Replace action links with direct live URLs + UTM tracking
+    // Replace action links with tracked redirect URLs
     const encodedSchool = encodeURIComponent(contact.schoolName)
-    const directLinksMap: Record<string, string> = {
-      'https://skillfleet.org/signup/coordinator': `https://skillfleet.org/signup/coordinator?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_2026&school=${encodedSchool}`,
-      'https://skillfleet.org/signup': `https://skillfleet.org/signup?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_2026&school=${encodedSchool}`,
-      'https://skillfleet.org/isc-2026': `https://skillfleet.org/isc-2026?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_2026`,
-      'https://skillfleet.org/decks/ISC-School-Deck.pdf': 'https://skillfleet.org/decks/ISC-School-Deck.pdf',
-      'https://skillfleet.org/decks/ISC-Student-Deck.pdf': 'https://skillfleet.org/decks/ISC-Student-Deck.pdf',
+    const encodedEmail = encodeURIComponent(contact.recipient)
+    const wrapTrackedClick = (destination: string) =>
+      `${baseUrl}/api/track/click?email=${encodedEmail}&school=${encodedSchool}&campaign=isc-2026&url=${encodeURIComponent(destination)}`
+
+    const linksMap: Record<string, string> = {
+      'https://skillfleet.org/signup/coordinator': wrapTrackedClick(
+        `https://skillfleet.org/signup/coordinator?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_2026&school=${encodedSchool}`
+      ),
+      'https://skillfleet.org/signup': wrapTrackedClick(
+        `https://skillfleet.org/signup?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_2026&school=${encodedSchool}`
+      ),
+      'https://skillfleet.org/isc-2026': wrapTrackedClick(
+        `https://skillfleet.org/isc-2026?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_2026`
+      ),
+      'https://skillfleet.org/decks/ISC-School-Deck.pdf': wrapTrackedClick(
+        'https://skillfleet.org/decks/ISC-School-Deck.pdf'
+      ),
+      'https://skillfleet.org/decks/ISC-Student-Deck.pdf': wrapTrackedClick(
+        'https://skillfleet.org/decks/ISC-Student-Deck.pdf'
+      ),
     }
 
-    for (const [original, directTracked] of Object.entries(directLinksMap)) {
-      htmlBody = htmlBody.replaceAll(`href="${original}"`, `href="${directTracked}"`)
+    for (const [original, trackedUrl] of Object.entries(linksMap)) {
+      htmlBody = htmlBody.replaceAll(`href="${original}"`, `href="${trackedUrl}"`)
     }
 
     if (htmlBody.includes('</body>')) {
@@ -133,12 +147,26 @@ export function formatCustomEmailPayload(options: {
     .replaceAll('{{UnsubscribeURL}}', unsubscribeUrl)
 
   const encodedSchool = encodeURIComponent(options.schoolName.trim())
+  const encodedEmail = encodeURIComponent(options.recipient.trim())
+  const wrapTrackedClick = (destination: string) =>
+    `${baseUrl}/api/track/click?email=${encodedEmail}&school=${encodedSchool}&campaign=isc-sandbox&url=${encodeURIComponent(destination)}`
+
   const directLinksMap: Record<string, string> = {
-    'https://skillfleet.org/signup/coordinator': `https://skillfleet.org/signup/coordinator?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox&school=${encodedSchool}`,
-    'https://skillfleet.org/signup': `https://skillfleet.org/signup?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox&school=${encodedSchool}`,
-    'https://skillfleet.org/isc-2026': `https://skillfleet.org/isc-2026?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox`,
-    'https://skillfleet.org/decks/ISC-School-Deck.pdf': 'https://skillfleet.org/decks/ISC-School-Deck.pdf',
-    'https://skillfleet.org/decks/ISC-Student-Deck.pdf': 'https://skillfleet.org/decks/ISC-Student-Deck.pdf',
+    'https://skillfleet.org/signup/coordinator': wrapTrackedClick(
+      `https://skillfleet.org/signup/coordinator?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox&school=${encodedSchool}`
+    ),
+    'https://skillfleet.org/signup': wrapTrackedClick(
+      `https://skillfleet.org/signup?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox&school=${encodedSchool}`
+    ),
+    'https://skillfleet.org/isc-2026': wrapTrackedClick(
+      `https://skillfleet.org/isc-2026?utm_source=school_emailer&utm_medium=email&utm_campaign=isc_sandbox`
+    ),
+    'https://skillfleet.org/decks/ISC-School-Deck.pdf': wrapTrackedClick(
+      'https://skillfleet.org/decks/ISC-School-Deck.pdf'
+    ),
+    'https://skillfleet.org/decks/ISC-Student-Deck.pdf': wrapTrackedClick(
+      'https://skillfleet.org/decks/ISC-Student-Deck.pdf'
+    ),
   }
 
   for (const [original, directTracked] of Object.entries(directLinksMap)) {

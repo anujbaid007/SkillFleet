@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
     headers: {
       'Content-Type': 'image/gif',
       'Content-Length': GIF_BUFFER.length.toString(),
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Cache-Control':
+        'private, no-cache, no-store, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate',
+      'Surrogate-Control': 'no-store',
       Pragma: 'no-cache',
       Expires: '0',
     },

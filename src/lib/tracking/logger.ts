@@ -111,15 +111,24 @@ export async function getTrackingStats(): Promise<
   > = {}
 
   for (const item of list) {
-    if (!stats[item.recipientEmail]) {
-      stats[item.recipientEmail] = { opens: 0, clicks: 0 }
+    const rawKey = item.recipientEmail || ''
+    const normalizedKey = rawKey.trim().toLowerCase()
+    if (!normalizedKey) continue
+
+    if (!stats[normalizedKey]) {
+      stats[normalizedKey] = { opens: 0, clicks: 0 }
     }
     if (item.type === 'open') {
-      stats[item.recipientEmail].opens += 1
-      stats[item.recipientEmail].lastOpenedAt = item.timestamp
+      stats[normalizedKey].opens += 1
+      stats[normalizedKey].lastOpenedAt = item.timestamp
     } else if (item.type === 'click') {
-      stats[item.recipientEmail].clicks += 1
-      stats[item.recipientEmail].lastClickedAt = item.timestamp
+      stats[normalizedKey].clicks += 1
+      stats[normalizedKey].lastClickedAt = item.timestamp
+    }
+
+    // Also mirror under the raw key if different
+    if (rawKey && rawKey !== normalizedKey) {
+      stats[rawKey] = stats[normalizedKey]
     }
   }
 
