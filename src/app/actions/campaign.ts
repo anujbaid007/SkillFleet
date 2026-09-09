@@ -117,7 +117,7 @@ export async function sendCampaignEmailAction(index: number): Promise<CampaignSe
       },
     })
 
-    recordSentEmail({
+    await recordSentEmail({
       campaignId: 'isc-2026',
       index: target.index,
       recipient: target.recipient,

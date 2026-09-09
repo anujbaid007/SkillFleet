@@ -21,7 +21,7 @@ export default async function EmailPage({ searchParams }: PageProps) {
   const { connected, hasRefreshToken } = await getGmailConnectionStatus()
   const params = await searchParams
   const recipients = getTop10CampaignRecipients()
-  const sentHistory = getSentEmailRecords('isc-2026')
+  const sentHistory = await getSentEmailRecords('isc-2026')
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4 sm:px-6 space-y-8">
