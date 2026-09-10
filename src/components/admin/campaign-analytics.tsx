@@ -16,6 +16,7 @@ import {
   Laptop,
   CheckCircle2,
   Clock,
+  Layers,
 } from 'lucide-react'
 import {
   getDetailedCampaignAnalyticsAction,
@@ -38,14 +39,15 @@ function formatTime(iso: string): string {
 
 export function CampaignAnalytics() {
   const [data, setData] = useState<CampaignAnalyticsData | null>(null)
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('Campaign 1: Introduction to ISC 2026')
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'clicks' | 'opens'>('all')
   const [isMounted, setIsMounted] = useState(false)
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (campaign = selectedCampaign) => {
     try {
-      const res = await getDetailedCampaignAnalyticsAction()
+      const res = await getDetailedCampaignAnalyticsAction(campaign)
       setData(res)
     } catch {
       // Ignore polling errors
@@ -56,10 +58,10 @@ export function CampaignAnalytics() {
 
   useEffect(() => {
     setIsMounted(true)
-    fetchAnalytics()
-    const interval = setInterval(fetchAnalytics, 4000)
+    fetchAnalytics(selectedCampaign)
+    const interval = setInterval(() => fetchAnalytics(selectedCampaign), 4000)
     return () => clearInterval(interval)
-  }, [])
+  }, [selectedCampaign])
 
   const filteredSchools = useMemo(() => {
     if (!data?.topSchools) return []
@@ -110,6 +112,43 @@ export function CampaignAnalytics() {
 
   return (
     <div className="space-y-6">
+      {/* Campaign Selection Header */}
+      <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Layers className="w-5 h-5 text-primary" />
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Campaign Analytics View</h3>
+            <p className="text-xs text-muted-foreground">
+              Select which campaign to inspect opens, link clicks, and conversion rates.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Campaign:</span>
+          <select
+            value={selectedCampaign}
+            onChange={(e) => {
+              setSelectedCampaign(e.target.value)
+              fetchAnalytics(e.target.value)
+            }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition min-w-[240px]"
+          >
+            <option value="Campaign 1: Introduction to ISC 2026">
+              Campaign 1: Introduction to ISC 2026
+            </option>
+            <option value="Campaign 2: Follow-up & Deck Reminder">
+              Campaign 2: Follow-up & Deck Reminder
+            </option>
+            <option value="Campaign 3: Coordinator Nomination Drive">
+              Campaign 3: Coordinator Nomination Drive
+            </option>
+            <option value="Test Sandbox">Test Sandbox</option>
+            <option value="all">All Campaigns (Aggregated)</option>
+          </select>
+        </div>
+      </div>
+
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl border border-border bg-card shadow-sm space-y-1">

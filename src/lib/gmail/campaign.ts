@@ -78,10 +78,15 @@ export function getAvailableStates(): Array<{ state: string; count: number }> {
     .sort((a, b) => b.count - a.count)
 }
 
+export const DEFAULT_CAMPAIGN_NAME = 'Campaign 1: Introduction to ISC 2026'
+
 /**
  * Formats a single recipient payload with full HTML on-demand.
  */
-export function formatRecipientPayload(contact: RawContact): CampaignRecipient {
+export function formatRecipientPayload(
+  contact: RawContact,
+  campaignName: string = DEFAULT_CAMPAIGN_NAME
+): CampaignRecipient {
   const { html: rawHtml, text: rawText } = getIscEmailTemplate()
   const safeSchoolName = escapeHtml(contact.schoolName)
   const subject = `${contact.schoolName}, introduce your students to ISC 2026`
@@ -90,7 +95,7 @@ export function formatRecipientPayload(contact: RawContact): CampaignRecipient {
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://skillfleet.org').replace(/\/$/, '')
 
   const trackingPixel = hasEmail
-    ? `<img src="${baseUrl}/api/track/open?email=${encodeURIComponent(contact.recipient)}&school=${encodeURIComponent(contact.schoolName)}&campaign=Introduction to ISC 2026" width="1" height="1" style="display:none;width:1px;height:1px;" alt="" />`
+    ? `<img src="${baseUrl}/api/track/open?email=${encodeURIComponent(contact.recipient)}&school=${encodeURIComponent(contact.schoolName)}&campaign=${encodeURIComponent(campaignName)}" width="1" height="1" style="display:none;width:1px;height:1px;" alt="" />`
     : ''
 
   let htmlBody = rawHtml
@@ -101,7 +106,7 @@ export function formatRecipientPayload(contact: RawContact): CampaignRecipient {
   const encodedSchool = encodeURIComponent(contact.schoolName)
   const encodedEmail = encodeURIComponent(contact.recipient)
   const wrapTrackedClick = (destination: string) =>
-    `${baseUrl}/api/track/click?email=${encodedEmail}&school=${encodedSchool}&campaign=Introduction to ISC 2026&url=${encodeURIComponent(destination)}`
+    `${baseUrl}/api/track/click?email=${encodedEmail}&school=${encodedSchool}&campaign=${encodeURIComponent(campaignName)}&url=${encodeURIComponent(destination)}`
 
   const linksMap: Record<string, string> = {
     'https://skillfleet.org/signup/coordinator': wrapTrackedClick(

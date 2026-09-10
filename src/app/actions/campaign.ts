@@ -62,6 +62,8 @@ export interface CampaignAnalyticsData {
   uniqueClicks: number
   clickRate: number
   clickToOpenRate: number
+  availableCampaigns: string[]
+  selectedCampaign: string
   linkBreakdown: Array<{ url: string; label: string; count: number }>
   topSchools: Array<{
     schoolName: string
@@ -79,6 +81,13 @@ export interface CampaignAnalyticsData {
     device?: string
   }>
 }
+
+export const CAMPAIGN_OPTIONS = [
+  'Campaign 1: Introduction to ISC 2026',
+  'Campaign 2: Follow-up & Deck Reminder',
+  'Campaign 3: Coordinator Nomination Drive',
+  'Test Sandbox',
+]
 
 function getLinkLabel(url?: string): string {
   if (!url) return 'General Link'
@@ -100,17 +109,50 @@ function parseDevice(userAgent?: string): string {
   return 'Desktop Web'
 }
 
-export async function getDetailedCampaignAnalyticsAction(): Promise<CampaignAnalyticsData> {
+function matchesCampaign(recordCampaign: string | undefined, selected: string): boolean {
+  if (selected === 'all') return true
+  if (!recordCampaign) return selected === 'Campaign 1: Introduction to ISC 2026'
+  
+  if (selected.includes('Introduction to ISC 2026')) {
+    return (
+      recordCampaign.includes('Introduction to ISC') ||
+      recordCampaign === 'isc-2026' ||
+      recordCampaign === 'Campaign 1: Introduction to ISC 2026'
+    )
+  }
+  if (selected.includes('Sandbox') || selected === 'isc-sandbox') {
+    return recordCampaign.includes('sandbox') || recordCampaign.includes('Sandbox')
+  }
+  return recordCampaign.toLowerCase() === selected.toLowerCase()
+}
+
+export async function getDetailedCampaignAnalyticsAction(
+  selectedCampaign: string = 'Campaign 1: Introduction to ISC 2026'
+): Promise<CampaignAnalyticsData> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
 
-  const [events, sentRecords] = await Promise.all([
+  const [rawEvents, rawSentRecords] = await Promise.all([
     loadTrackingEvents(),
     loadSentEmailRecords(),
   ])
 
-  const totalSent = sentRecords.filter((r) => r.campaignId === 'Introduction to ISC 2026').length || sentRecords.length || 1
+  // Discover all distinct campaign IDs in database
+  const discoveredCampaigns = new Set<string>(CAMPAIGN_OPTIONS)
+  for (const r of rawSentRecords) {
+    if (r.campaignId) discoveredCampaigns.add(r.campaignId)
+  }
+  for (const ev of rawEvents) {
+    if (ev.campaignId) discoveredCampaigns.add(ev.campaignId)
+  }
+  const availableCampaigns = Array.from(discoveredCampaigns)
+
+  // Filter events and sent records by selected campaign
+  const sentRecords = rawSentRecords.filter((r) => matchesCampaign(r.campaignId, selectedCampaign))
+  const events = rawEvents.filter((ev) => matchesCampaign(ev.campaignId, selectedCampaign))
+
+  const totalSent = sentRecords.length || (selectedCampaign === 'all' ? rawSentRecords.length : 0)
 
   let totalOpens = 0
   let totalClicks = 0
@@ -172,11 +214,11 @@ export async function getDetailedCampaignAnalyticsAction(): Promise<CampaignAnal
 
   const topSchools = Object.values(schoolStatsMap)
     .sort((a, b) => b.clicks * 3 + b.opens - (a.clicks * 3 + a.opens))
-    .slice(0, 50)
+    .slice(0, 100)
 
   const recentActivity = [...events]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 50)
+    .slice(0, 100)
     .map((ev) => ({
       type: ev.type,
       schoolName: ev.schoolName || 'School Contact',
@@ -195,6 +237,8 @@ export async function getDetailedCampaignAnalyticsAction(): Promise<CampaignAnal
     uniqueClicks,
     clickRate,
     clickToOpenRate,
+    availableCampaigns,
+    selectedCampaign,
     linkBreakdown,
     topSchools,
     recentActivity,
@@ -335,11 +379,13 @@ export async function getCampaignTrackingAction() {
   return getTrackingStats()
 }
 
-export async function getCampaignSentHistoryAction() {
+export async function getCampaignSentHistoryAction(
+  campaignId: string = 'Campaign 1: Introduction to ISC 2026'
+) {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
-  return getSentEmailRecords('Introduction to ISC 2026')
+  return getSentEmailRecords(campaignId)
 }
 
 /**
@@ -347,7 +393,8 @@ export async function getCampaignSentHistoryAction() {
  */
 export async function sendCampaignEmailAction(
   index: number,
-  senderEmail?: string
+  senderEmail?: string,
+  campaignId: string = 'Campaign 1: Introduction to ISC 2026'
 ): Promise<CampaignSendResult> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
@@ -365,7 +412,7 @@ export async function sendCampaignEmailAction(
     }
   }
 
-  const target = formatRecipientPayload(rawTarget)
+  const target = formatRecipientPayload(rawTarget, campaignId)
 
   if (!target.hasEmail || !target.recipient) {
     return {
@@ -420,7 +467,7 @@ export async function sendCampaignEmailAction(
     })
 
     await recordSentEmail({
-      campaignId: 'Introduction to ISC 2026',
+      campaignId: campaignId || 'Campaign 1: Introduction to ISC 2026',
       index: target.index,
       recipient: target.recipient,
       schoolName: target.schoolName,

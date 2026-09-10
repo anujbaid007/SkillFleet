@@ -59,6 +59,7 @@ export function CampaignManager({
 }: CampaignManagerProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [selectedRecipient, setSelectedRecipient] = useState<CampaignRecipient>(recipients[0])
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('Campaign 1: Introduction to ISC 2026')
   const [selectedSender, setSelectedSender] = useState<string>('')
   const [senders, setSenders] = useState<Array<{ email: string }>>([])
   const [quotas, setQuotas] = useState<Record<string, SenderQuotaStats>>({})
@@ -226,7 +227,7 @@ export function CampaignManager({
 
   const handleSendSingle = async (item: CampaignRecipient) => {
     setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
-    const res: CampaignSendResult = await sendCampaignEmailAction(item.index, selectedSender)
+    const res: CampaignSendResult = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign)
     if (res.success) {
       setStatuses((prev) => ({
         ...prev,
@@ -259,7 +260,7 @@ export function CampaignManager({
 
         setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
         try {
-          const res = await sendCampaignEmailAction(item.index, selectedSender)
+          const res = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign)
           if (res.success) {
             setStatuses((prev) => ({
               ...prev,
@@ -318,6 +319,26 @@ export function CampaignManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Campaign Selection */}
+            <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
+              <span className="text-[11px] text-muted-foreground font-medium">Campaign:</span>
+              <select
+                value={selectedCampaign}
+                onChange={(e) => setSelectedCampaign(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[200px]"
+              >
+                <option value="Campaign 1: Introduction to ISC 2026">
+                  Campaign 1: Introduction to ISC 2026
+                </option>
+                <option value="Campaign 2: Follow-up & Deck Reminder">
+                  Campaign 2: Follow-up & Deck Reminder
+                </option>
+                <option value="Campaign 3: Coordinator Nomination Drive">
+                  Campaign 3: Coordinator Nomination Drive
+                </option>
+              </select>
+            </div>
+
             {senders.length > 0 && (
               <div className="flex items-center gap-2 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
                 <div className="flex items-center gap-1.5">
