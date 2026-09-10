@@ -37,6 +37,13 @@ export const DEFAULT_UNSUBSCRIBE_BASE = 'mailto:hello@skillfleet.org?subject=Uns
 export const DEFAULT_CAMPAIGN_NAME = 'Campaign 1: Introduction to ISC 2026'
 export const DEFAULT_SUBJECT_TEMPLATE = 'Competition Invite for ISC 2026 | {{SchoolName}}'
 
+export const CAMPAIGN_OPTIONS = [
+  'Campaign 1: Introduction to ISC 2026',
+  'Campaign 2: Follow-up & Deck Reminder',
+  'Campaign 3: Coordinator Nomination Drive',
+  'Test Sandbox',
+]
+
 const CONTACTS_FILE_PATH = path.join(process.cwd(), 'src/lib/gmail/contacts-data.json')
 
 function escapeHtml(str: string): string {

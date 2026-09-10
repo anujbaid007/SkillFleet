@@ -9,6 +9,7 @@ import {
   formatRecipientPayload,
   loadRawContacts,
   getAvailableStates,
+  CAMPAIGN_OPTIONS,
   type CampaignRecipient,
 } from '@/lib/gmail/campaign'
 import { getTrackingStats, loadTrackingEvents, type TrackingEvent } from '@/lib/tracking/logger'
@@ -24,7 +25,6 @@ import {
 import { requireAdmin } from '@/lib/admin/guard'
 
 export type { SenderQuotaStats }
-export { APPROVED_CAMPAIGN_SENDERS, DAILY_SENDER_LIMIT }
 
 export interface CampaignSendResult {
   index: number
@@ -82,13 +82,6 @@ export interface CampaignAnalyticsData {
     device?: string
   }>
 }
-
-export const CAMPAIGN_OPTIONS = [
-  'Campaign 1: Introduction to ISC 2026',
-  'Campaign 2: Follow-up & Deck Reminder',
-  'Campaign 3: Coordinator Nomination Drive',
-  'Test Sandbox',
-]
 
 function getLinkLabel(url?: string): string {
   if (!url) return 'General Link'
