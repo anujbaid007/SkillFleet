@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { getIscEmailTemplate } from './templates/isc-email'
+import rawContactsData from './contacts-data.json'
 
 export interface CampaignRecipient {
   index: number
@@ -44,8 +45,6 @@ export const CAMPAIGN_OPTIONS = [
   'Test Sandbox',
 ]
 
-const CONTACTS_FILE_PATH = path.join(process.cwd(), 'src/lib/gmail/contacts-data.json')
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -55,19 +54,8 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;')
 }
 
-let cachedRawContacts: RawContact[] | null = null
-
 export function loadRawContacts(): RawContact[] {
-  if (cachedRawContacts) return cachedRawContacts
-  if (fs.existsSync(CONTACTS_FILE_PATH)) {
-    try {
-      cachedRawContacts = JSON.parse(fs.readFileSync(CONTACTS_FILE_PATH, 'utf-8')) as RawContact[]
-      return cachedRawContacts
-    } catch {
-      return []
-    }
-  }
-  return []
+  return rawContactsData as RawContact[]
 }
 
 /**
