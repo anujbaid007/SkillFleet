@@ -41,7 +41,7 @@ export const GMAIL_SCOPES = [
 ]
 
 function formatSenderHeader(from?: string, fromName?: string): string {
-  if (!from) return 'SkillFleet <contact@skillfleet.org>'
+  if (!from) return '"SkillFleet" <contact@skillfleet.org>'
   if (from.includes('<') && from.includes('>')) return from
 
   const name =
@@ -51,7 +51,8 @@ function formatSenderHeader(from?: string, fromName?: string): string {
       : 'SkillFleet')
 
   const safeName = name.replace(/["\\]/g, '').trim()
-  return `"${safeName}" <${from.trim()}>`
+  const encodedName = `=?utf-8?B?${btoa(unescape(encodeURIComponent(safeName)))}?=`
+  return `${encodedName} <${from.trim()}>`
 }
 
 /**
