@@ -270,9 +270,15 @@ export function CampaignManager({
     return filteredRecipients.slice(start, start + PAGE_SIZE)
   }, [filteredRecipients, currentPage])
 
-  const handleSendSingle = async (item: CampaignRecipient) => {
+  const handleSendSingle = async (item: CampaignRecipient, forceResend = false) => {
     setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
-    const res: CampaignSendResult = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign, subjectTemplate)
+    const res: CampaignSendResult = await sendCampaignEmailAction(
+      item.index,
+      selectedSender,
+      selectedCampaign,
+      subjectTemplate,
+      forceResend
+    )
     if (res.success) {
       setStatuses((prev) => ({
         ...prev,
@@ -292,10 +298,25 @@ export function CampaignManager({
     stopBatchRef.current = false
     let count = 0
 
-    // Gather candidate items from currently filtered list
-    const candidates = filteredRecipients.filter(
-      (r) => r.hasEmail && statuses[r.index]?.state !== 'sent'
-    )
+    // 1. Fetch latest server-side sent history to ensure 100% accurate deduplication
+    let latestHistory: Record<string, any> = {}
+    try {
+      latestHistory = await getCampaignSentHistoryAction(selectedCampaign)
+    } catch {
+      // Fallback
+    }
+
+    // 2. Gather candidate items from currently filtered list that have NOT been sent
+    const candidates = filteredRecipients.filter((r) => {
+      if (!r.hasEmail) return false
+      const normEmail = r.recipient.toLowerCase().trim()
+      const alreadySent =
+        Boolean(latestHistory[normEmail]) ||
+        Boolean(latestHistory[r.recipient]) ||
+        statuses[r.index]?.state === 'sent'
+      return !alreadySent
+    })
+
     const targetBatch = limit ? candidates.slice(0, limit) : candidates
     setBatchProgress({ current: 0, total: targetBatch.length })
 
@@ -305,7 +326,13 @@ export function CampaignManager({
 
         setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
         try {
-          const res = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign, subjectTemplate)
+          const res = await sendCampaignEmailAction(
+            item.index,
+            selectedSender,
+            selectedCampaign,
+            subjectTemplate,
+            false // strict deduplication: do NOT re-send if already in database
+          )
           if (res.success) {
             setStatuses((prev) => ({
               ...prev,
@@ -785,7 +812,7 @@ export function CampaignManager({
 
                         <button
                           type="button"
-                          onClick={() => handleSendSingle(r)}
+                          onClick={() => handleSendSingle(r, status === 'sent')}
                           disabled={!isConnected || !r.hasEmail || status === 'sending'}
                           className={`px-2.5 py-1 rounded-md transition inline-flex items-center gap-1 text-[11px] font-medium ${
                             status === 'sent'

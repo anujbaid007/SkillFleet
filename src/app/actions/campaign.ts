@@ -391,13 +391,14 @@ export async function getCampaignSentHistoryAction(
 }
 
 /**
- * Sends a single email to one campaign recipient.
+ * Sends a single email to one campaign recipient with server-side deduplication lock.
  */
 export async function sendCampaignEmailAction(
   index: number,
   senderEmail?: string,
   campaignId: string = 'Campaign 1: Introduction to ISC 2026',
-  customSubject?: string
+  customSubject?: string,
+  forceResend = false
 ): Promise<CampaignSendResult> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
@@ -424,6 +425,24 @@ export async function sendCampaignEmailAction(
       schoolName: target.schoolName,
       success: false,
       error: 'No valid email address for this school',
+    }
+  }
+
+  // 1. Strict Server-Side Deduplication Lock (Prevents duplicate sends even on race conditions)
+  if (!forceResend) {
+    const sentMap = await getSentEmailRecords(campaignId)
+    const normEmail = target.recipient.toLowerCase().trim()
+    const existing = sentMap[normEmail] || sentMap[target.recipient]
+
+    if (existing) {
+      return {
+        index: target.index,
+        recipient: target.recipient,
+        schoolName: target.schoolName,
+        success: true,
+        messageId: existing.messageId,
+        sentAt: existing.sentAt,
+      }
     }
   }
 
