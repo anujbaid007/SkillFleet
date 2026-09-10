@@ -6,6 +6,9 @@ import { getValidAccessToken, saveGmailTokens } from '@/lib/gmail/storage'
 import {
   getCampaignRecipients,
   formatCustomEmailPayload,
+  formatRecipientPayload,
+  loadRawContacts,
+  getAvailableStates,
   type CampaignRecipient,
 } from '@/lib/gmail/campaign'
 import { getTrackingStats, loadTrackingEvents, type TrackingEvent } from '@/lib/tracking/logger'
@@ -304,11 +307,18 @@ export async function getSandboxHistoryAction() {
   return list.filter((r) => r.campaignId === 'isc-sandbox')
 }
 
+export async function getAvailableStatesAction() {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+  return getAvailableStates()
+}
+
 export async function getCampaignListAction(): Promise<CampaignRecipient[]> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
-  return getCampaignRecipients()
+  return getCampaignRecipients(1000)
 }
 
 export async function getCampaignTrackingAction() {
@@ -332,10 +342,10 @@ export async function sendCampaignEmailAction(index: number): Promise<CampaignSe
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
-  const recipients = getCampaignRecipients()
-  const target = recipients.find((r) => r.index === index)
+  const rawList = loadRawContacts()
+  const rawTarget = rawList.find((r) => r.index === index)
 
-  if (!target) {
+  if (!rawTarget) {
     return {
       index,
       recipient: '',
@@ -344,6 +354,8 @@ export async function sendCampaignEmailAction(index: number): Promise<CampaignSe
       error: 'Recipient not found',
     }
   }
+
+  const target = formatRecipientPayload(rawTarget)
 
   if (!target.hasEmail || !target.recipient) {
     return {

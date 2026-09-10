@@ -16,6 +16,8 @@ import {
   ChevronRight,
   Filter,
   Square,
+  Download,
+  MapPin,
 } from 'lucide-react'
 import {
   sendCampaignEmailAction,
@@ -80,8 +82,20 @@ export function CampaignManager({
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'unsent' | 'missing'>('all')
+  const [stateFilter, setStateFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const PAGE_SIZE = 50
+
+  const availableStates = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of recipients) {
+      const st = r.state || 'Other'
+      counts[st] = (counts[st] || 0) + 1
+    }
+    return Object.entries(counts)
+      .map(([state, count]) => ({ state, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [recipients])
 
   const refreshData = async () => {
     try {
@@ -124,9 +138,16 @@ export function CampaignManager({
         r.schoolName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.state && r.state.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (r.district && r.district.toLowerCase().includes(searchTerm.toLowerCase())) ||
         String(r.index) === searchTerm.trim()
 
       if (!matchesSearch) return false
+
+      if (stateFilter !== 'all') {
+        const st = r.state || 'Other'
+        if (st.toLowerCase() !== stateFilter.toLowerCase()) return false
+      }
 
       const isSent = statuses[r.index]?.state === 'sent'
       if (statusFilter === 'sent') return isSent
@@ -135,7 +156,37 @@ export function CampaignManager({
 
       return true
     })
-  }, [recipients, searchTerm, statusFilter, statuses])
+  }, [recipients, searchTerm, statusFilter, stateFilter, statuses])
+
+  const handleExportCsv = () => {
+    const headers = ['Index', 'School Name', 'Contact Name', 'Recipient Email', 'Phone', 'State', 'District', 'Delivery Status', 'Opens', 'Clicks']
+    const rows = filteredRecipients.map((r) => {
+      const isSent = statuses[r.index]?.state === 'sent'
+      const trackData = tracking[r.recipient.trim().toLowerCase()] || tracking[r.recipient]
+      return [
+        r.index,
+        `"${r.schoolName.replace(/"/g, '""')}"`,
+        `"${r.contactName ? r.contactName.replace(/"/g, '""') : ''}"`,
+        `"${r.recipient}"`,
+        `"${r.phone || ''}"`,
+        `"${r.state || ''}"`,
+        `"${r.district || ''}"`,
+        isSent ? 'Sent' : r.hasEmail ? 'Unsent' : 'Missing Email',
+        trackData?.opens || 0,
+        trackData?.clicks || 0,
+      ]
+    })
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `ISC-2026-Mailing-List-${stateFilter}-${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   const totalPages = Math.ceil(filteredRecipients.length / PAGE_SIZE) || 1
   const paginatedRecipients = useMemo(() => {
@@ -320,42 +371,76 @@ export function CampaignManager({
         )}
 
         {/* Filter and Search Row */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border">
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search school, principal, or email..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="w-full pl-9 pr-3.5 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" /> Filter:
-            </span>
-            {(['all', 'unsent', 'sent', 'missing'] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => {
-                  setStatusFilter(f)
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-border">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search school, principal, email, district..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
                   setCurrentPage(1)
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs capitalize transition ${
-                  statusFilter === f
-                    ? 'bg-primary text-primary-foreground font-semibold'
-                    : 'bg-muted/50 text-muted-foreground hover:text-foreground border border-border'
-                }`}
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+              />
+            </div>
+
+            {/* State Filter Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+              <select
+                value={stateFilter}
+                onChange={(e) => {
+                  setStateFilter(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition max-w-[180px]"
               >
-                {f}
-              </button>
-            ))}
+                <option value="all">All States ({totalCount})</option>
+                {availableStates.map((st) => (
+                  <option key={st.state} value={st.state}>
+                    {st.state} ({st.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Filter className="w-3 h-3" /> Status:
+              </span>
+              {(['all', 'unsent', 'sent', 'missing'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(f)
+                    setCurrentPage(1)
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs capitalize transition ${
+                    statusFilter === f
+                      ? 'bg-primary text-primary-foreground font-semibold'
+                      : 'bg-muted/50 text-muted-foreground hover:text-foreground border border-border'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={filteredRecipients.length === 0}
+              className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-40 rounded-lg transition inline-flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export CSV
+            </button>
           </div>
         </div>
       </div>
@@ -392,11 +477,18 @@ export function CampaignManager({
                   >
                     <td className="px-4 py-3 font-medium text-muted-foreground">{r.index}</td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <span>{r.schoolName}</span>
-                        {isTestRow && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-                            TEST ROW
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span>{r.schoolName}</span>
+                          {isTestRow && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                              TEST ROW
+                            </span>
+                          )}
+                        </div>
+                        {(r.state || r.district) && (
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            {[r.district, r.state].filter(Boolean).join(', ')}
                           </span>
                         )}
                       </div>
