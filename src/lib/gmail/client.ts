@@ -37,6 +37,7 @@ const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/
 
 export const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/userinfo.email',
 ]
 
@@ -251,6 +252,84 @@ export async function getGmailProfile(accessToken: string): Promise<GmailProfile
   }
 
   return (await response.json()) as GmailProfileResponse
+}
+
+export interface DiscoveredSentEmail {
+  id: string
+  to: string
+  date: string
+  subject: string
+}
+
+/**
+ * Queries sent messages from the authenticated Gmail account.
+ */
+export async function fetchSentEmailsFromGmail(
+  accessToken: string,
+  query = 'in:sent'
+): Promise<DiscoveredSentEmail[]> {
+  let pageToken = ''
+  const allMessages: Array<{ id: string }> = []
+  let pages = 0
+
+  do {
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=500${pageToken ? `&pageToken=${pageToken}` : ''}`
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) {
+      break
+    }
+    const data = await res.json()
+    if (data.messages && Array.isArray(data.messages)) {
+      allMessages.push(...data.messages)
+    }
+    pageToken = data.nextPageToken || ''
+    pages++
+  } while (pageToken && pages < 10)
+
+  const discovered: DiscoveredSentEmail[] = []
+
+  // Fetch headers in batches of 20
+  for (let i = 0; i < allMessages.length; i += 20) {
+    const batch = allMessages.slice(i, i + 20)
+    const promises = batch.map(async (m) => {
+      try {
+        const msgRes = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=to&metadataHeaders=date&metadataHeaders=subject`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        )
+        if (!msgRes.ok) return null
+        const msgData = await msgRes.json()
+        const headers = msgData.payload?.headers || []
+        const toHeader = headers.find((h: any) => h.name.toLowerCase() === 'to')?.value || ''
+        const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date')?.value || ''
+        const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject')?.value || ''
+
+        // Extract email addresses from To header
+        const emails = toHeader.match(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g) || []
+        return emails.map((toEmail: string) => ({
+          id: m.id,
+          to: toEmail.toLowerCase().trim(),
+          date: dateHeader,
+          subject: subjectHeader,
+        }))
+      } catch {
+        return null
+      }
+    })
+
+    const results = await Promise.all(promises)
+    for (const r of results) {
+      if (r && Array.isArray(r)) {
+        discovered.push(...r)
+      }
+    }
+  }
+
+  return discovered
 }
 
 /**

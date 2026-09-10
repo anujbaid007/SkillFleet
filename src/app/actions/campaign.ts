@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { sendGmailEmail, refreshAccessToken } from '@/lib/gmail/client'
+import { sendGmailEmail, refreshAccessToken, fetchSentEmailsFromGmail } from '@/lib/gmail/client'
 import { getValidAccessToken, saveGmailTokens, loadSenderAccounts } from '@/lib/gmail/storage'
 import {
   getCampaignRecipients,
@@ -513,5 +513,63 @@ export async function sendCampaignEmailAction(
       success: false,
       error: err instanceof Error ? err.message : 'Send failed',
     }
+  }
+}
+
+/**
+ * Scans connected Gmail Sent boxes and syncs all sent emails to Supabase and updates quotas.
+ */
+export async function syncSentBoxesWithCampaignAction(): Promise<{
+  success: boolean
+  syncedCount: number
+  senderBreakdown: Record<string, number>
+  error?: string
+}> {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+
+  const accounts = await loadSenderAccounts()
+  const rawList = loadRawContacts()
+  const emailToContactMap = new Map<string, (typeof rawList)[0]>()
+  for (const c of rawList) {
+    if (c.recipient) {
+      emailToContactMap.set(c.recipient.toLowerCase().trim(), c)
+    }
+  }
+
+  let totalSynced = 0
+  const senderBreakdown: Record<string, number> = {}
+
+  for (const acc of accounts) {
+    const tokenData = await getValidAccessToken(acc.email)
+    if (!tokenData) continue
+
+    senderBreakdown[acc.email] = 0
+
+    try {
+      const discovered = await fetchSentEmailsFromGmail(tokenData.accessToken)
+      for (const item of discovered) {
+        const contact = emailToContactMap.get(item.to)
+        await recordSentEmail({
+          campaignId: 'Campaign 1: Introduction to ISC 2026',
+          index: contact ? contact.index : 0,
+          recipient: item.to,
+          schoolName: contact ? contact.schoolName : 'School Contact',
+          senderAccount: acc.email,
+          messageId: item.id,
+        })
+        totalSynced++
+        senderBreakdown[acc.email]++
+      }
+    } catch (err) {
+      console.error(`Could not scan sent box for ${acc.email}:`, err)
+    }
+  }
+
+  return {
+    success: true,
+    syncedCount: totalSynced,
+    senderBreakdown,
   }
 }

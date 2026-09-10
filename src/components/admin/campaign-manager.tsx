@@ -26,6 +26,7 @@ import {
   getCampaignSentHistoryAction,
   getSenderQuotaStatsAction,
   previewCampaignRecipientAction,
+  syncSentBoxesWithCampaignAction,
   type CampaignSendResult,
   type SenderQuotaStats,
 } from '@/app/actions/campaign'
@@ -111,6 +112,22 @@ export function CampaignManager({
   const [previewLoading, setPreviewLoading] = useState(false)
   const [testSending, setTestSending] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [syncingSent, setSyncingSent] = useState(false)
+
+  const handleSyncSentBox = async () => {
+    setSyncingSent(true)
+    try {
+      const res = await syncSentBoxesWithCampaignAction()
+      if (res.success) {
+        await refreshData()
+        setTestResult(`Synced ${res.syncedCount} sent emails from connected Gmail accounts!`)
+      }
+    } catch (err) {
+      setTestResult(err instanceof Error ? err.message : 'Sync failed')
+    } finally {
+      setSyncingSent(false)
+    }
+  }
 
   const handleSendTestToAnuj = async (targetSchool = 'TestSchool') => {
     setTestSending(true)
@@ -391,6 +408,18 @@ export function CampaignManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Sync Sent Box Button */}
+            <button
+              type="button"
+              onClick={handleSyncSentBox}
+              disabled={!isConnected || syncingSent}
+              className="px-3 py-1.5 text-xs font-semibold bg-muted/40 text-foreground hover:bg-muted/70 border border-border rounded-xl transition inline-flex items-center gap-1.5"
+              title="Scan Gmail Sent mailbox to mark delivered emails and update quota"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingSent ? 'animate-spin' : ''}`} />
+              {syncingSent ? 'Scanning Gmail...' : 'Sync Sent Box'}
+            </button>
+
             {/* Quick Test Send Button */}
             <button
               type="button"
