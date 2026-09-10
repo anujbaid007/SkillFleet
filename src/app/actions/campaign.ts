@@ -202,6 +202,20 @@ export async function getDetailedCampaignAnalyticsAction(): Promise<CampaignAnal
 }
 
 /**
+ * Returns rendered HTML preview for a specific school index on demand.
+ */
+export async function previewCampaignRecipientAction(index: number): Promise<string> {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+  const rawList = loadRawContacts()
+  const target = rawList.find((r) => r.index === index)
+  if (!target) return ''
+  const payload = formatRecipientPayload(target)
+  return payload.htmlBody
+}
+
+/**
  * Returns HTML preview for custom school name.
  */
 export async function previewCustomEmailAction(input: CustomTestEmailInput) {

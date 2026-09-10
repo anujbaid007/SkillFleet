@@ -24,6 +24,7 @@ import {
   getCampaignTrackingAction,
   getCampaignSentHistoryAction,
   getSenderQuotaStatsAction,
+  previewCampaignRecipientAction,
   type CampaignSendResult,
   type SenderQuotaStats,
 } from '@/app/actions/campaign'
@@ -90,6 +91,8 @@ export function CampaignManager({
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
   const stopBatchRef = useRef(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState<string>('')
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('')
@@ -630,9 +633,16 @@ export function CampaignManager({
                       <div className="inline-flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             setSelectedRecipient(r)
                             setShowPreviewModal(true)
+                            setPreviewLoading(true)
+                            try {
+                              const html = await previewCampaignRecipientAction(r.index)
+                              setPreviewHtml(html)
+                            } finally {
+                              setPreviewLoading(false)
+                            }
                           }}
                           className="px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 transition inline-flex items-center gap-1 text-[11px]"
                         >
@@ -729,12 +739,19 @@ export function CampaignManager({
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-muted/10">
-              <iframe
-                title="Email Preview"
-                srcDoc={selectedRecipient.htmlBody}
-                className="w-full h-[600px] border border-border rounded-xl bg-white shadow-inner"
-              />
+            <div className="flex-1 overflow-auto p-4 bg-muted/10 flex items-center justify-center min-h-[400px]">
+              {previewLoading ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground text-xs">
+                  <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                  <span>Personalizing email template for {selectedRecipient.schoolName}...</span>
+                </div>
+              ) : (
+                <iframe
+                  title="Email Preview"
+                  srcDoc={previewHtml || selectedRecipient.htmlBody}
+                  className="w-full h-[600px] border border-border rounded-xl bg-white shadow-inner"
+                />
+              )}
             </div>
 
             <div className="p-4 border-t border-border flex items-center justify-between bg-muted/20">

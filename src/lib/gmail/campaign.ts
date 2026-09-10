@@ -46,10 +46,14 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;')
 }
 
+let cachedRawContacts: RawContact[] | null = null
+
 export function loadRawContacts(): RawContact[] {
+  if (cachedRawContacts) return cachedRawContacts
   if (fs.existsSync(CONTACTS_FILE_PATH)) {
     try {
-      return JSON.parse(fs.readFileSync(CONTACTS_FILE_PATH, 'utf-8')) as RawContact[]
+      cachedRawContacts = JSON.parse(fs.readFileSync(CONTACTS_FILE_PATH, 'utf-8')) as RawContact[]
+      return cachedRawContacts
     } catch {
       return []
     }
@@ -75,7 +79,7 @@ export function getAvailableStates(): Array<{ state: string; count: number }> {
 }
 
 /**
- * Formats a single recipient payload on-demand.
+ * Formats a single recipient payload with full HTML on-demand.
  */
 export function formatRecipientPayload(contact: RawContact): CampaignRecipient {
   const { html: rawHtml, text: rawText } = getIscEmailTemplate()
@@ -149,12 +153,26 @@ export function formatRecipientPayload(contact: RawContact): CampaignRecipient {
 }
 
 /**
- * Loads all contacts from master dataset and prepares personalized email payloads.
+ * Loads contacts efficiently without inflating heavy HTML in memory (blazing fast & minimal RAM).
  */
 export function getCampaignRecipients(limit = 0): CampaignRecipient[] {
   const rawList = loadRawContacts()
   const targetList = limit > 0 ? rawList.slice(0, limit) : rawList
-  return targetList.map((c) => formatRecipientPayload(c))
+
+  return targetList.map((contact) => ({
+    index: contact.index,
+    schoolName: contact.schoolName,
+    contactName: contact.contactName,
+    recipient: contact.recipient,
+    phone: contact.phone,
+    state: contact.state,
+    district: contact.district,
+    pincode: contact.pincode,
+    subject: `${contact.schoolName}, introduce your students to ISC 2026`,
+    htmlBody: '', // Computed on-demand via formatRecipientPayload
+    textBody: '',
+    hasEmail: Boolean(contact.recipient && contact.recipient.includes('@')),
+  }))
 }
 
 /**
