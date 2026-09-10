@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { exchangeCodeForTokens } from '@/lib/gmail/client'
-import { saveGmailTokens } from '@/lib/gmail/storage'
+import { exchangeCodeForTokens, getGmailProfile } from '@/lib/gmail/client'
+import { saveSenderAccount } from '@/lib/gmail/storage'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error')
   const stateRaw = searchParams.get('state')
 
-  let returnTo = '/'
+  let returnTo = '/email'
   if (stateRaw) {
     try {
       const parsed = JSON.parse(decodeURIComponent(stateRaw))
@@ -50,10 +50,30 @@ export async function GET(request: NextRequest) {
       redirectUri,
     })
 
-    // Persist to server token store
-    saveGmailTokens(tokens)
+    // Fetch user profile to get exact email address
+    let emailAddress = 'primary@skillfleet.org'
+    try {
+      const profile = await getGmailProfile(tokens.access_token)
+      if (profile?.emailAddress) {
+        emailAddress = profile.emailAddress
+      }
+    } catch (profileErr) {
+      console.error('Could not fetch Gmail profile email address:', profileErr)
+    }
 
-    const response = NextResponse.redirect(`${origin}${returnTo}?gmail_connected=true`)
+    // Persist sender account
+    await saveSenderAccount({
+      email: emailAddress,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: Date.now() + (tokens.expires_in || 3600) * 1000,
+      scope: tokens.scope,
+      updated_at: new Date().toISOString(),
+    })
+
+    const response = NextResponse.redirect(
+      `${origin}${returnTo}?gmail_connected=true&account=${encodeURIComponent(emailAddress)}`
+    )
 
     // Set secure HTTP-only cookies for tokens if needed for the current session
     response.cookies.set('gmail_access_token', tokens.access_token, {

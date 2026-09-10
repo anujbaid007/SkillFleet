@@ -191,6 +191,31 @@ export function buildMimeMessage(options: EmailOptions): string {
   return base64UrlEncode(email)
 }
 
+export interface GmailProfileResponse {
+  emailAddress: string
+  messagesTotal?: number
+  threadsTotal?: number
+  historyId?: string
+}
+
+/**
+ * Fetches the user profile for the authenticated Gmail account.
+ */
+export async function getGmailProfile(accessToken: string): Promise<GmailProfileResponse> {
+  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    const errText = await response.text()
+    throw new Error(`Failed to fetch Gmail profile: ${response.status} ${errText}`)
+  }
+
+  return (await response.json()) as GmailProfileResponse
+}
+
 /**
  * Sends an email using the Gmail REST API with an access token.
  */

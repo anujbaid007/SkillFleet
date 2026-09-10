@@ -21,6 +21,7 @@ import {
   getSandboxHistoryAction,
   type CampaignSendResult,
 } from '@/app/actions/campaign'
+import { getConnectedSenderAccountsAction } from '@/app/actions/gmail'
 import type { SentEmailRecord } from '@/lib/gmail/sent-log'
 
 interface CustomTestEmailerProps {
@@ -40,6 +41,8 @@ export function CustomTestEmailer({ isConnected }: CustomTestEmailerProps) {
   const [schoolName, setSchoolName] = useState('Delhi Public School')
   const [recipient, setRecipient] = useState('anuj.aecpl@gmail.com')
   const [contactName, setContactName] = useState('Anuj Baid')
+  const [selectedSender, setSelectedSender] = useState<string>('')
+  const [senders, setSenders] = useState<Array<{ email: string }>>([])
 
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CampaignSendResult | null>(null)
@@ -52,12 +55,17 @@ export function CustomTestEmailer({ isConnected }: CustomTestEmailerProps) {
 
   const refreshHistory = async () => {
     try {
-      const [hist, track] = await Promise.all([
+      const [hist, track, senderList] = await Promise.all([
         getSandboxHistoryAction(),
         getCampaignTrackingAction(),
+        getConnectedSenderAccountsAction(),
       ])
       setHistory(hist)
       setTracking(track)
+      setSenders(senderList)
+      if (senderList.length > 0 && !selectedSender) {
+        setSelectedSender(senderList[0].email)
+      }
     } catch {
       // Ignore polling errors
     }
@@ -75,6 +83,7 @@ export function CustomTestEmailer({ isConnected }: CustomTestEmailerProps) {
       schoolName,
       recipient,
       contactName,
+      senderEmail: selectedSender,
     })
     setPreviewHtml(res.htmlBody)
     setShowPreviewModal(true)
@@ -89,6 +98,7 @@ export function CustomTestEmailer({ isConnected }: CustomTestEmailerProps) {
       schoolName,
       recipient,
       contactName,
+      senderEmail: selectedSender,
     })
 
     setResult(res)
@@ -113,6 +123,30 @@ export function CustomTestEmailer({ isConnected }: CustomTestEmailerProps) {
         </div>
 
         <form onSubmit={handleSend} className="space-y-4">
+          {senders.length > 0 && (
+            <div>
+              <label
+                htmlFor="senderAccount"
+                className="block text-xs font-semibold text-foreground mb-1 flex items-center gap-1.5"
+              >
+                <Mail className="w-3.5 h-3.5 text-primary" />
+                From (Connected Sender Account)
+              </label>
+              <select
+                id="senderAccount"
+                value={selectedSender}
+                onChange={(e) => setSelectedSender(e.target.value)}
+                className="w-full sm:w-80 px-3.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition font-mono"
+              >
+                {senders.map((s) => (
+                  <option key={s.email} value={s.email}>
+                    {s.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label

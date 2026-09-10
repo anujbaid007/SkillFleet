@@ -2,7 +2,13 @@
 
 import { cookies } from 'next/headers'
 import { sendGmailEmail, refreshAccessToken, type EmailOptions } from '@/lib/gmail/client'
-import { getValidAccessToken, saveGmailTokens } from '@/lib/gmail/storage'
+import {
+  getValidAccessToken,
+  saveSenderAccount,
+  loadSenderAccounts,
+  removeSenderAccount,
+  type StoredSenderAccount,
+} from '@/lib/gmail/storage'
 import { requireAdmin } from '@/lib/admin/guard'
 
 export interface SendEmailActionState {
@@ -12,24 +18,59 @@ export interface SendEmailActionState {
 }
 
 /**
- * Checks if the current session has Gmail authorization tokens saved in cookies or storage.
+ * Checks if any Gmail accounts are connected.
  */
 export async function getGmailConnectionStatus(): Promise<{
   connected: boolean
   hasRefreshToken: boolean
+  accounts: Array<{ email: string; updatedAt: string }>
 }> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
+  const accounts = await loadSenderAccounts()
+  const hasAccounts = accounts.length > 0
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('gmail_access_token')?.value
   const refreshToken = cookieStore.get('gmail_refresh_token')?.value
-  const storageToken = await getValidAccessToken()
 
   return {
-    connected: Boolean(accessToken || refreshToken || storageToken),
-    hasRefreshToken: Boolean(refreshToken || storageToken),
+    connected: Boolean(hasAccounts || accessToken || refreshToken),
+    hasRefreshToken: Boolean(hasAccounts || refreshToken),
+    accounts: accounts.map((a) => ({
+      email: a.email,
+      updatedAt: a.updated_at,
+    })),
   }
+}
+
+/**
+ * Returns the list of all connected sender email accounts.
+ */
+export async function getConnectedSenderAccountsAction(): Promise<
+  Array<{ email: string; updatedAt: string }>
+> {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+  const accounts = await loadSenderAccounts()
+  return accounts.map((a) => ({
+    email: a.email,
+    updatedAt: a.updated_at,
+  }))
+}
+
+/**
+ * Removes a connected sender account.
+ */
+export async function removeSenderAccountAction(email: string): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+  await removeSenderAccount(email)
+  const cookieStore = await cookies()
+  cookieStore.delete('gmail_access_token')
+  cookieStore.delete('gmail_refresh_token')
 }
 
 /**
@@ -45,7 +86,7 @@ export async function disconnectGmailAction(): Promise<void> {
 }
 
 /**
- * Server action to send an email using the connected Gmail account.
+ * Server action to send an email using a connected Gmail account.
  */
 export async function sendGmailAction(
   _prevState: SendEmailActionState | undefined,
@@ -58,46 +99,23 @@ export async function sendGmailAction(
   const subject = (formData.get('subject') as string)?.trim()
   const body = (formData.get('body') as string)?.trim()
   const isHtml = formData.get('is_html') === 'true'
+  const senderEmail = (formData.get('sender_email') as string)?.trim()
 
   if (!to || !subject || !body) {
     return { error: 'Recipient, subject, and message body are required.' }
   }
 
-  const cookieStore = await cookies()
-  let accessToken = cookieStore.get('gmail_access_token')?.value
+  const tokenData = await getValidAccessToken(senderEmail || undefined)
 
-  if (!accessToken) {
-    const refreshToken = cookieStore.get('gmail_refresh_token')?.value
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-
-    if (refreshToken && clientId && clientSecret) {
-      try {
-        const refreshed = await refreshAccessToken({
-          refreshToken,
-          clientId,
-          clientSecret,
-        })
-        accessToken = refreshed.access_token
-        saveGmailTokens(refreshed)
-      } catch (err: unknown) {
-        // Fallback to storage token
-      }
-    }
-  }
-
-  if (!accessToken) {
-    accessToken = (await getValidAccessToken()) || undefined
-  }
-
-  if (!accessToken) {
+  if (!tokenData) {
     return {
-      error: 'Gmail account is not connected. Please authorize via /api/gmail/auth first.',
+      error: 'No active Gmail sender account connected. Please authorize via Connect Gmail first.',
     }
   }
 
   const emailOptions: EmailOptions = {
     to,
+    from: senderEmail || tokenData.senderEmail,
     subject,
     text: isHtml ? undefined : body,
     html: isHtml ? body : undefined,
@@ -105,7 +123,7 @@ export async function sendGmailAction(
 
   try {
     const result = await sendGmailEmail({
-      accessToken,
+      accessToken: tokenData.accessToken,
       email: emailOptions,
     })
 

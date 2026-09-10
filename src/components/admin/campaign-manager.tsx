@@ -25,6 +25,7 @@ import {
   getCampaignSentHistoryAction,
   type CampaignSendResult,
 } from '@/app/actions/campaign'
+import { getConnectedSenderAccountsAction } from '@/app/actions/gmail'
 import type { CampaignRecipient } from '@/lib/gmail/campaign'
 
 interface CampaignManagerProps {
@@ -49,6 +50,8 @@ export function CampaignManager({
 }: CampaignManagerProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [selectedRecipient, setSelectedRecipient] = useState<CampaignRecipient>(recipients[0])
+  const [selectedSender, setSelectedSender] = useState<string>('')
+  const [senders, setSenders] = useState<Array<{ email: string }>>([])
   const [statuses, setStatuses] = useState<
     Record<
       number,
@@ -99,12 +102,17 @@ export function CampaignManager({
 
   const refreshData = async () => {
     try {
-      const [trackingStats, sentHistory] = await Promise.all([
+      const [trackingStats, sentHistory, senderList] = await Promise.all([
         getCampaignTrackingAction(),
         getCampaignSentHistoryAction(),
+        getConnectedSenderAccountsAction(),
       ])
 
       setTracking(trackingStats)
+      setSenders(senderList)
+      if (senderList.length > 0 && !selectedSender) {
+        setSelectedSender(senderList[0].email)
+      }
 
       setStatuses((prev) => {
         const next = { ...prev }
@@ -196,7 +204,7 @@ export function CampaignManager({
 
   const handleSendSingle = async (item: CampaignRecipient) => {
     setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
-    const res: CampaignSendResult = await sendCampaignEmailAction(item.index)
+    const res: CampaignSendResult = await sendCampaignEmailAction(item.index, selectedSender)
     if (res.success) {
       setStatuses((prev) => ({
         ...prev,
@@ -216,8 +224,8 @@ export function CampaignManager({
     stopBatchRef.current = false
     let count = 0
 
-    // Gather candidate items
-    const candidates = recipients.filter(
+    // Gather candidate items from currently filtered list
+    const candidates = filteredRecipients.filter(
       (r) => r.hasEmail && statuses[r.index]?.state !== 'sent'
     )
     const targetBatch = limit ? candidates.slice(0, limit) : candidates
@@ -229,7 +237,7 @@ export function CampaignManager({
 
         setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
         try {
-          const res = await sendCampaignEmailAction(item.index)
+          const res = await sendCampaignEmailAction(item.index, selectedSender)
           if (res.success) {
             setStatuses((prev) => ({
               ...prev,
@@ -288,6 +296,23 @@ export function CampaignManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {senders.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
+                <span className="text-[11px] text-muted-foreground font-medium">From:</span>
+                <select
+                  value={selectedSender}
+                  onChange={(e) => setSelectedSender(e.target.value)}
+                  className="bg-transparent text-xs font-mono font-semibold text-foreground focus:outline-none cursor-pointer"
+                >
+                  {senders.map((s) => (
+                    <option key={s.email} value={s.email}>
+                      {s.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="text-xs font-medium text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border border-border">
               Sent: <strong className="text-foreground">{sentCount}</strong> / {totalCount}
             </div>

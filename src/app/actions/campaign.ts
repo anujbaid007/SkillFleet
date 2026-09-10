@@ -29,6 +29,7 @@ export interface CustomTestEmailInput {
   schoolName: string
   recipient: string
   contactName?: string
+  senderEmail?: string
 }
 
 export interface CampaignAnalyticsData {
@@ -201,6 +202,7 @@ export async function sendCustomTestEmailAction(
 
   const schoolName = input.schoolName?.trim()
   const recipient = input.recipient?.trim()
+  const requestedSender = input.senderEmail?.trim()
 
   if (!schoolName || !recipient || !recipient.includes('@')) {
     return {
@@ -212,46 +214,15 @@ export async function sendCustomTestEmailAction(
     }
   }
 
-  let accessToken: string | undefined
+  const tokenData = await getValidAccessToken(requestedSender || undefined)
 
-  try {
-    const cookieStore = await cookies()
-    accessToken = cookieStore.get('gmail_access_token')?.value
-
-    if (!accessToken) {
-      const refreshToken = cookieStore.get('gmail_refresh_token')?.value
-      const clientId = process.env.GOOGLE_CLIENT_ID
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-
-      if (refreshToken && clientId && clientSecret) {
-        try {
-          const refreshed = await refreshAccessToken({
-            refreshToken,
-            clientId,
-            clientSecret,
-          })
-          accessToken = refreshed.access_token
-          saveGmailTokens(refreshed)
-        } catch {
-          // Fallback to storage token
-        }
-      }
-    }
-  } catch {
-    // Outside Next.js request context
-  }
-
-  if (!accessToken) {
-    accessToken = (await getValidAccessToken()) || undefined
-  }
-
-  if (!accessToken) {
+  if (!tokenData) {
     return {
       index: 0,
       recipient,
       schoolName,
       success: false,
-      error: 'Gmail account not connected. Please authorize via Connect Gmail first.',
+      error: 'No active Gmail sender account connected. Please connect your Gmail account first.',
     }
   }
 
@@ -263,9 +234,10 @@ export async function sendCustomTestEmailAction(
 
   try {
     const res = await sendGmailEmail({
-      accessToken,
+      accessToken: tokenData.accessToken,
       email: {
         to: recipient,
+        from: tokenData.senderEmail,
         subject: payload.subject,
         html: payload.htmlBody,
         text: payload.textBody,
@@ -338,7 +310,10 @@ export async function getCampaignSentHistoryAction() {
 /**
  * Sends a single email to one campaign recipient.
  */
-export async function sendCampaignEmailAction(index: number): Promise<CampaignSendResult> {
+export async function sendCampaignEmailAction(
+  index: number,
+  senderEmail?: string
+): Promise<CampaignSendResult> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
@@ -367,48 +342,24 @@ export async function sendCampaignEmailAction(index: number): Promise<CampaignSe
     }
   }
 
-  const cookieStore = await cookies()
-  let accessToken = cookieStore.get('gmail_access_token')?.value
+  const tokenData = await getValidAccessToken(senderEmail || undefined)
 
-  if (!accessToken) {
-    const refreshToken = cookieStore.get('gmail_refresh_token')?.value
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-
-    if (refreshToken && clientId && clientSecret) {
-      try {
-        const refreshed = await refreshAccessToken({
-          refreshToken,
-          clientId,
-          clientSecret,
-        })
-        accessToken = refreshed.access_token
-        saveGmailTokens(refreshed)
-      } catch {
-        // Fallback to storage token
-      }
-    }
-  }
-
-  if (!accessToken) {
-    accessToken = (await getValidAccessToken()) || undefined
-  }
-
-  if (!accessToken) {
+  if (!tokenData) {
     return {
       index: target.index,
       recipient: target.recipient,
       schoolName: target.schoolName,
       success: false,
-      error: 'Gmail account not connected. Please connect your Gmail account first.',
+      error: 'No active Gmail sender account connected. Please connect your Gmail account first.',
     }
   }
 
   try {
     const res = await sendGmailEmail({
-      accessToken,
+      accessToken: tokenData.accessToken,
       email: {
         to: target.recipient,
+        from: tokenData.senderEmail,
         subject: target.subject,
         html: target.htmlBody,
         text: target.textBody,
