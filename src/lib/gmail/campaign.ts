@@ -34,6 +34,8 @@ export interface RawContact {
 
 export const DEFAULT_POSTAL_ADDRESS = 'SkillFleet EduTech · International Skill Championship, India'
 export const DEFAULT_UNSUBSCRIBE_BASE = 'mailto:hello@skillfleet.org?subject=Unsubscribe'
+export const DEFAULT_CAMPAIGN_NAME = 'Campaign 1: Introduction to ISC 2026'
+export const DEFAULT_SUBJECT_TEMPLATE = '{{SchoolName}}, introduce your students to ISC 2026'
 
 const CONTACTS_FILE_PATH = path.join(process.cwd(), 'src/lib/gmail/contacts-data.json')
 
@@ -78,18 +80,24 @@ export function getAvailableStates(): Array<{ state: string; count: number }> {
     .sort((a, b) => b.count - a.count)
 }
 
-export const DEFAULT_CAMPAIGN_NAME = 'Campaign 1: Introduction to ISC 2026'
-
 /**
  * Formats a single recipient payload with full HTML on-demand.
  */
 export function formatRecipientPayload(
   contact: RawContact,
-  campaignName: string = DEFAULT_CAMPAIGN_NAME
+  campaignName: string = DEFAULT_CAMPAIGN_NAME,
+  customSubjectTemplate?: string
 ): CampaignRecipient {
   const { html: rawHtml, text: rawText } = getIscEmailTemplate()
   const safeSchoolName = escapeHtml(contact.schoolName)
-  const subject = `${contact.schoolName}, introduce your students to ISC 2026`
+  const subjectTpl = customSubjectTemplate?.trim() || DEFAULT_SUBJECT_TEMPLATE
+  
+  const subject = subjectTpl
+    .replaceAll('{{SchoolName}}', contact.schoolName)
+    .replaceAll('{{PrincipalName}}', contact.contactName || '')
+    .replaceAll('{{District}}', contact.district || '')
+    .replaceAll('{{State}}', contact.state || '')
+
   const unsubscribeUrl = `${DEFAULT_UNSUBSCRIBE_BASE}%20${encodeURIComponent(contact.schoolName)}`
   const hasEmail = Boolean(contact.recipient && contact.recipient.includes('@'))
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://skillfleet.org').replace(/\/$/, '')
@@ -160,9 +168,10 @@ export function formatRecipientPayload(
 /**
  * Loads contacts efficiently without inflating heavy HTML in memory (blazing fast & minimal RAM).
  */
-export function getCampaignRecipients(limit = 0): CampaignRecipient[] {
+export function getCampaignRecipients(limit = 0, subjectTemplate?: string): CampaignRecipient[] {
   const rawList = loadRawContacts()
   const targetList = limit > 0 ? rawList.slice(0, limit) : rawList
+  const subjectTpl = subjectTemplate?.trim() || DEFAULT_SUBJECT_TEMPLATE
 
   return targetList.map((contact) => ({
     index: contact.index,
@@ -173,7 +182,11 @@ export function getCampaignRecipients(limit = 0): CampaignRecipient[] {
     state: contact.state,
     district: contact.district,
     pincode: contact.pincode,
-    subject: `${contact.schoolName}, introduce your students to ISC 2026`,
+    subject: subjectTpl
+      .replaceAll('{{SchoolName}}', contact.schoolName)
+      .replaceAll('{{PrincipalName}}', contact.contactName || '')
+      .replaceAll('{{District}}', contact.district || '')
+      .replaceAll('{{State}}', contact.state || ''),
     htmlBody: '', // Computed on-demand via formatRecipientPayload
     textBody: '',
     hasEmail: Boolean(contact.recipient && contact.recipient.includes('@')),
@@ -187,6 +200,7 @@ export function formatCustomEmailPayload(options: {
   schoolName: string
   recipient: string
   contactName?: string
+  subjectTemplate?: string
 }): {
   subject: string
   htmlBody: string
@@ -194,7 +208,11 @@ export function formatCustomEmailPayload(options: {
 } {
   const { html: rawHtml, text: rawText } = getIscEmailTemplate()
   const safeSchoolName = escapeHtml(options.schoolName.trim() || 'Your School')
-  const subject = `${options.schoolName.trim() || 'Your School'}, introduce your students to ISC 2026`
+  const subjectTpl = options.subjectTemplate?.trim() || DEFAULT_SUBJECT_TEMPLATE
+  const subject = subjectTpl
+    .replaceAll('{{SchoolName}}', options.schoolName.trim() || 'Your School')
+    .replaceAll('{{PrincipalName}}', options.contactName || '')
+    
   const unsubscribeUrl = `${DEFAULT_UNSUBSCRIBE_BASE}%20${encodeURIComponent(options.schoolName.trim())}`
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://skillfleet.org').replace(/\/$/, '')
 

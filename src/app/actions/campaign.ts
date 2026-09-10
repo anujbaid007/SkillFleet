@@ -246,17 +246,24 @@ export async function getDetailedCampaignAnalyticsAction(
 }
 
 /**
- * Returns rendered HTML preview for a specific school index on demand.
+ * Returns rendered HTML preview and personalized subject for a specific school index on demand.
  */
-export async function previewCampaignRecipientAction(index: number): Promise<string> {
+export async function previewCampaignRecipientAction(
+  index: number,
+  campaignName: string = 'Campaign 1: Introduction to ISC 2026',
+  customSubject?: string
+): Promise<{ html: string; subject: string }> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
   const rawList = loadRawContacts()
-  const target = rawList.find((r) => r.index === index)
-  if (!target) return ''
-  const payload = formatRecipientPayload(target)
-  return payload.htmlBody
+  const target = rawList.find((r) => r.index === index) || rawList[0]
+  if (!target) return { html: '', subject: '' }
+  const payload = formatRecipientPayload(target, campaignName, customSubject)
+  return {
+    html: payload.htmlBody,
+    subject: payload.subject,
+  }
 }
 
 /**
@@ -394,7 +401,8 @@ export async function getCampaignSentHistoryAction(
 export async function sendCampaignEmailAction(
   index: number,
   senderEmail?: string,
-  campaignId: string = 'Campaign 1: Introduction to ISC 2026'
+  campaignId: string = 'Campaign 1: Introduction to ISC 2026',
+  customSubject?: string
 ): Promise<CampaignSendResult> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
@@ -412,7 +420,7 @@ export async function sendCampaignEmailAction(
     }
   }
 
-  const target = formatRecipientPayload(rawTarget, campaignId)
+  const target = formatRecipientPayload(rawTarget, campaignId, customSubject)
 
   if (!target.hasEmail || !target.recipient) {
     return {

@@ -62,6 +62,7 @@ export function CampaignManager({
   const [isMounted, setIsMounted] = useState(false)
   const [selectedRecipient, setSelectedRecipient] = useState<CampaignRecipient>(recipients[0])
   const [selectedCampaign, setSelectedCampaign] = useState<string>('Campaign 1: Introduction to ISC 2026')
+  const [subjectTemplate, setSubjectTemplate] = useState<string>('{{SchoolName}}, introduce your students to ISC 2026')
   const allowedInitialSenders = initialSenders.filter(
     (s) =>
       OFFICIAL_SENDERS_ALLOWLIST.includes(s.email.toLowerCase()) ||
@@ -236,7 +237,7 @@ export function CampaignManager({
 
   const handleSendSingle = async (item: CampaignRecipient) => {
     setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
-    const res: CampaignSendResult = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign)
+    const res: CampaignSendResult = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign, subjectTemplate)
     if (res.success) {
       setStatuses((prev) => ({
         ...prev,
@@ -269,7 +270,7 @@ export function CampaignManager({
 
         setStatuses((prev) => ({ ...prev, [item.index]: { state: 'sending' } }))
         try {
-          const res = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign)
+          const res = await sendCampaignEmailAction(item.index, selectedSender, selectedCampaign, subjectTemplate)
           if (res.success) {
             setStatuses((prev) => ({
               ...prev,
@@ -328,6 +329,27 @@ export function CampaignManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Preview & Edit Subject Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                const sample = filteredRecipients[0] || recipients[0]
+                setSelectedRecipient(sample)
+                setShowPreviewModal(true)
+                setPreviewLoading(true)
+                try {
+                  const res = await previewCampaignRecipientAction(sample.index, selectedCampaign, subjectTemplate)
+                  setPreviewHtml(res.html)
+                } finally {
+                  setPreviewLoading(false)
+                }
+              }}
+              className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 rounded-xl transition inline-flex items-center gap-1.5"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Preview & Edit Subject
+            </button>
+
             {/* Campaign Selection */}
             <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
               <span className="text-[11px] text-muted-foreground font-medium">Campaign:</span>
@@ -679,8 +701,8 @@ export function CampaignManager({
                             setShowPreviewModal(true)
                             setPreviewLoading(true)
                             try {
-                              const html = await previewCampaignRecipientAction(r.index)
-                              setPreviewHtml(html)
+                              const res = await previewCampaignRecipientAction(r.index, selectedCampaign, subjectTemplate)
+                              setPreviewHtml(res.html)
                             } finally {
                               setPreviewLoading(false)
                             }
@@ -752,35 +774,80 @@ export function CampaignManager({
         </div>
       </div>
 
-      {/* Email Preview Modal */}
+      {/* Email Preview & Subject Customization Modal */}
       {showPreviewModal && selectedRecipient && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/20">
-              <div>
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <span>Email Preview for {selectedRecipient.schoolName}</span>
-                  {selectedRecipient.recipient === 'anuj.aecpl@gmail.com' && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-                      YOUR TEST ROW
-                    </span>
-                  )}
-                </h4>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                  To: {selectedRecipient.recipient || 'Missing email'} | Subject:{' '}
-                  {selectedRecipient.subject}
+          <div className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-border space-y-3 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <span>Email & Subject Customizer for {selectedRecipient.schoolName}</span>
+                    {selectedRecipient.recipient === 'anuj.aecpl@gmail.com' && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                        YOUR TEST ROW
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                    To: {selectedRecipient.recipient || 'Missing email'} • Campaign: {selectedCampaign}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(false)}
+                  className="px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground rounded-lg border border-border transition"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Editable Subject Line Input */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="modal_subject" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span>Campaign Subject Line Template:</span>
+                  </label>
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span>Insert tag:</span>
+                    {(['{{SchoolName}}', '{{PrincipalName}}', '{{District}}', '{{State}}'] as const).map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          setSubjectTemplate((prev) => `${prev} ${tag}`.trim())
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-muted/60 hover:bg-muted font-mono text-primary font-bold border border-border transition"
+                      >
+                        +{tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <input
+                  id="modal_subject"
+                  type="text"
+                  value={subjectTemplate}
+                  onChange={(e) => setSubjectTemplate(e.target.value)}
+                  placeholder="e.g. {{SchoolName}}, introduce your students to ISC 2026"
+                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition font-medium text-foreground"
+                />
+
+                <p className="text-[11px] text-muted-foreground">
+                  Preview for this school:{' '}
+                  <strong className="text-foreground">
+                    {subjectTemplate
+                      .replaceAll('{{SchoolName}}', selectedRecipient.schoolName)
+                      .replaceAll('{{PrincipalName}}', selectedRecipient.contactName || '')
+                      .replaceAll('{{District}}', selectedRecipient.district || '')
+                      .replaceAll('{{State}}', selectedRecipient.state || '')}
+                  </strong>
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPreviewModal(false)}
-                className="px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground rounded-lg border border-border transition"
-              >
-                Close
-              </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-muted/10 flex items-center justify-center min-h-[400px]">
+            <div className="flex-1 overflow-auto p-4 bg-muted/10 flex items-center justify-center min-h-[380px]">
               {previewLoading ? (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground text-xs">
                   <RefreshCw className="w-5 h-5 animate-spin text-primary" />
@@ -790,19 +857,14 @@ export function CampaignManager({
                 <iframe
                   title="Email Preview"
                   srcDoc={previewHtml || selectedRecipient.htmlBody}
-                  className="w-full h-[600px] border border-border rounded-xl bg-white shadow-inner"
+                  className="w-full h-[550px] border border-border rounded-xl bg-white shadow-inner"
                 />
               )}
             </div>
 
             <div className="p-4 border-t border-border flex items-center justify-between bg-muted/20">
               <span className="text-xs text-muted-foreground">
-                Merge field{' '}
-                <code className="bg-muted px-1 rounded text-primary font-bold">
-                  {'{{SchoolName}}'}
-                </code>{' '}
-                replaced with{' '}
-                <strong className="text-foreground">{selectedRecipient.schoolName}</strong>
+                Subject template will apply to all single sends and batch campaigns.
               </span>
               <button
                 type="button"
@@ -814,7 +876,7 @@ export function CampaignManager({
                 className="px-4 py-2 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-1.5"
               >
                 <Send className="w-3.5 h-3.5" />
-                Send to {selectedRecipient.schoolName}
+                Send with this Subject
               </button>
             </div>
           </div>
