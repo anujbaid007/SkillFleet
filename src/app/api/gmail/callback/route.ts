@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || origin).replace(/\/$/, '')
+  const base = origin.replace(/\/$/, '')
   const redirectUri = `${base}/api/gmail/callback`
 
   try {

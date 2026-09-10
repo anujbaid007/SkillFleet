@@ -1,10 +1,10 @@
+import { notFound } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmailDashboardTabs } from '@/components/admin/email-dashboard-tabs'
 import { getGmailConnectionStatus } from '@/app/actions/gmail'
 import { getCampaignRecipients } from '@/lib/gmail/campaign'
 import { getSentEmailRecords } from '@/lib/gmail/sent-log'
-import { requireAdmin } from '@/lib/admin/guard'
 
 interface PageProps {
   searchParams: Promise<{
@@ -14,9 +14,11 @@ interface PageProps {
 }
 
 export default async function EmailPage({ searchParams }: PageProps) {
+  // Disallow on public production domain — local development control only
   if (process.env.NODE_ENV === 'production') {
-    await requireAdmin()
+    notFound()
   }
+
   const { connected, hasRefreshToken } = await getGmailConnectionStatus()
   const params = await searchParams
   const recipients = getCampaignRecipients()
@@ -25,10 +27,10 @@ export default async function EmailPage({ searchParams }: PageProps) {
   return (
     <div className="max-w-6xl mx-auto py-10 px-4 sm:px-6 space-y-8">
       <PageHeader
-        eyebrow="ISC 2026 Communications"
+        eyebrow="Local Control Center"
         icon={Mail}
         title="Email Testing, Mail-Merge & Campaign Center"
-        subtitle="Test personalized email delivery with custom school names, preview HTML templates, and dispatch campaigns via Gmail API."
+        subtitle="Manage campaigns, test personalized email delivery, inspect live analytics, and dispatch via Gmail API locally."
       />
 
       <EmailDashboardTabs
