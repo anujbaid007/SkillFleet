@@ -47,12 +47,11 @@ function formatSenderHeader(from?: string, fromName?: string): string {
   const name =
     fromName ||
     (from.toLowerCase().includes('isc@')
-      ? 'International Skill Championship (ISC 2026)'
+      ? 'International Skill Championship'
       : 'SkillFleet')
 
   const safeName = name.replace(/["\\]/g, '').trim()
-  const encodedName = `=?utf-8?B?${btoa(unescape(encodeURIComponent(safeName)))}?=`
-  return `${encodedName} <${from.trim()}>`
+  return `"${safeName}" <${from.trim()}>`
 }
 
 /**
@@ -158,22 +157,17 @@ export function base64UrlEncode(str: string): string {
 export function buildMimeMessage(options: EmailOptions): string {
   const toList = Array.isArray(options.to) ? options.to.join(', ') : options.to
   const senderHeader = formatSenderHeader(options.from, options.fromName)
-  const messageIdNonce = `${Date.now()}.${Math.random().toString(36).substring(2, 10)}`
-  const replyTo = options.replyTo || options.from || 'hello@skillfleet.org'
 
   const headers: string[] = [
     `To: ${toList}`,
     `From: ${senderHeader}`,
-    `Reply-To: ${replyTo}`,
     `Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(options.subject)))}?=`,
-    `Date: ${new Date().toUTCString()}`,
-    `Message-ID: <${messageIdNonce}@skillfleet.org>`,
-    `List-Unsubscribe: <mailto:hello@skillfleet.org?subject=Unsubscribe>`,
-    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
-    `X-Mailer: SkillFleet Campaign Dispatcher v1.0`,
     'MIME-Version: 1.0',
   ]
 
+  if (options.replyTo) {
+    headers.push(`Reply-To: ${options.replyTo}`)
+  }
   if (options.cc) {
     const ccList = Array.isArray(options.cc) ? options.cc.join(', ') : options.cc
     headers.push(`Cc: ${ccList}`)
