@@ -15,6 +15,7 @@ interface EmailFormProps {
   error?: string
   connectedNotice?: boolean
   returnTo?: string
+  initialAccounts?: Array<{ email: string; updatedAt: string }>
 }
 
 export function EmailForm({
@@ -23,11 +24,14 @@ export function EmailForm({
   error: initialError,
   connectedNotice,
   returnTo = '/email',
+  initialAccounts = [],
 }: EmailFormProps) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<SendEmailActionState | null>(null)
-  const [accounts, setAccounts] = useState<Array<{ email: string; updatedAt: string }>>([])
-  const [selectedSender, setSelectedSender] = useState<string>('')
+  const [accounts, setAccounts] = useState<Array<{ email: string; updatedAt: string }>>(initialAccounts)
+  const [selectedSender, setSelectedSender] = useState<string>(
+    initialAccounts.length > 0 ? initialAccounts[0].email : ''
+  )
 
   const loadAccounts = async () => {
     try {

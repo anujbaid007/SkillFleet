@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmailDashboardTabs } from '@/components/admin/email-dashboard-tabs'
-import { getGmailConnectionStatus } from '@/app/actions/gmail'
+import { getGmailConnectionStatus, getConnectedSenderAccountsAction } from '@/app/actions/gmail'
 import { getCampaignRecipients } from '@/lib/gmail/campaign'
 import { getSentEmailRecords } from '@/lib/gmail/sent-log'
 
@@ -10,6 +10,7 @@ interface PageProps {
   searchParams: Promise<{
     gmail_connected?: string
     gmail_error?: string
+    account?: string
   }>
 }
 
@@ -20,6 +21,7 @@ export default async function EmailPage({ searchParams }: PageProps) {
   }
 
   const { connected, hasRefreshToken } = await getGmailConnectionStatus()
+  const connectedAccounts = await getConnectedSenderAccountsAction()
   const params = await searchParams
   const recipients = getCampaignRecipients()
   const sentHistory = await getSentEmailRecords('Introduction to ISC 2026')
@@ -40,6 +42,7 @@ export default async function EmailPage({ searchParams }: PageProps) {
         connectedNotice={params.gmail_connected === 'true'}
         error={params.gmail_error}
         initialSentHistory={sentHistory}
+        initialAccounts={connectedAccounts}
       />
     </div>
   )

@@ -15,6 +15,7 @@ interface EmailDashboardTabsProps {
   connectedNotice?: boolean
   error?: string
   initialSentHistory?: Record<string, { sentAt: string; messageId?: string; index: number }>
+  initialAccounts?: Array<{ email: string; updatedAt: string }>
 }
 
 export function EmailDashboardTabs({
@@ -24,6 +25,7 @@ export function EmailDashboardTabs({
   connectedNotice,
   error,
   initialSentHistory,
+  initialAccounts = [],
 }: EmailDashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<'analytics' | 'campaign' | 'sandbox' | 'single'>('analytics')
 
@@ -80,7 +82,7 @@ export function EmailDashboardTabs({
           }`}
         >
           <Mail className="w-4 h-4" />
-          Account & Custom Compose
+          Accounts & Sender Management ({initialAccounts.length})
         </button>
       </div>
 
@@ -98,6 +100,7 @@ export function EmailDashboardTabs({
             recipients={recipients}
             isConnected={isConnected}
             initialSentHistory={initialSentHistory}
+            initialSenders={initialAccounts}
           />
         </div>
       )}
@@ -105,7 +108,10 @@ export function EmailDashboardTabs({
       {/* Tab 3: Test Sandbox */}
       {activeTab === 'sandbox' && (
         <div className="space-y-6 animate-in fade-in-50 duration-150">
-          <CustomTestEmailer isConnected={isConnected} />
+          <CustomTestEmailer
+            isConnected={isConnected}
+            initialSenders={initialAccounts}
+          />
         </div>
       )}
 
@@ -118,6 +124,7 @@ export function EmailDashboardTabs({
             connectedNotice={connectedNotice}
             error={error}
             returnTo="/email"
+            initialAccounts={initialAccounts}
           />
         </div>
       )}

@@ -26,6 +26,7 @@ import type { SentEmailRecord } from '@/lib/gmail/sent-log'
 
 interface CustomTestEmailerProps {
   isConnected: boolean
+  initialSenders?: Array<{ email: string }>
 }
 
 function formatSentTime(iso: string): string {
@@ -37,12 +38,14 @@ function formatSentTime(iso: string): string {
   }
 }
 
-export function CustomTestEmailer({ isConnected }: CustomTestEmailerProps) {
+export function CustomTestEmailer({ isConnected, initialSenders = [] }: CustomTestEmailerProps) {
   const [schoolName, setSchoolName] = useState('Delhi Public School')
   const [recipient, setRecipient] = useState('anuj.aecpl@gmail.com')
   const [contactName, setContactName] = useState('Anuj Baid')
-  const [selectedSender, setSelectedSender] = useState<string>('')
-  const [senders, setSenders] = useState<Array<{ email: string }>>([])
+  const [senders, setSenders] = useState<Array<{ email: string }>>(initialSenders)
+  const [selectedSender, setSelectedSender] = useState<string>(
+    initialSenders.length > 0 ? initialSenders[0].email : ''
+  )
 
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CampaignSendResult | null>(null)

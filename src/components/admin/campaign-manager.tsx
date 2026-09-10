@@ -41,6 +41,7 @@ interface CampaignManagerProps {
   recipients: CampaignRecipient[]
   isConnected: boolean
   initialSentHistory?: Record<string, { sentAt: string; messageId?: string; index: number }>
+  initialSenders?: Array<{ email: string }>
 }
 
 function formatSentTime(iso: string): string {
@@ -56,12 +57,20 @@ export function CampaignManager({
   recipients,
   isConnected,
   initialSentHistory = {},
+  initialSenders = [],
 }: CampaignManagerProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [selectedRecipient, setSelectedRecipient] = useState<CampaignRecipient>(recipients[0])
   const [selectedCampaign, setSelectedCampaign] = useState<string>('Campaign 1: Introduction to ISC 2026')
-  const [selectedSender, setSelectedSender] = useState<string>('')
-  const [senders, setSenders] = useState<Array<{ email: string }>>([])
+  const allowedInitialSenders = initialSenders.filter(
+    (s) =>
+      OFFICIAL_SENDERS_ALLOWLIST.includes(s.email.toLowerCase()) ||
+      s.email.toLowerCase().endsWith('@skillfleet.org')
+  )
+  const [senders, setSenders] = useState<Array<{ email: string }>>(allowedInitialSenders)
+  const [selectedSender, setSelectedSender] = useState<string>(
+    allowedInitialSenders.length > 0 ? allowedInitialSenders[0].email : ''
+  )
   const [quotas, setQuotas] = useState<Record<string, SenderQuotaStats>>({})
   const [statuses, setStatuses] = useState<
     Record<
@@ -418,9 +427,20 @@ export function CampaignManager({
 
                 <button
                   type="button"
+                  onClick={() => handleSendBatch(1800)}
+                  disabled={!isConnected || batchSending || remainingCount <= 0}
+                  className="px-3.5 py-1.5 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-1.5 shadow-sm"
+                  title="Send up to the daily 1,800 Google Workspace quota limit"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Send Next 1,800 (Daily Quota)
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => handleSendBatch()}
                   disabled={!isConnected || batchSending || remainingCount <= 0}
-                  className="px-4 py-2 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-2"
+                  className="px-4 py-2 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-40 rounded-xl transition inline-flex items-center gap-2"
                 >
                   <Send className="w-3.5 h-3.5" />
                   Send All Unsent ({remainingCount})
