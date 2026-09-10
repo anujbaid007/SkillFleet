@@ -199,9 +199,27 @@ export interface GmailProfileResponse {
 }
 
 /**
- * Fetches the user profile for the authenticated Gmail account.
+ * Fetches the user profile / email address for the authenticated Google account.
  */
 export async function getGmailProfile(accessToken: string): Promise<GmailProfileResponse> {
+  // 1. Try standard Google UserInfo endpoint (matches userinfo.email scope)
+  try {
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    if (userInfoRes.ok) {
+      const data = await userInfoRes.json()
+      if (data?.email) {
+        return { emailAddress: data.email }
+      }
+    }
+  } catch {
+    // Fallback to Gmail API profile
+  }
+
+  // 2. Fallback: Gmail Profile endpoint
   const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -210,7 +228,7 @@ export async function getGmailProfile(accessToken: string): Promise<GmailProfile
 
   if (!response.ok) {
     const errText = await response.text()
-    throw new Error(`Failed to fetch Gmail profile: ${response.status} ${errText}`)
+    throw new Error(`Failed to fetch Google profile: ${response.status} ${errText}`)
   }
 
   return (await response.json()) as GmailProfileResponse
