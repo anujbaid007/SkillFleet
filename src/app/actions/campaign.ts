@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { sendGmailEmail, refreshAccessToken } from '@/lib/gmail/client'
-import { getValidAccessToken, saveGmailTokens } from '@/lib/gmail/storage'
+import { getValidAccessToken, saveGmailTokens, loadSenderAccounts } from '@/lib/gmail/storage'
 import {
   getCampaignRecipients,
   formatCustomEmailPayload,
@@ -12,8 +12,19 @@ import {
   type CampaignRecipient,
 } from '@/lib/gmail/campaign'
 import { getTrackingStats, loadTrackingEvents, type TrackingEvent } from '@/lib/tracking/logger'
-import { recordSentEmail, getSentEmailRecords, loadSentEmailRecords } from '@/lib/gmail/sent-log'
+import {
+  recordSentEmail,
+  getSentEmailRecords,
+  loadSentEmailRecords,
+  get24HourSenderQuotas,
+  APPROVED_CAMPAIGN_SENDERS,
+  DAILY_SENDER_LIMIT,
+  type SenderQuotaStats,
+} from '@/lib/gmail/sent-log'
 import { requireAdmin } from '@/lib/admin/guard'
+
+export type { SenderQuotaStats }
+export { APPROVED_CAMPAIGN_SENDERS, DAILY_SENDER_LIMIT }
 
 export interface CampaignSendResult {
   index: number
@@ -30,6 +41,16 @@ export interface CustomTestEmailInput {
   recipient: string
   contactName?: string
   senderEmail?: string
+}
+
+export async function getSenderQuotaStatsAction(): Promise<Record<string, SenderQuotaStats>> {
+  if (process.env.NODE_ENV === 'production') {
+    await requireAdmin()
+  }
+  const accounts = await loadSenderAccounts()
+  const connectedEmails = accounts.map((a) => a.email)
+  const sendersToTrack = Array.from(new Set([...APPROVED_CAMPAIGN_SENDERS, ...connectedEmails]))
+  return get24HourSenderQuotas(sendersToTrack)
 }
 
 export interface CampaignAnalyticsData {
@@ -290,7 +311,7 @@ export async function getCampaignListAction(): Promise<CampaignRecipient[]> {
   if (process.env.NODE_ENV === 'production') {
     await requireAdmin()
   }
-  return getCampaignRecipients(1000)
+  return getCampaignRecipients(0)
 }
 
 export async function getCampaignTrackingAction() {
@@ -342,7 +363,25 @@ export async function sendCampaignEmailAction(
     }
   }
 
-  const tokenData = await getValidAccessToken(senderEmail || undefined)
+  // Quota enforcement: check if requested sender has reached 1,800 limit
+  let activeSender = senderEmail
+  const quotas = await get24HourSenderQuotas()
+  if (activeSender && quotas[activeSender]?.isExhausted) {
+    const unexhausted = Object.values(quotas).find((q) => !q.isExhausted)
+    if (unexhausted) {
+      activeSender = unexhausted.email
+    } else {
+      return {
+        index: target.index,
+        recipient: target.recipient,
+        schoolName: target.schoolName,
+        success: false,
+        error: `Daily limit reached (1,800 emails/24h per sender). Please wait for the quota window to reset.`,
+      }
+    }
+  }
+
+  const tokenData = await getValidAccessToken(activeSender || undefined)
 
   if (!tokenData) {
     return {
@@ -371,6 +410,7 @@ export async function sendCampaignEmailAction(
       index: target.index,
       recipient: target.recipient,
       schoolName: target.schoolName,
+      senderAccount: tokenData.senderEmail,
       messageId: res.id,
     })
 

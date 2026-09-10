@@ -23,10 +23,18 @@ import {
   sendCampaignEmailAction,
   getCampaignTrackingAction,
   getCampaignSentHistoryAction,
+  getSenderQuotaStatsAction,
   type CampaignSendResult,
+  type SenderQuotaStats,
 } from '@/app/actions/campaign'
 import { getConnectedSenderAccountsAction } from '@/app/actions/gmail'
 import type { CampaignRecipient } from '@/lib/gmail/campaign'
+
+const OFFICIAL_SENDERS_ALLOWLIST = [
+  'contact@skillfleet.org',
+  'isc@skillfleet.org',
+  'hello@skillfleet.org',
+]
 
 interface CampaignManagerProps {
   recipients: CampaignRecipient[]
@@ -52,6 +60,7 @@ export function CampaignManager({
   const [selectedRecipient, setSelectedRecipient] = useState<CampaignRecipient>(recipients[0])
   const [selectedSender, setSelectedSender] = useState<string>('')
   const [senders, setSenders] = useState<Array<{ email: string }>>([])
+  const [quotas, setQuotas] = useState<Record<string, SenderQuotaStats>>({})
   const [statuses, setStatuses] = useState<
     Record<
       number,
@@ -102,16 +111,26 @@ export function CampaignManager({
 
   const refreshData = async () => {
     try {
-      const [trackingStats, sentHistory, senderList] = await Promise.all([
+      const [trackingStats, sentHistory, senderList, quotaStats] = await Promise.all([
         getCampaignTrackingAction(),
         getCampaignSentHistoryAction(),
         getConnectedSenderAccountsAction(),
+        getSenderQuotaStatsAction(),
       ])
 
       setTracking(trackingStats)
-      setSenders(senderList)
-      if (senderList.length > 0 && !selectedSender) {
-        setSelectedSender(senderList[0].email)
+      setQuotas(quotaStats)
+
+      // Only allow official domain senders for campaigns
+      const officialSenders = senderList.filter(
+        (s) =>
+          OFFICIAL_SENDERS_ALLOWLIST.includes(s.email.toLowerCase()) ||
+          s.email.toLowerCase().endsWith('@skillfleet.org')
+      )
+      setSenders(officialSenders)
+
+      if (officialSenders.length > 0 && !selectedSender) {
+        setSelectedSender(officialSenders[0].email)
       }
 
       setStatuses((prev) => {
@@ -297,19 +316,34 @@ export function CampaignManager({
 
           <div className="flex flex-wrap items-center gap-2.5">
             {senders.length > 0 && (
-              <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
-                <span className="text-[11px] text-muted-foreground font-medium">From:</span>
-                <select
-                  value={selectedSender}
-                  onChange={(e) => setSelectedSender(e.target.value)}
-                  className="bg-transparent text-xs font-mono font-semibold text-foreground focus:outline-none cursor-pointer"
-                >
-                  {senders.map((s) => (
-                    <option key={s.email} value={s.email}>
-                      {s.email}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex items-center gap-2 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-medium">From:</span>
+                  <select
+                    value={selectedSender}
+                    onChange={(e) => setSelectedSender(e.target.value)}
+                    className="bg-transparent text-xs font-mono font-semibold text-foreground focus:outline-none cursor-pointer"
+                  >
+                    {senders.map((s) => (
+                      <option key={s.email} value={s.email}>
+                        {s.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedSender && quotas[selectedSender] && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      quotas[selectedSender].isExhausted
+                        ? 'bg-rose-500/10 text-rose-600 font-bold'
+                        : 'bg-primary/10 text-primary'
+                    }`}
+                    title="24-Hour Google Workspace sending quota (1,800/day)"
+                  >
+                    {quotas[selectedSender].sentToday} / {quotas[selectedSender].limit} (24h)
+                  </span>
+                )}
               </div>
             )}
 

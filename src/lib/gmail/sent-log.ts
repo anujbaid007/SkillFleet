@@ -6,13 +6,30 @@ const SENT_LOG_FILE = path.join(process.cwd(), '.kilo', 'sent-campaigns.json')
 const BUCKET_NAME = 'campaign-logs'
 const SENT_BLOB_PATH = 'sent-campaigns.json'
 
+export const DAILY_SENDER_LIMIT = 1800
+
+export const APPROVED_CAMPAIGN_SENDERS = [
+  'contact@skillfleet.org',
+  'isc@skillfleet.org',
+  'hello@skillfleet.org',
+]
+
 export interface SentEmailRecord {
   campaignId: string
   index: number
   recipient: string
   schoolName: string
+  senderAccount?: string
   sentAt: string
   messageId?: string
+}
+
+export interface SenderQuotaStats {
+  email: string
+  sentToday: number
+  limit: number
+  remaining: number
+  isExhausted: boolean
 }
 
 /**
@@ -89,9 +106,9 @@ export async function recordSentEmail(
 
 export async function getSentEmailRecords(
   campaignId = 'Introduction to ISC 2026'
-): Promise<Record<string, { sentAt: string; messageId?: string; index: number }>> {
+): Promise<Record<string, { sentAt: string; messageId?: string; index: number; senderAccount?: string }>> {
   const list = await loadSentEmailRecords()
-  const map: Record<string, { sentAt: string; messageId?: string; index: number }> = {}
+  const map: Record<string, { sentAt: string; messageId?: string; index: number; senderAccount?: string }> = {}
 
   for (const item of list) {
     if (item.campaignId === campaignId) {
@@ -99,8 +116,47 @@ export async function getSentEmailRecords(
         sentAt: item.sentAt,
         messageId: item.messageId,
         index: item.index,
+        senderAccount: item.senderAccount,
       }
     }
   }
   return map
+}
+
+/**
+ * Calculates the rolling 24-hour quota usage per sender account.
+ */
+export async function get24HourSenderQuotas(
+  connectedSenders: string[] = APPROVED_CAMPAIGN_SENDERS
+): Promise<Record<string, SenderQuotaStats>> {
+  const list = await loadSentEmailRecords()
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000
+
+  const usageMap: Record<string, number> = {}
+  for (const s of connectedSenders) {
+    usageMap[s.toLowerCase()] = 0
+  }
+
+  for (const record of list) {
+    if (record.sentAt && new Date(record.sentAt).getTime() >= twentyFourHoursAgo) {
+      const senderKey = (record.senderAccount || 'default').toLowerCase()
+      usageMap[senderKey] = (usageMap[senderKey] || 0) + 1
+    }
+  }
+
+  const result: Record<string, SenderQuotaStats> = {}
+  for (const s of connectedSenders) {
+    const key = s.toLowerCase()
+    const sentToday = usageMap[key] || 0
+    const remaining = Math.max(0, DAILY_SENDER_LIMIT - sentToday)
+    result[s] = {
+      email: s,
+      sentToday,
+      limit: DAILY_SENDER_LIMIT,
+      remaining,
+      isExhausted: remaining <= 0,
+    }
+  }
+
+  return result
 }

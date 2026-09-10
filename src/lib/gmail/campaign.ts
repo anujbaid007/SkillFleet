@@ -149,9 +149,9 @@ export function formatRecipientPayload(contact: RawContact): CampaignRecipient {
 }
 
 /**
- * Loads contacts (capped at 500 for initial memory efficiency) and prepares personalized email payloads.
+ * Loads all contacts from master dataset and prepares personalized email payloads.
  */
-export function getCampaignRecipients(limit = 500): CampaignRecipient[] {
+export function getCampaignRecipients(limit = 0): CampaignRecipient[] {
   const rawList = loadRawContacts()
   const targetList = limit > 0 ? rawList.slice(0, limit) : rawList
   return targetList.map((c) => formatRecipientPayload(c))

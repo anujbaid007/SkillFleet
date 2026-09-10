@@ -53,9 +53,8 @@ export async function loadSenderAccounts(): Promise<StoredSenderAccount[]> {
   try {
     if (fs.existsSync(TOKENS_FILE)) {
       const single = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf-8')) as StoredSenderAccount
-      if (single && single.access_token) {
-        const defaultEmail = single.email || 'primary@skillfleet.org'
-        return [{ ...single, email: defaultEmail }]
+      if (single && single.access_token && single.email) {
+        return [single]
       }
     }
   } catch {
@@ -69,6 +68,7 @@ export async function loadSenderAccounts(): Promise<StoredSenderAccount[]> {
  * Saves or updates a connected sender account in storage.
  */
 export async function saveSenderAccount(account: StoredSenderAccount): Promise<void> {
+  if (!account.email) return
   const normalizedEmail = account.email.trim().toLowerCase()
   const payload: StoredSenderAccount = {
     ...account,
@@ -129,8 +129,14 @@ export function saveGmailTokens(tokens: GmailTokenResponse, email = 'primary@ski
   }).catch(console.error)
 }
 
+export const OFFICIAL_SKILLFLEET_SENDERS = [
+  'contact@skillfleet.org',
+  'isc@skillfleet.org',
+  'hello@skillfleet.org',
+]
+
 /**
- * Gets a valid access token for a specific sender account, or falls back to the default account.
+ * Gets a valid access token for a specific sender account, or falls back to an approved official account.
  */
 export async function getValidAccessToken(
   targetEmail?: string
@@ -138,10 +144,20 @@ export async function getValidAccessToken(
   const accounts = await loadSenderAccounts()
   if (!accounts || accounts.length === 0) return null
 
-  let account = targetEmail
-    ? accounts.find((a) => a.email.toLowerCase() === targetEmail.trim().toLowerCase())
-    : accounts[0]
+  let account: StoredSenderAccount | undefined
 
+  if (targetEmail) {
+    account = accounts.find((a) => a.email.toLowerCase() === targetEmail.trim().toLowerCase())
+  }
+
+  // If no target specified or not found, pick from official domain accounts first
+  if (!account) {
+    account = accounts.find((a) =>
+      OFFICIAL_SKILLFLEET_SENDERS.includes(a.email.toLowerCase())
+    )
+  }
+
+  // Fallback to first available account if no official account is found
   if (!account) {
     account = accounts[0]
   }
