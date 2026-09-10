@@ -19,6 +19,7 @@ export interface EmailOptions {
   text?: string
   html?: string
   from?: string
+  fromName?: string
   cc?: string | string[]
   bcc?: string | string[]
   replyTo?: string
@@ -38,6 +39,20 @@ export const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/userinfo.email',
 ]
+
+function formatSenderHeader(from?: string, fromName?: string): string {
+  if (!from) return 'SkillFleet <contact@skillfleet.org>'
+  if (from.includes('<') && from.includes('>')) return from
+
+  const name =
+    fromName ||
+    (from.toLowerCase().includes('isc@')
+      ? 'International Skill Championship (ISC 2026)'
+      : 'SkillFleet')
+
+  const safeName = name.replace(/["\\]/g, '').trim()
+  return `"${safeName}" <${from.trim()}>`
+}
 
 /**
  * Returns the Google OAuth 2.0 authorization URL for connecting a user's Gmail account.
@@ -141,14 +156,23 @@ export function base64UrlEncode(str: string): string {
  */
 export function buildMimeMessage(options: EmailOptions): string {
   const toList = Array.isArray(options.to) ? options.to.join(', ') : options.to
+  const senderHeader = formatSenderHeader(options.from, options.fromName)
+  const messageIdNonce = `${Date.now()}.${Math.random().toString(36).substring(2, 10)}`
+  const replyTo = options.replyTo || options.from || 'hello@skillfleet.org'
+
   const headers: string[] = [
     `To: ${toList}`,
+    `From: ${senderHeader}`,
+    `Reply-To: ${replyTo}`,
     `Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(options.subject)))}?=`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${messageIdNonce}@skillfleet.org>`,
+    `List-Unsubscribe: <mailto:hello@skillfleet.org?subject=Unsubscribe>`,
+    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
+    `X-Mailer: SkillFleet Campaign Dispatcher v1.0`,
     'MIME-Version: 1.0',
   ]
 
-  if (options.from) headers.push(`From: ${options.from}`)
-  if (options.replyTo) headers.push(`Reply-To: ${options.replyTo}`)
   if (options.cc) {
     const ccList = Array.isArray(options.cc) ? options.cc.join(', ') : options.cc
     headers.push(`Cc: ${ccList}`)
