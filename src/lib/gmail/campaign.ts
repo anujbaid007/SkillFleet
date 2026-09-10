@@ -35,7 +35,7 @@ export interface RawContact {
 export const DEFAULT_POSTAL_ADDRESS = 'SkillFleet EduTech · International Skill Championship, India'
 export const DEFAULT_UNSUBSCRIBE_BASE = 'mailto:hello@skillfleet.org?subject=Unsubscribe'
 export const DEFAULT_CAMPAIGN_NAME = 'Campaign 1: Introduction to ISC 2026'
-export const DEFAULT_SUBJECT_TEMPLATE = '{{SchoolName}}, introduce your students to ISC 2026'
+export const DEFAULT_SUBJECT_TEMPLATE = 'Competition Invite for ISC 2026 | {{SchoolName}}'
 
 const CONTACTS_FILE_PATH = path.join(process.cwd(), 'src/lib/gmail/contacts-data.json')
 

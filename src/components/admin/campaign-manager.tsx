@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import {
   sendCampaignEmailAction,
+  sendCustomTestEmailAction,
   getCampaignTrackingAction,
   getCampaignSentHistoryAction,
   getSenderQuotaStatsAction,
@@ -30,6 +31,7 @@ import {
 } from '@/app/actions/campaign'
 import { getConnectedSenderAccountsAction } from '@/app/actions/gmail'
 import type { CampaignRecipient } from '@/lib/gmail/campaign'
+import { Sparkles } from 'lucide-react'
 
 const OFFICIAL_SENDERS_ALLOWLIST = [
   'contact@skillfleet.org',
@@ -62,7 +64,7 @@ export function CampaignManager({
   const [isMounted, setIsMounted] = useState(false)
   const [selectedRecipient, setSelectedRecipient] = useState<CampaignRecipient>(recipients[0])
   const [selectedCampaign, setSelectedCampaign] = useState<string>('Campaign 1: Introduction to ISC 2026')
-  const [subjectTemplate, setSubjectTemplate] = useState<string>('{{SchoolName}}, introduce your students to ISC 2026')
+  const [subjectTemplate, setSubjectTemplate] = useState<string>('Competition Invite for ISC 2026 | {{SchoolName}}')
   const allowedInitialSenders = initialSenders.filter(
     (s) =>
       OFFICIAL_SENDERS_ALLOWLIST.includes(s.email.toLowerCase()) ||
@@ -104,6 +106,31 @@ export function CampaignManager({
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [previewHtml, setPreviewHtml] = useState<string>('')
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [testSending, setTestSending] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
+
+  const handleSendTestToAnuj = async (targetSchool = 'TestSchool') => {
+    setTestSending(true)
+    setTestResult(null)
+    try {
+      const res = await sendCustomTestEmailAction({
+        schoolName: targetSchool,
+        recipient: 'anuj.aecpl@gmail.com',
+        contactName: 'Anuj Baid',
+        senderEmail: selectedSender,
+        subjectTemplate: subjectTemplate,
+      })
+      if (res.success) {
+        setTestResult(`Test email sent to anuj.aecpl@gmail.com! (ID: ${res.messageId})`)
+      } else {
+        setTestResult(`Failed: ${res.error}`)
+      }
+    } catch (err) {
+      setTestResult(err instanceof Error ? err.message : 'Send failed')
+    } finally {
+      setTestSending(false)
+    }
+  }
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('')
@@ -329,6 +356,27 @@ export function CampaignManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Quick Test Send Button */}
+            <button
+              type="button"
+              onClick={() => handleSendTestToAnuj('TestSchool')}
+              disabled={!isConnected || testSending}
+              className="px-3 py-1.5 text-xs font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition inline-flex items-center gap-1.5"
+              title="Send a quick test email with SchoolName 'TestSchool' to anuj.aecpl@gmail.com"
+            >
+              {testSending ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Sending Test...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Send Test to anuj.aecpl@gmail.com
+                </>
+              )}
+            </button>
+
             {/* Preview & Edit Subject Button */}
             <button
               type="button"
@@ -471,6 +519,20 @@ export function CampaignManager({
             )}
           </div>
         </div>
+
+        {/* Notification Banner for Quick Test */}
+        {testResult && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs flex items-center justify-between animate-in fade-in duration-150">
+            <span className="font-medium">{testResult}</span>
+            <button
+              type="button"
+              onClick={() => setTestResult(null)}
+              className="text-xs font-bold text-emerald-700 hover:underline ml-3"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Batch Progress Bar */}
         {batchSending && batchProgress && (
@@ -830,7 +892,7 @@ export function CampaignManager({
                   type="text"
                   value={subjectTemplate}
                   onChange={(e) => setSubjectTemplate(e.target.value)}
-                  placeholder="e.g. {{SchoolName}}, introduce your students to ISC 2026"
+                  placeholder="e.g. Competition Invite for ISC 2026 | {{SchoolName}}"
                   className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition font-medium text-foreground"
                 />
 
@@ -847,37 +909,76 @@ export function CampaignManager({
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-muted/10 flex items-center justify-center min-h-[380px]">
+            {/* Notification Banner */}
+            {testResult && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs flex items-center justify-between">
+                <span>{testResult}</span>
+                <button
+                  type="button"
+                  onClick={() => setTestResult(null)}
+                  className="text-xs font-bold text-emerald-700 hover:underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-auto p-4 bg-muted/10 min-h-[500px]">
               {previewLoading ? (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground text-xs">
-                  <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-                  <span>Personalizing email template for {selectedRecipient.schoolName}...</span>
+                <div className="flex flex-col items-center justify-center h-96 gap-2 text-muted-foreground text-xs">
+                  <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                  <span className="font-medium">Personalizing email template for {selectedRecipient.schoolName}...</span>
                 </div>
               ) : (
                 <iframe
+                  key={`${selectedRecipient.index}-${previewHtml.length}`}
                   title="Email Preview"
-                  srcDoc={previewHtml || selectedRecipient.htmlBody}
-                  className="w-full h-[550px] border border-border rounded-xl bg-white shadow-inner"
+                  srcDoc={previewHtml}
+                  width="100%"
+                  height="550"
+                  style={{ minHeight: '550px', width: '100%', background: '#ffffff', display: 'block' }}
+                  className="w-full h-[550px] min-h-[550px] border border-border rounded-xl bg-white shadow-inner"
                 />
               )}
             </div>
 
-            <div className="p-4 border-t border-border flex items-center justify-between bg-muted/20">
+            <div className="p-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20">
               <span className="text-xs text-muted-foreground">
                 Subject template will apply to all single sends and batch campaigns.
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  handleSendSingle(selectedRecipient)
-                  setShowPreviewModal(false)
-                }}
-                disabled={!isConnected || !selectedRecipient.hasEmail}
-                className="px-4 py-2 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-1.5"
-              >
-                <Send className="w-3.5 h-3.5" />
-                Send with this Subject
-              </button>
+              <div className="flex items-center gap-2 self-end">
+                <button
+                  type="button"
+                  onClick={() => handleSendTestToAnuj(selectedRecipient.schoolName || 'TestSchool')}
+                  disabled={!isConnected || testSending}
+                  className="px-3.5 py-2 text-xs font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition inline-flex items-center gap-1.5"
+                >
+                  {testSending ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Send Test to anuj.aecpl@gmail.com
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSendSingle(selectedRecipient)
+                    setShowPreviewModal(false)
+                  }}
+                  disabled={!isConnected || !selectedRecipient.hasEmail}
+                  className="px-4 py-2 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 rounded-xl transition inline-flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Send with this Subject
+                </button>
+              </div>
             </div>
           </div>
         </div>

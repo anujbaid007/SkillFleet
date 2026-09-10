@@ -41,6 +41,7 @@ export interface CustomTestEmailInput {
   recipient: string
   contactName?: string
   senderEmail?: string
+  subjectTemplate?: string
 }
 
 export async function getSenderQuotaStatsAction(): Promise<Record<string, SenderQuotaStats>> {
@@ -316,6 +317,7 @@ export async function sendCustomTestEmailAction(
     schoolName,
     recipient,
     contactName: input.contactName,
+    subjectTemplate: input.subjectTemplate,
   })
 
   try {
