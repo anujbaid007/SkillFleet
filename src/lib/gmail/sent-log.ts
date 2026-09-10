@@ -104,19 +104,42 @@ export async function recordSentEmail(
   }
 }
 
+function isMatchingCampaign(itemCampaign: string | undefined, targetCampaign: string): boolean {
+  if (!itemCampaign) return true
+  if (targetCampaign === 'all') return true
+  const normItem = itemCampaign.toLowerCase().trim()
+  const normTarget = targetCampaign.toLowerCase().trim()
+
+  if (normTarget.includes('introduction to isc') || normTarget.includes('campaign 1')) {
+    return (
+      normItem.includes('introduction to isc') ||
+      normItem === 'isc-2026' ||
+      normItem.includes('campaign 1')
+    )
+  }
+  if (normTarget.includes('sandbox')) {
+    return normItem.includes('sandbox')
+  }
+  return normItem === normTarget
+}
+
 export async function getSentEmailRecords(
-  campaignId = 'Introduction to ISC 2026'
+  campaignId = 'Campaign 1: Introduction to ISC 2026'
 ): Promise<Record<string, { sentAt: string; messageId?: string; index: number; senderAccount?: string }>> {
   const list = await loadSentEmailRecords()
   const map: Record<string, { sentAt: string; messageId?: string; index: number; senderAccount?: string }> = {}
 
   for (const item of list) {
-    if (item.campaignId === campaignId) {
-      map[item.recipient] = {
+    if (isMatchingCampaign(item.campaignId, campaignId)) {
+      const entry = {
         sentAt: item.sentAt,
         messageId: item.messageId,
         index: item.index,
         senderAccount: item.senderAccount,
+      }
+      map[item.recipient] = entry
+      if (item.recipient) {
+        map[item.recipient.toLowerCase().trim()] = entry
       }
     }
   }

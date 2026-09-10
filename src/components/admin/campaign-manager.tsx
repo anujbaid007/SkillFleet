@@ -88,11 +88,14 @@ export function CampaignManager({
   >(() => {
     const initial: Record<number, { state: 'sent'; sentAt: string; messageId?: string }> = {}
     for (const r of recipients) {
-      if (initialSentHistory[r.recipient]) {
+      const rec =
+        initialSentHistory[r.recipient.toLowerCase().trim()] ||
+        initialSentHistory[r.recipient]
+      if (rec) {
         initial[r.index] = {
           state: 'sent',
-          sentAt: initialSentHistory[r.recipient].sentAt,
-          messageId: initialSentHistory[r.recipient].messageId,
+          sentAt: rec.sentAt,
+          messageId: rec.messageId,
         }
       }
     }
@@ -154,7 +157,7 @@ export function CampaignManager({
     try {
       const [trackingStats, sentHistory, senderList, quotaStats] = await Promise.all([
         getCampaignTrackingAction(),
-        getCampaignSentHistoryAction(),
+        getCampaignSentHistoryAction(selectedCampaign),
         getConnectedSenderAccountsAction(),
         getSenderQuotaStatsAction(),
       ])
@@ -177,11 +180,14 @@ export function CampaignManager({
       setStatuses((prev) => {
         const next = { ...prev }
         for (const r of recipients) {
-          if (sentHistory[r.recipient] && next[r.index]?.state !== 'sending') {
+          const rec =
+            sentHistory[r.recipient.toLowerCase().trim()] ||
+            sentHistory[r.recipient]
+          if (rec && next[r.index]?.state !== 'sending') {
             next[r.index] = {
               state: 'sent',
-              sentAt: sentHistory[r.recipient].sentAt,
-              messageId: sentHistory[r.recipient].messageId,
+              sentAt: rec.sentAt,
+              messageId: rec.messageId,
             }
           }
         }
@@ -200,30 +206,32 @@ export function CampaignManager({
   }, [])
 
   const filteredRecipients = useMemo(() => {
-    return recipients.filter((r) => {
-      const matchesSearch =
-        !searchTerm ||
-        r.schoolName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (r.state && r.state.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.district && r.district.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        String(r.index) === searchTerm.trim()
+    return recipients
+      .filter((r) => {
+        const matchesSearch =
+          !searchTerm ||
+          r.schoolName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          r.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          r.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (r.state && r.state.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (r.district && r.district.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          String(r.index) === searchTerm.trim()
 
-      if (!matchesSearch) return false
+        if (!matchesSearch) return false
 
-      if (stateFilter !== 'all') {
-        const st = r.state || 'Other'
-        if (st.toLowerCase() !== stateFilter.toLowerCase()) return false
-      }
+        if (stateFilter !== 'all') {
+          const st = r.state || 'Other'
+          if (st.toLowerCase() !== stateFilter.toLowerCase()) return false
+        }
 
-      const isSent = statuses[r.index]?.state === 'sent'
-      if (statusFilter === 'sent') return isSent
-      if (statusFilter === 'unsent') return !isSent && r.hasEmail
-      if (statusFilter === 'missing') return !r.hasEmail
+        const isSent = statuses[r.index]?.state === 'sent'
+        if (statusFilter === 'sent') return isSent
+        if (statusFilter === 'unsent') return !isSent && r.hasEmail
+        if (statusFilter === 'missing') return !r.hasEmail
 
-      return true
-    })
+        return true
+      })
+      .sort((a, b) => a.index - b.index)
   }, [recipients, searchTerm, statusFilter, stateFilter, statuses])
 
   const handleExportCsv = () => {
